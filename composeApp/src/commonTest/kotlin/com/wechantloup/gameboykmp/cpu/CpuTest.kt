@@ -66,4 +66,26 @@ class CpuTest {
         cpu.step()
         assertEquals(0x42, cpu.registers.l)
     }
+
+    @Test
+    fun loadRegisterTest() {
+        for (src in 0..7) {
+            if (src == 6) continue  // (HL) - ToDo not implemented
+            for (dst in 0..7) {
+                if (dst == 6) continue  // (HL) - ToDo not implemented
+
+                cpu.registers.reset()
+                val code = 0x40 or (dst shl 3) or src
+                memory.write(0x100, code)
+
+                for (i in 0..7) {
+                    if (i == 6) continue
+                    cpu.setRegister(i, i + 1)  // B=1, C=2, D=3...
+                }
+
+                cpu.step()
+                assertEquals(cpu.getRegister(src), cpu.getRegister(dst))
+            }
+        }
+    }
 }
