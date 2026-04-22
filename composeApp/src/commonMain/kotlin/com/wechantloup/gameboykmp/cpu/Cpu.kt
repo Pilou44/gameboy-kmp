@@ -12,34 +12,6 @@ class Cpu(
         execute(opcode)
     }
 
-    private fun execute(opcode: Int) {
-        when (opcode) {
-            0x00 -> { /* NOP - do nothing */ }
-
-            /* Load block */
-            0x3E -> registers.a = fetch() /* LD A, n   (load n in A) */
-            0x06 -> registers.b = fetch() /* LD B, n   (load n in B) */
-            0x0E -> registers.c = fetch() /* LD C, n   (load n in C) */
-            0x16 -> registers.d = fetch() /* LD D, n   (load n in D) */
-            0x1E -> registers.e = fetch() /* LD E, n   (load n in E) */
-            0x26 -> registers.h = fetch() /* LD H, n   (load n in H) */
-            0x2E -> registers.l = fetch() /* LD L, n   (load n in L) */
-
-            in 0x40..0x7F -> load(opcode)
-
-            /* Unknown opcode */
-            else -> TODO("Opcode 0x${opcode.toString(16)} not implemented")
-        }
-    }
-
-    private fun load(code: Int) {
-        val src = code and 0x07
-        val dst = (code and 0x38).shr(3)
-
-        val value = getRegister(src)
-        setRegister(dst, value)
-    }
-
     internal fun getRegister(code: Int): Int {
         return when (code) {
             0 -> registers.b
@@ -66,6 +38,49 @@ class Cpu(
             7 -> registers.a = value
             else -> throw IllegalArgumentException("Unknown register code: $code")
         }
+    }
+
+    private fun execute(opcode: Int) {
+        when (opcode) {
+            0x00 -> { /* NOP - do nothing */ }
+
+            /* Load block */
+            0x3E -> registers.a = fetch() /* LD A, n   (load n in A) */
+            0x06 -> registers.b = fetch() /* LD B, n   (load n in B) */
+            0x0E -> registers.c = fetch() /* LD C, n   (load n in C) */
+            0x16 -> registers.d = fetch() /* LD D, n   (load n in D) */
+            0x1E -> registers.e = fetch() /* LD E, n   (load n in E) */
+            0x26 -> registers.h = fetch() /* LD H, n   (load n in H) */
+            0x2E -> registers.l = fetch() /* LD L, n   (load n in L) */
+
+            in 0x40..0x7F -> load(opcode)
+
+            /* Arithmetic block */
+            in 0x80..0x87 -> add(opcode)
+
+            /* Unknown opcode */
+            else -> TODO("Opcode 0x${opcode.toString(16)} not implemented")
+        }
+    }
+
+    private fun add(code: Int) {
+        val src = code and 0x07
+        val a = registers.a
+        val b = getRegister(src)
+        val addition = a + b
+        registers.a = addition and 0xFF
+        registers.flagZ = (addition and 0xFF) == 0
+        registers.flagN = false
+        registers.flagH = ((a and 0x0F) + (b and 0x0F)) > 0x0F
+        registers.flagC = addition > 0xff
+    }
+
+    private fun load(code: Int) {
+        val src = code and 0x07
+        val dst = (code and 0x38).shr(3)
+
+        val value = getRegister(src)
+        setRegister(dst, value)
     }
 
     private fun fetch(): Int {

@@ -4,6 +4,8 @@ import com.wechantloup.gameboykmp.memory.Memory
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class CpuTest {
     private lateinit var memory: Memory
@@ -87,5 +89,42 @@ class CpuTest {
                 assertEquals(cpu.getRegister(src), cpu.getRegister(dst))
             }
         }
+    }
+
+    /* Arithmetic */
+
+    @Test
+    fun addFlagsTest() {
+        // Z = true, C = true (0x01 + 0xFF = 0x100 -> 0x00)
+        cpu.registers.reset()
+        cpu.registers.a = 0x01
+        memory.write(0x100, 0x87) // ADD A, A... non, ADD A avec src=A
+        // Hmm, plus simple avec ADD A, B
+        memory.write(0x100, 0x80) // ADD A, B
+        cpu.registers.b = 0xFF
+        cpu.step()
+        assertEquals(0x00, cpu.registers.a)
+        assertTrue(cpu.registers.flagZ)
+        assertFalse(cpu.registers.flagN)
+        assertTrue(cpu.registers.flagC)
+
+        // H = true (0x08 + 0x08)
+        cpu.registers.reset()
+        cpu.registers.a = 0x08
+        cpu.registers.b = 0x08
+        memory.write(0x100, 0x80) // ADD A, B
+        cpu.step()
+        assertTrue(cpu.registers.flagH)
+
+        // H = false, Z = false, C = false (0x04 + 0x03)
+        cpu.registers.reset()
+        cpu.registers.a = 0x04
+        cpu.registers.b = 0x03
+        memory.write(0x100, 0x80) // ADD A, B
+        cpu.step()
+        assertEquals(0x07, cpu.registers.a)
+        assertFalse(cpu.registers.flagZ)
+        assertFalse(cpu.registers.flagH)
+        assertFalse(cpu.registers.flagC)
     }
 }
