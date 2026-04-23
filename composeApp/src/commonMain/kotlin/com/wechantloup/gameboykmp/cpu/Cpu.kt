@@ -45,6 +45,7 @@ class Cpu(
             0x00 -> { /* NOP - do nothing */ }
 
             /* Load block */
+
             0x3E -> registers.a = fetch() /* LD A, n   (load n in A) */
             0x06 -> registers.b = fetch() /* LD B, n   (load n in B) */
             0x0E -> registers.c = fetch() /* LD C, n   (load n in C) */
@@ -56,6 +57,7 @@ class Cpu(
             in 0x40..0x7F -> load(opcode)
 
             /* Arithmetic block */
+
             in 0x80..0x87 -> add(opcode) /* ADD A, r */
             in 0x88..0x8F -> add(opcode, withCarry = true) /* ADC A, r */
 
@@ -83,6 +85,20 @@ class Cpu(
             0x25 -> dec(4) /* DEC H */
             0x2D -> dec(5) /* DEC L */
             0x3D -> dec(7) /* DEC A */
+
+            /* Jumps */
+
+            0xC3 -> jp() /* JP nn (always jump) */
+            0xC2 -> jp(!registers.flagZ) /* JP NZ    (jump if Z = false) */
+            0xCA -> jp(registers.flagZ) /*  JP Z     (jump if Z = true) */
+            0xD2 -> jp(!registers.flagC) /* JP NC    (jump if C = false) */
+            0xDA -> jp(registers.flagC) /*  JP C     (jump if C = true) */
+
+            0x18 -> jr() /* JR n     (always jump) */
+            0x20 -> jr(!registers.flagZ) /* JR NZ    (jump if Z = false) */
+            0x28 -> jr(registers.flagZ)  /* JR Z     (jump if Z = true) */
+            0x30 -> jr(!registers.flagC) /* JR NC    (jump if C = false) */
+            0x38 -> jr(registers.flagC)  /* JR C     (jump if C = true) */
 
             /* Unknown opcode */
             else -> TODO("Opcode 0x${opcode.toString(16)} not implemented")
@@ -184,6 +200,17 @@ class Cpu(
 
         val value = getRegister(src)
         setRegister(dst, value)
+    }
+
+    private fun jp(condition: Boolean = true) {
+        val low = fetch()
+        val high = fetch()
+        if (condition) registers.pc = (high shl 8) or low
+    }
+
+    private fun jr(condition: Boolean = true) {
+        val offset = fetch().toByte().toInt()
+        if (condition) registers.pc = (registers.pc + offset) and 0xFFFF
     }
 
     private fun fetch(): Int {

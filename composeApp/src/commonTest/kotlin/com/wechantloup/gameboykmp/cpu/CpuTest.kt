@@ -763,4 +763,456 @@ class CpuTest {
         assertFalse(cpu.registers.flagH)
         assertTrue(cpu.registers.flagC)
     }
+
+    @Test
+    fun jpTest() {
+        // jump to 0x1303
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        memory.write(0x100, 0xC3) // JP
+        memory.write(0x101, 0x03)
+        memory.write(0x102, 0x13)
+        cpu.step()
+        assertEquals(0x1303, cpu.registers.pc)
+
+        // jump to 0x1303 if z true
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagZ = true
+        memory.write(0x100, 0xCA) // JP
+        memory.write(0x101, 0x03)
+        memory.write(0x102, 0x13)
+        cpu.step()
+        assertEquals(0x1303, cpu.registers.pc)
+
+        // jump to 0x1303 if c true
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagC = true
+        memory.write(0x100, 0xDA) // JP
+        memory.write(0x101, 0x03)
+        memory.write(0x102, 0x13)
+        cpu.step()
+        assertEquals(0x1303, cpu.registers.pc)
+
+        // jump to 0x1303 if !z true
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagZ = false
+        memory.write(0x100, 0xC2) // JP
+        memory.write(0x101, 0x03)
+        memory.write(0x102, 0x13)
+        cpu.step()
+        assertEquals(0x1303, cpu.registers.pc)
+
+        // jump to 0x1303 if !c true
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagC = false
+        memory.write(0x100, 0xD2) // JP
+        memory.write(0x101, 0x03)
+        memory.write(0x102, 0x13)
+        cpu.step()
+        assertEquals(0x1303, cpu.registers.pc)
+
+        // jump to 0x1303 if z false
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagZ = false
+        memory.write(0x100, 0xCA) // JP
+        memory.write(0x101, 0x03)
+        memory.write(0x102, 0x13)
+        cpu.step()
+        assertEquals(0x103, cpu.registers.pc)
+
+        // jump to 0x1303 if c false
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagC = false
+        memory.write(0x100, 0xDA) // JP
+        memory.write(0x101, 0x03)
+        memory.write(0x102, 0x13)
+        cpu.step()
+        assertEquals(0x103, cpu.registers.pc)
+
+        // jump to 0x1303 if !z false
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagZ = true
+        memory.write(0x100, 0xC2) // JP
+        memory.write(0x101, 0x03)
+        memory.write(0x102, 0x13)
+        cpu.step()
+        assertEquals(0x103, cpu.registers.pc)
+
+        // jump to 0x1303 if !c false
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagC = true
+        memory.write(0x100, 0xD2) // JP
+        memory.write(0x101, 0x03)
+        memory.write(0x102, 0x13)
+        cpu.step()
+        assertEquals(0x103, cpu.registers.pc)
+    }
+
+    @Test
+    fun jrTest() {
+        // jump to pc +10
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        memory.write(0x100, 0x18) // JR
+        memory.write(0x101, 10)
+        cpu.step()
+        assertEquals(0x10C, cpu.registers.pc)
+
+        // jump to pc -10
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        memory.write(0x100, 0x18) // JR
+        memory.write(0x101, -10)
+        cpu.step()
+        assertEquals(0xF8, cpu.registers.pc)
+
+        // jump from 0x0100 with offset -128
+        // 0x102 + (-128) = 0x82
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        memory.write(0x100, 0x18)
+        memory.write(0x101, 0x80) // -128 signed
+        cpu.step()
+        assertEquals(0x82, cpu.registers.pc)
+
+        // jump from 0xFFFF area
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.pc = 0xFFFE
+        memory.write(0xFFFE, 0x18)
+        memory.write(0xFFFF, 0x05)
+        cpu.step()
+        // 0x10000 + 5 = 0x10005 and 0xFFFF = 0x05
+        assertEquals(0x05, cpu.registers.pc)
+    }
+
+    @Test
+    fun jrCTest() {
+        /* Jump */
+
+        // jump to pc +10 if c true
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagC = true
+        memory.write(0x100, 0x38) // JR
+        memory.write(0x101, 10)
+        cpu.step()
+        assertEquals(0x10C, cpu.registers.pc)
+
+        // jump to pc -10 if c true
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagC = true
+        memory.write(0x100, 0x38) // JR
+        memory.write(0x101, -10)
+        cpu.step()
+        assertEquals(0xF8, cpu.registers.pc)
+
+        // jump from 0x0100 with offset -128 if c true
+        // 0x102 + (-128) = 0x82
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagC = true
+        memory.write(0x100, 0x38)
+        memory.write(0x101, 0x80) // -128 signed
+        cpu.step()
+        assertEquals(0x82, cpu.registers.pc)
+
+        // jump from 0xFFFF area if c true
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagC = true
+        cpu.registers.pc = 0xFFFE
+        memory.write(0xFFFE, 0x38)
+        memory.write(0xFFFF, 0x05)
+        cpu.step()
+        // 0x10000 + 5 = 0x10005 and 0xFFFF = 0x05
+        assertEquals(0x05, cpu.registers.pc)
+
+        // jump to pc +10 if !c true
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagC = false
+        memory.write(0x100, 0x30) // JR
+        memory.write(0x101, 10)
+        cpu.step()
+        assertEquals(0x10C, cpu.registers.pc)
+
+        // jump to pc -10 if !c true
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagC = false
+        memory.write(0x100, 0x30) // JR
+        memory.write(0x101, -10)
+        cpu.step()
+        assertEquals(0xF8, cpu.registers.pc)
+
+        // jump from 0x0100 with offset -128 if !c true
+        // 0x102 + (-128) = 0x82
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagC = false
+        memory.write(0x100, 0x30)
+        memory.write(0x101, 0x80) // -128 signed
+        cpu.step()
+        assertEquals(0x82, cpu.registers.pc)
+
+        // jump from 0xFFFF area if !c true
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagC = false
+        cpu.registers.pc = 0xFFFE
+        memory.write(0xFFFE, 0x30)
+        memory.write(0xFFFF, 0x05)
+        cpu.step()
+        // 0x10000 + 5 = 0x10005 and 0xFFFF = 0x05
+        assertEquals(0x05, cpu.registers.pc)
+
+        /* No jump */
+
+        // jump to pc +10 if c false
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagC = false
+        memory.write(0x100, 0x38) // JR
+        memory.write(0x101, 10)
+        cpu.step()
+        assertEquals(0x102, cpu.registers.pc)
+
+        // jump to pc -10 if c false
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagC = false
+        memory.write(0x100, 0x38) // JR
+        memory.write(0x101, -10)
+        cpu.step()
+        assertEquals(0x102, cpu.registers.pc)
+
+        // jump from 0x0100 with offset -128 if c false
+        // 0x102 + (-128) = 0x82
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagC = false
+        memory.write(0x100, 0x38)
+        memory.write(0x101, 0x80) // -128 signed
+        cpu.step()
+        assertEquals(0x102, cpu.registers.pc)
+
+        // jump from 0xFFFF area if c false
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagC = false
+        cpu.registers.pc = 0xFFFE
+        memory.write(0xFFFE, 0x38)
+        memory.write(0xFFFF, 0x05)
+        cpu.step()
+        assertEquals(0x00, cpu.registers.pc)
+
+        // jump to pc +10 if !c false
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagC = true
+        memory.write(0x100, 0x30) // JR
+        memory.write(0x101, 10)
+        cpu.step()
+        assertEquals(0x102, cpu.registers.pc)
+
+        // jump to pc -10 if !c false
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagC = true
+        memory.write(0x100, 0x30) // JR
+        memory.write(0x101, -10)
+        cpu.step()
+        assertEquals(0x102, cpu.registers.pc)
+
+        // jump from 0x0100 with offset -128 if !c false
+        // 0x102 + (-128) = 0x82
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagC = true
+        memory.write(0x100, 0x30)
+        memory.write(0x101, 0x80) // -128 signed
+        cpu.step()
+        assertEquals(0x102, cpu.registers.pc)
+
+        // jump from 0xFFFF area if !c false
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagC = true
+        cpu.registers.pc = 0xFFFE
+        memory.write(0xFFFE, 0x30)
+        memory.write(0xFFFF, 0x05)
+        cpu.step()
+        assertEquals(0x00, cpu.registers.pc)
+    }
+
+    @Test
+    fun jrZTest() {
+        /* Jump */
+
+        // jump to pc +10 if z true
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagZ = true
+        memory.write(0x100, 0x28) // JR
+        memory.write(0x101, 10)
+        cpu.step()
+        assertEquals(0x10C, cpu.registers.pc)
+
+        // jump to pc -10 if z true
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagZ = true
+        memory.write(0x100, 0x28) // JR
+        memory.write(0x101, -10)
+        cpu.step()
+        assertEquals(0xF8, cpu.registers.pc)
+
+        // jump from 0x0100 with offset -128 if z true
+        // 0x102 + (-128) = 0x82
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagZ = true
+        memory.write(0x100, 0x28)
+        memory.write(0x101, 0x80) // -128 signed
+        cpu.step()
+        assertEquals(0x82, cpu.registers.pc)
+
+        // jump from 0xFFFF area if z true
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagZ = true
+        cpu.registers.pc = 0xFFFE
+        memory.write(0xFFFE, 0x28)
+        memory.write(0xFFFF, 0x05)
+        cpu.step()
+        // 0x10000 + 5 = 0x10005 and 0xFFFF = 0x05
+        assertEquals(0x05, cpu.registers.pc)
+
+        // jump to pc +10 if !z true
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagZ = false
+        memory.write(0x100, 0x20) // JR
+        memory.write(0x101, 10)
+        cpu.step()
+        assertEquals(0x10C, cpu.registers.pc)
+
+        // jump to pc -10 if !z true
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagZ = false
+        memory.write(0x100, 0x20) // JR
+        memory.write(0x101, -10)
+        cpu.step()
+        assertEquals(0xF8, cpu.registers.pc)
+
+        // jump from 0x0100 with offset -128 if !z true
+        // 0x102 + (-128) = 0x82
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagZ = false
+        memory.write(0x100, 0x20)
+        memory.write(0x101, 0x80) // -128 signed
+        cpu.step()
+        assertEquals(0x82, cpu.registers.pc)
+
+        // jump from 0xFFFF area if !z true
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagZ = false
+        cpu.registers.pc = 0xFFFE
+        memory.write(0xFFFE, 0x20)
+        memory.write(0xFFFF, 0x05)
+        cpu.step()
+        // 0x10000 + 5 = 0x10005 and 0xFFFF = 0x05
+        assertEquals(0x05, cpu.registers.pc)
+
+        /* No jump */
+
+        // jump to pc +10 if z false
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagZ = false
+        memory.write(0x100, 0x28) // JR
+        memory.write(0x101, 10)
+        cpu.step()
+        assertEquals(0x102, cpu.registers.pc)
+
+        // jump to pc -10 if z false
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagZ = false
+        memory.write(0x100, 0x28) // JR
+        memory.write(0x101, -10)
+        cpu.step()
+        assertEquals(0x102, cpu.registers.pc)
+
+        // jump from 0x0100 with offset -128 if z false
+        // 0x102 + (-128) = 0x82
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagZ = false
+        memory.write(0x100, 0x28)
+        memory.write(0x101, 0x80) // -128 signed
+        cpu.step()
+        assertEquals(0x102, cpu.registers.pc)
+
+        // jump from 0xFFFF area if z false
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagZ = false
+        cpu.registers.pc = 0xFFFE
+        memory.write(0xFFFE, 0x28)
+        memory.write(0xFFFF, 0x05)
+        cpu.step()
+        assertEquals(0x00, cpu.registers.pc)
+
+        // jump to pc +10 if !z false
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagZ = true
+        memory.write(0x100, 0x20) // JR
+        memory.write(0x101, 10)
+        cpu.step()
+        assertEquals(0x102, cpu.registers.pc)
+
+        // jump to pc -10 if !z false
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagZ = true
+        memory.write(0x100, 0x20) // JR
+        memory.write(0x101, -10)
+        cpu.step()
+        assertEquals(0x102, cpu.registers.pc)
+
+        // jump from 0x0100 with offset -128 if !z false
+        // 0x102 + (-128) = 0x82
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagZ = true
+        memory.write(0x100, 0x20)
+        memory.write(0x101, 0x80) // -128 signed
+        cpu.step()
+        assertEquals(0x102, cpu.registers.pc)
+
+        // jump from 0xFFFF area if !z false
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagZ = true
+        cpu.registers.pc = 0xFFFE
+        memory.write(0xFFFE, 0x20)
+        memory.write(0xFFFF, 0x05)
+        cpu.step()
+        assertEquals(0x00, cpu.registers.pc)
+    }
 }
