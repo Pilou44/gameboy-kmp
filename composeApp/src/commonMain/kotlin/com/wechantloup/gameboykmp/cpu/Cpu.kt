@@ -62,6 +62,10 @@ class Cpu(
             in 0x90..0x97 -> sub(opcode) /* SUB A, r */
             in 0x98..0x9F -> sub(opcode, withCarry = true) /* SBC A, r */
 
+            /* Logic block */
+            in 0xA0..0xA7 -> and8(opcode)
+            in 0xB0..0xB7 -> or8(opcode)
+            in 0xA8..0xAF -> xor8(opcode)
 
             /* Unknown opcode */
             else -> TODO("Opcode 0x${opcode.toString(16)} not implemented")
@@ -92,6 +96,45 @@ class Cpu(
         registers.flagN = true
         registers.flagH = (a and 0x0F) < (b and 0x0F) + carry
         registers.flagC = a < b + carry
+    }
+
+    private fun and8(code: Int) {
+        val src = code and 0x07
+        val a = registers.a
+        val b = getRegister(src)
+
+        val result = a and b
+        registers.a = result and 0xFF
+        registers.flagZ = (result and 0xFF) == 0
+        registers.flagN = false
+        registers.flagH = true
+        registers.flagC = false
+    }
+
+    private fun or8(code: Int) {
+        val src = code and 0x07
+        val a = registers.a
+        val b = getRegister(src)
+
+        val result = a or b
+        registers.a = result and 0xFF
+        registers.flagZ = (result and 0xFF) == 0
+        registers.flagN = false
+        registers.flagH = false
+        registers.flagC = false
+    }
+
+    private fun xor8(code: Int) {
+        val src = code and 0x07
+        val a = registers.a
+        val b = getRegister(src)
+
+        val result = a xor b
+        registers.a = result and 0xFF
+        registers.flagZ = (result and 0xFF) == 0
+        registers.flagN = false
+        registers.flagH = false
+        registers.flagC = false
     }
 
     private fun load(code: Int) {

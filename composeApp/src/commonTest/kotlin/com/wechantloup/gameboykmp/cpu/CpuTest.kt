@@ -448,4 +448,78 @@ class CpuTest {
         assertFalse(cpu.registers.flagH)
         assertFalse(cpu.registers.flagC)
     }
+
+    /* Logic */
+    @Test
+    fun and8Test() {
+        cpu.registers.a = 0xFF
+        cpu.registers.b = 0x01
+        memory.write(0x100, 0xA0) // AND A, B
+        cpu.step()
+        assertEquals(0x01, cpu.registers.a)
+        assertFalse(cpu.registers.flagZ)
+        assertFalse(cpu.registers.flagN)
+        assertTrue(cpu.registers.flagH)
+        assertFalse(cpu.registers.flagC)
+    }
+    @Test
+    fun and8NullTest() {
+        cpu.registers.a = 0xFE
+        cpu.registers.b = 0x01
+        memory.write(0x100, 0xA0) // AND A, B
+        cpu.step()
+        assertEquals(0x00, cpu.registers.a)
+        assertTrue(cpu.registers.flagZ)
+        assertFalse(cpu.registers.flagN)
+        assertTrue(cpu.registers.flagH)
+        assertFalse(cpu.registers.flagC)
+    }
+    @Test
+    fun or8Test() {
+        cpu.registers.a = 0x01
+        cpu.registers.b = 0x10
+        memory.write(0x100, 0xB0) // OR A, B
+        cpu.step()
+        assertEquals(0x11, cpu.registers.a)
+        assertFalse(cpu.registers.flagZ)
+        assertFalse(cpu.registers.flagN)
+        assertFalse(cpu.registers.flagH)
+        assertFalse(cpu.registers.flagC)
+    }
+    @Test
+    fun or8NullTest() {
+        cpu.registers.a = 0x00
+        cpu.registers.b = 0x00
+        memory.write(0x100, 0xB0) // OR A, B
+        cpu.step()
+        assertEquals(0x00, cpu.registers.a)
+        assertTrue(cpu.registers.flagZ)
+        assertFalse(cpu.registers.flagN)
+        assertFalse(cpu.registers.flagH)
+        assertFalse(cpu.registers.flagC)
+    }
+    @Test
+    fun xor8Test() {
+        cpu.registers.a = 0xFF
+        cpu.registers.b = 0x03
+        memory.write(0x100, 0xA8) // XOR A, B
+        cpu.step()
+        assertEquals(0xFC, cpu.registers.a)
+        assertFalse(cpu.registers.flagZ)
+        assertFalse(cpu.registers.flagN)
+        assertFalse(cpu.registers.flagH)
+        assertFalse(cpu.registers.flagC)
+    }
+    @Test
+    fun xor8NullTest() {
+        cpu.registers.a = 0x01
+        cpu.registers.b = 0x01
+        memory.write(0x100, 0xA8) // XOR A, B
+        cpu.step()
+        assertEquals(0x00, cpu.registers.a)
+        assertTrue(cpu.registers.flagZ)
+        assertFalse(cpu.registers.flagN)
+        assertFalse(cpu.registers.flagH)
+        assertFalse(cpu.registers.flagC)
+    }
 }
