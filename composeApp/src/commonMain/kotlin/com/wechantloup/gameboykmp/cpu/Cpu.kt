@@ -218,4 +218,20 @@ class Cpu(
         registers.pc = (registers.pc + 1) and 0xFFFF
         return data
     }
+
+    private fun push(address: Int) {
+        registers.sp = (registers.sp - 1) and 0xFFFF
+        memory.write(registers.sp, (address shr 8) and 0xFF)
+        registers.sp = (registers.sp - 1) and 0xFFFF
+        memory.write(registers.sp, address and 0xFF)
+    }
+
+    private fun pop(): Int {
+        var address = 0
+        address = address or memory.read(registers.sp)
+        registers.sp = (registers.sp + 1) and 0xFFFF
+        address = address or (memory.read(registers.sp) shl 8)
+        registers.sp = (registers.sp + 1) and 0xFFFF
+        return address
+    }
 }
