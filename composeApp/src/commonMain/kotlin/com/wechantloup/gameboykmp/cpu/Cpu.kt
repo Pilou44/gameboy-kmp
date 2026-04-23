@@ -56,22 +56,24 @@ class Cpu(
             in 0x40..0x7F -> load(opcode)
 
             /* Arithmetic block */
-            in 0x80..0x87 -> add(opcode)
+            in 0x80..0x87 -> add(opcode) /* ADD A, r */
+            in 0x88..0x8F -> add(opcode, withCarry = true) /* ADC A, r */
 
             /* Unknown opcode */
             else -> TODO("Opcode 0x${opcode.toString(16)} not implemented")
         }
     }
 
-    private fun add(code: Int) {
+    private fun add(code: Int, withCarry: Boolean = false) {
         val src = code and 0x07
         val a = registers.a
         val b = getRegister(src)
-        val addition = a + b
+        val carry = if (withCarry && registers.flagC) 1 else 0
+        val addition = a + b + carry
         registers.a = addition and 0xFF
         registers.flagZ = (addition and 0xFF) == 0
         registers.flagN = false
-        registers.flagH = ((a and 0x0F) + (b and 0x0F)) > 0x0F
+        registers.flagH = ((a and 0x0F) + (b and 0x0F)) + carry > 0x0F
         registers.flagC = addition > 0xff
     }
 

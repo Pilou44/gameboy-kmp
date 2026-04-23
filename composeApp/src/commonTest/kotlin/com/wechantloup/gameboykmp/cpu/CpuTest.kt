@@ -98,8 +98,6 @@ class CpuTest {
         // Z = true, C = true (0x01 + 0xFF = 0x100 -> 0x00)
         cpu.registers.reset()
         cpu.registers.a = 0x01
-        memory.write(0x100, 0x87) // ADD A, A... non, ADD A avec src=A
-        // Hmm, plus simple avec ADD A, B
         memory.write(0x100, 0x80) // ADD A, B
         cpu.registers.b = 0xFF
         cpu.step()
@@ -123,6 +121,73 @@ class CpuTest {
         memory.write(0x100, 0x80) // ADD A, B
         cpu.step()
         assertEquals(0x07, cpu.registers.a)
+        assertFalse(cpu.registers.flagZ)
+        assertFalse(cpu.registers.flagH)
+        assertFalse(cpu.registers.flagC)
+
+        // Same tests with C = true
+        cpu.registers.reset()
+        cpu.registers.flagC = true
+        cpu.registers.a = 0x01
+        memory.write(0x100, 0x80) // ADD A, B
+        cpu.registers.b = 0xFF
+        cpu.step()
+        assertEquals(0x00, cpu.registers.a)
+        assertTrue(cpu.registers.flagZ)
+        assertFalse(cpu.registers.flagN)
+        assertTrue(cpu.registers.flagC)
+
+        cpu.registers.reset()
+        cpu.registers.flagC = true
+        cpu.registers.a = 0x08
+        cpu.registers.b = 0x08
+        memory.write(0x100, 0x80) // ADD A, B
+        cpu.step()
+        assertTrue(cpu.registers.flagH)
+
+        cpu.registers.reset()
+        cpu.registers.flagC = true
+        cpu.registers.a = 0x04
+        cpu.registers.b = 0x03
+        memory.write(0x100, 0x80) // ADD A, B
+        cpu.step()
+        assertEquals(0x07, cpu.registers.a)
+        assertFalse(cpu.registers.flagZ)
+        assertFalse(cpu.registers.flagH)
+        assertFalse(cpu.registers.flagC)
+    }
+
+    @Test
+    fun addWithCarryTest() {
+        // Z = true, C = true (0x01 + 0xFF = 0x100 -> 0x00)
+        cpu.registers.reset()
+        cpu.registers.a = 0x01
+        cpu.registers.flagC = true
+        memory.write(0x100, 0x88) // ADD A, B
+        cpu.registers.b = 0xFF
+        cpu.step()
+        assertEquals(0x01, cpu.registers.a)
+        assertFalse(cpu.registers.flagZ)
+        assertFalse(cpu.registers.flagN)
+        assertTrue(cpu.registers.flagC)
+
+        // H = true (0x08 + 0x08)
+        cpu.registers.reset()
+        cpu.registers.a = 0x08
+        cpu.registers.b = 0x08
+        cpu.registers.flagC = true
+        memory.write(0x100, 0x88) // ADD A, B
+        cpu.step()
+        assertTrue(cpu.registers.flagH)
+
+        // H = false, Z = false, C = false (0x04 + 0x03)
+        cpu.registers.reset()
+        cpu.registers.a = 0x04
+        cpu.registers.b = 0x03
+        cpu.registers.flagC = true
+        memory.write(0x100, 0x88) // ADD A, B
+        cpu.step()
+        assertEquals(0x08, cpu.registers.a)
         assertFalse(cpu.registers.flagZ)
         assertFalse(cpu.registers.flagH)
         assertFalse(cpu.registers.flagC)
