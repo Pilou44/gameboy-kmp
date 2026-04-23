@@ -112,6 +112,16 @@ class Cpu(
             0xD0 -> ret(!registers.flagC) /* RET NC */
             0xD8 -> ret(registers.flagC)  /* RET C  */
 
+            0xC5 -> push(registers.bc) /* PUSH BC */
+            0xD5 -> push(registers.de) /* PUSH DE */
+            0xE5 -> push(registers.hl) /* PUSH HL */
+            0xF5 -> push(registers.af) /* PUSH AF */
+
+            0xC1 -> registers.bc = pop() /* POP BC */
+            0xD1 -> registers.de = pop() /* POP DE */
+            0xE1 -> registers.hl = pop() /* POP HL */
+            0xF1 -> registers.af = pop() /* POP AF */
+
             /* Unknown opcode */
             else -> TODO("Opcode 0x${opcode.toString(16)} not implemented")
         }

@@ -1423,4 +1423,52 @@ class CpuTest {
         cpu.step()
         assertEquals(0x103, cpu.registers.pc)
     }
+
+    @Test
+    fun pushPopBCTest() {
+        cpu.registers.bc = 0x1303
+        memory.write(0x100, 0xC5) // PUSH BC
+        cpu.step()
+        cpu.registers.bc = 0x2702
+        assertEquals(0x2702, cpu.registers.bc)
+        memory.write(0x101, 0xC1) // POP BC
+        cpu.step()
+        assertEquals(0x1303, cpu.registers.bc)
+    }
+
+    @Test
+    fun pushPopDETest() {
+        cpu.registers.de = 0x1303
+        memory.write(0x100, 0xD5) // PUSH DE
+        cpu.step()
+        cpu.registers.de = 0x2702
+        assertEquals(0x2702, cpu.registers.de)
+        memory.write(0x101, 0xD1) // POP DE
+        cpu.step()
+        assertEquals(0x1303, cpu.registers.de)
+    }
+
+    @Test
+    fun pushPopHLTest() {
+        cpu.registers.hl = 0x1303
+        memory.write(0x100, 0xE5) // PUSH HL
+        cpu.step()
+        cpu.registers.hl = 0x2702
+        assertEquals(0x2702, cpu.registers.hl)
+        memory.write(0x101, 0xE1) // POP HL
+        cpu.step()
+        assertEquals(0x1303, cpu.registers.hl)
+    }
+
+    @Test
+    fun pushPopAFTest() {
+        cpu.registers.af = 0x1303
+        memory.write(0x100, 0xF5) // PUSH AF
+        cpu.step()
+        cpu.registers.af = 0x2702
+        assertEquals(0x2700, cpu.registers.af)
+        memory.write(0x101, 0xF1) // POP AF
+        cpu.step()
+        assertEquals(0x1300, cpu.registers.af)
+    }
 }
