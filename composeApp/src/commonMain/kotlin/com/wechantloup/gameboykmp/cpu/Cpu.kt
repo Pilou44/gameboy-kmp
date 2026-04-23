@@ -90,15 +90,27 @@ class Cpu(
 
             0xC3 -> jp() /* JP nn (always jump) */
             0xC2 -> jp(!registers.flagZ) /* JP NZ    (jump if Z = false) */
-            0xCA -> jp(registers.flagZ) /*  JP Z     (jump if Z = true) */
+            0xCA -> jp(registers.flagZ)  /*  JP Z     (jump if Z = true) */
             0xD2 -> jp(!registers.flagC) /* JP NC    (jump if C = false) */
-            0xDA -> jp(registers.flagC) /*  JP C     (jump if C = true) */
+            0xDA -> jp(registers.flagC)  /*  JP C     (jump if C = true) */
 
-            0x18 -> jr() /* JR n     (always jump) */
+            0x18 -> jr() /* JR nn (always jump) */
             0x20 -> jr(!registers.flagZ) /* JR NZ    (jump if Z = false) */
             0x28 -> jr(registers.flagZ)  /* JR Z     (jump if Z = true) */
             0x30 -> jr(!registers.flagC) /* JR NC    (jump if C = false) */
             0x38 -> jr(registers.flagC)  /* JR C     (jump if C = true) */
+
+            0xCD -> call() /* CALL nn (always) */
+            0xC4 -> call(!registers.flagZ) /* CALL NZ */
+            0xCC -> call(registers.flagZ)  /* CALL Z  */
+            0xD4 -> call(!registers.flagC) /* CALL NC */
+            0xDC -> call(registers.flagC)  /* CALL C  */
+
+            0xC9 -> ret() /* RET (always) */
+            0xC0 -> ret(!registers.flagZ) /* RET NZ */
+            0xC8 -> ret(registers.flagZ)  /* RET Z  */
+            0xD0 -> ret(!registers.flagC) /* RET NC */
+            0xD8 -> ret(registers.flagC)  /* RET C  */
 
             /* Unknown opcode */
             else -> TODO("Opcode 0x${opcode.toString(16)} not implemented")
@@ -211,6 +223,19 @@ class Cpu(
     private fun jr(condition: Boolean = true) {
         val offset = fetch().toByte().toInt()
         if (condition) registers.pc = (registers.pc + offset) and 0xFFFF
+    }
+
+    private fun call(condition: Boolean = true) {
+        val low = fetch()
+        val high = fetch()
+        if (condition) {
+            push(registers.pc)
+            registers.pc = (high shl 8) or low
+        }
+    }
+
+    private fun ret(condition: Boolean = true) {
+        if (condition) registers.pc = pop()
     }
 
     private fun fetch(): Int {

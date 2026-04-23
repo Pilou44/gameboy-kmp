@@ -1215,4 +1215,212 @@ class CpuTest {
         cpu.step()
         assertEquals(0x00, cpu.registers.pc)
     }
+
+    @Test
+    fun callRetTest() {
+        // call to 0x1303
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        memory.write(0x100, 0xCD) // CALL
+        memory.write(0x101, 0x03)
+        memory.write(0x102, 0x13)
+        cpu.step()
+        assertEquals(0x1303, cpu.registers.pc)
+        assertEquals(0x03, memory.read(cpu.registers.sp))
+        assertEquals(0x01, memory.read(cpu.registers.sp + 1))
+
+        // ret back to 0x0103
+        memory.write(0x1303, 0xC9) // RET
+        cpu.step()
+        assertEquals(0x0103, cpu.registers.pc)
+    }
+
+    @Test
+    fun callOkRetOkTest() {
+        // call to 0x1303 if c true
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagC = true
+        memory.write(0x100, 0xDC) // CALL
+        memory.write(0x101, 0x03)
+        memory.write(0x102, 0x13)
+        cpu.step()
+        assertEquals(0x1303, cpu.registers.pc)
+        assertEquals(0x03, memory.read(cpu.registers.sp))
+        assertEquals(0x01, memory.read(cpu.registers.sp + 1))
+
+        // ret back to 0x0103 if c true
+        memory.write(0x1303, 0xD8) // RET
+        cpu.step()
+        assertEquals(0x0103, cpu.registers.pc)
+
+        // call to 0x1303 if z true
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagZ = true
+        memory.write(0x100, 0xCC) // CALL
+        memory.write(0x101, 0x03)
+        memory.write(0x102, 0x13)
+        cpu.step()
+        assertEquals(0x1303, cpu.registers.pc)
+        assertEquals(0x03, memory.read(cpu.registers.sp))
+        assertEquals(0x01, memory.read(cpu.registers.sp + 1))
+
+        // ret back to 0x0103 if z true
+        memory.write(0x1303, 0xC8) // RET
+        cpu.step()
+        assertEquals(0x0103, cpu.registers.pc)
+
+        // call to 0x1303 if !c true
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagC = false
+        memory.write(0x100, 0xD4) // CALL
+        memory.write(0x101, 0x03)
+        memory.write(0x102, 0x13)
+        cpu.step()
+        assertEquals(0x1303, cpu.registers.pc)
+        assertEquals(0x03, memory.read(cpu.registers.sp))
+        assertEquals(0x01, memory.read(cpu.registers.sp + 1))
+
+        // ret back to 0x0103 if !c true
+        memory.write(0x1303, 0xD0) // RET
+        cpu.step()
+        assertEquals(0x0103, cpu.registers.pc)
+
+        // call to 0x1303 if !z true
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagZ = false
+        memory.write(0x100, 0xC4) // CALL
+        memory.write(0x101, 0x03)
+        memory.write(0x102, 0x13)
+        cpu.step()
+        assertEquals(0x1303, cpu.registers.pc)
+        assertEquals(0x03, memory.read(cpu.registers.sp))
+        assertEquals(0x01, memory.read(cpu.registers.sp + 1))
+
+        // ret back to 0x0103 if !z true
+        memory.write(0x1303, 0xC0) // RET
+        cpu.step()
+        assertEquals(0x0103, cpu.registers.pc)
+    }
+
+    @Test
+    fun callOkRetNokTest() {
+        // call to 0x1303 if c true
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagC = true
+        memory.write(0x100, 0xDC) // CALL
+        memory.write(0x101, 0x03)
+        memory.write(0x102, 0x13)
+        cpu.step()
+        assertEquals(0x1303, cpu.registers.pc)
+        assertEquals(0x03, memory.read(cpu.registers.sp))
+        assertEquals(0x01, memory.read(cpu.registers.sp + 1))
+
+        // ret back to 0x0103 if c true
+        cpu.registers.flagC = false
+        memory.write(0x1303, 0xD8) // RET
+        cpu.step()
+        assertEquals(0x1304, cpu.registers.pc)
+
+        // call to 0x1303 if z true
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagZ = true
+        memory.write(0x100, 0xCC) // CALL
+        memory.write(0x101, 0x03)
+        memory.write(0x102, 0x13)
+        cpu.step()
+        assertEquals(0x1303, cpu.registers.pc)
+        assertEquals(0x03, memory.read(cpu.registers.sp))
+        assertEquals(0x01, memory.read(cpu.registers.sp + 1))
+
+        // ret back to 0x0103 if z true
+        cpu.registers.flagZ = false
+        memory.write(0x1303, 0xC8) // RET
+        cpu.step()
+        assertEquals(0x1304, cpu.registers.pc)
+
+        // call to 0x1303 if !c true
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagC = false
+        memory.write(0x100, 0xD4) // CALL
+        memory.write(0x101, 0x03)
+        memory.write(0x102, 0x13)
+        cpu.step()
+        assertEquals(0x1303, cpu.registers.pc)
+        assertEquals(0x03, memory.read(cpu.registers.sp))
+        assertEquals(0x01, memory.read(cpu.registers.sp + 1))
+
+        // ret back to 0x0103 if !c true
+        cpu.registers.flagC = true
+        memory.write(0x1303, 0xD0) // RET
+        cpu.step()
+        assertEquals(0x1304, cpu.registers.pc)
+
+        // call to 0x1303 if !z true
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagZ = false
+        memory.write(0x100, 0xC4) // CALL
+        memory.write(0x101, 0x03)
+        memory.write(0x102, 0x13)
+        cpu.step()
+        assertEquals(0x1303, cpu.registers.pc)
+        assertEquals(0x03, memory.read(cpu.registers.sp))
+        assertEquals(0x01, memory.read(cpu.registers.sp + 1))
+
+        // ret back to 0x0103 if !z true
+        cpu.registers.flagZ = true
+        memory.write(0x1303, 0xC0) // RET
+        cpu.step()
+        assertEquals(0x1304, cpu.registers.pc)
+    }
+
+    @Test
+    fun callNokTest() {
+        // call to 0x1303 if c true
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagC = false
+        memory.write(0x100, 0xDC) // CALL
+        memory.write(0x101, 0x03)
+        memory.write(0x102, 0x13)
+        cpu.step()
+        assertEquals(0x103, cpu.registers.pc)
+
+        // call to 0x1303 if z true
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagZ = false
+        memory.write(0x100, 0xCC) // CALL
+        memory.write(0x101, 0x03)
+        memory.write(0x102, 0x13)
+        cpu.step()
+        assertEquals(0x103, cpu.registers.pc)
+
+        // call to 0x1303 if !c true
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagC = true
+        memory.write(0x100, 0xD4) // CALL
+        memory.write(0x101, 0x03)
+        memory.write(0x102, 0x13)
+        cpu.step()
+        assertEquals(0x103, cpu.registers.pc)
+
+        // call to 0x1303 if !z true
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagZ = true
+        memory.write(0x100, 0xC4) // CALL
+        memory.write(0x101, 0x03)
+        memory.write(0x102, 0x13)
+        cpu.step()
+        assertEquals(0x103, cpu.registers.pc)
+    }
 }
