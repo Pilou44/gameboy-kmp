@@ -12,7 +12,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.tooling.preview.Preview
 import com.wechantloup.gameboykmp.cartridge.CartridgeFactory
 import com.wechantloup.gameboykmp.cpu.Cpu
-import com.wechantloup.gameboykmp.memory.Memory
+import com.wechantloup.gameboykmp.bus.Bus
 import javax.swing.JFileChooser
 import javax.swing.SwingUtilities.invokeAndWait
 import javax.swing.filechooser.FileNameExtensionFilter
@@ -42,8 +42,8 @@ fun MainScreen() {
         }
     } else {
         val cartridge = remember(romBytes) { CartridgeFactory.create(romBytes!!) }
-        val memory = remember(cartridge) { Memory(cartridge) }
-        val cpu = remember(memory) { Cpu(memory).also { it.reset() } }
+        val bus = remember(cartridge) { Bus(cartridge) }
+        val cpu = remember(bus) { Cpu(bus).also { it.reset() } }
 
         LaunchedEffect(cpu) {
             withContext(Dispatchers.Default) {

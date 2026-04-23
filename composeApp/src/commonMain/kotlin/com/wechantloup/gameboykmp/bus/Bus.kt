@@ -1,4 +1,4 @@
-package com.wechantloup.gameboykmp.memory
+package com.wechantloup.gameboykmp.bus
 
 import com.wechantloup.gameboykmp.cartridge.Cartridge
 
@@ -19,7 +19,7 @@ import com.wechantloup.gameboykmp.cartridge.Cartridge
  * 0xFF80 - 0xFFFE  High RAM (HRAM)
  * 0xFFFF           Interrupt Enable Register
  */
-class Memory(
+class Bus(
     private val cartridge: Cartridge,
 ) {
     val ie: Int get() = read(0xFFFF)

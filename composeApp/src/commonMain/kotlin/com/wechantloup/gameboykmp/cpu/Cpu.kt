@@ -1,9 +1,9 @@
 package com.wechantloup.gameboykmp.cpu
 
-import com.wechantloup.gameboykmp.memory.Memory
+import com.wechantloup.gameboykmp.bus.Bus
 
 class Cpu(
-    private val memory: Memory,
+    private val bus: Bus,
 ) {
     val registers = Registers()
     var isHalted = false
@@ -11,7 +11,7 @@ class Cpu(
 
     fun step() {
         // Check for pending interrupts
-        val pending = memory.ie and memory.iF and 0x1F
+        val pending = bus.ie and bus.iF and 0x1F
 
         if (pending != 0) {
             // Wake from HALT regardless of IME
@@ -24,7 +24,7 @@ class Cpu(
                 val bit = pending.countTrailingZeroBits()
 
                 // Clear the bit in IF
-                memory.setIF(memory.iF and (1 shl bit).inv())
+                bus.setIF(bus.iF and (1 shl bit).inv())
 
                 // Push current PC and jump to interrupt vector
                 push(registers.pc)
@@ -103,29 +103,29 @@ class Cpu(
             0x31 -> registers.sp = fetch16() /* LD SP, nn */
 
             0x22 -> {
-                memory.write(registers.hl, registers.a)
+                bus.write(registers.hl, registers.a)
                 registers.hl = (registers.hl + 1) and 0xFFFF
             } /* LD (HL+), A  - écrire A à (HL) puis incrémenter HL */
             0x32 -> {
-                memory.write(registers.hl, registers.a)
+                bus.write(registers.hl, registers.a)
                 registers.hl = (registers.hl - 1) and 0xFFFF
             } /* LD (HL-), A  - écrire A à (HL) puis décrémenter HL */
             0x2A -> {
-                registers.a = memory.read(registers.hl)
+                registers.a = bus.read(registers.hl)
                 registers.hl = (registers.hl + 1) and 0xFFFF
             } /* LD A, (HL+)  - lire (HL) dans A puis incrémenter HL */
             0x3A -> {
-                registers.a = memory.read(registers.hl)
+                registers.a = bus.read(registers.hl)
                 registers.hl = (registers.hl - 1) and 0xFFFF
             } /* LD A, (HL-)  - lire (HL) dans A puis décrémenter HL */
 
             0xE0 -> {
                 val offset = fetch()
-                memory.write(0xFF00 + offset, registers.a)
+                bus.write(0xFF00 + offset, registers.a)
             } /* LD (0xFF00+n), A */
             0xF0 -> {
                 val offset = fetch()
-                registers.a = memory.read(0xFF00 + offset)
+                registers.a = bus.read(0xFF00 + offset)
             }/* LD A, (0xFF00+n)  - lire depuis 0xFF00+n dans A */
 
             /* Arithmetic block */
@@ -329,7 +329,7 @@ class Cpu(
     }
 
     private fun fetch(): Int {
-        val data = memory.read(registers.pc) and 0xFF
+        val data = bus.read(registers.pc) and 0xFF
         registers.pc = (registers.pc + 1) and 0xFFFF
         return data
     }
@@ -342,16 +342,16 @@ class Cpu(
 
     private fun push(address: Int) {
         registers.sp = (registers.sp - 1) and 0xFFFF
-        memory.write(registers.sp, (address shr 8) and 0xFF)
+        bus.write(registers.sp, (address shr 8) and 0xFF)
         registers.sp = (registers.sp - 1) and 0xFFFF
-        memory.write(registers.sp, address and 0xFF)
+        bus.write(registers.sp, address and 0xFF)
     }
 
     private fun pop(): Int {
         var address = 0
-        address = address or memory.read(registers.sp)
+        address = address or bus.read(registers.sp)
         registers.sp = (registers.sp + 1) and 0xFFFF
-        address = address or (memory.read(registers.sp) shl 8)
+        address = address or (bus.read(registers.sp) shl 8)
         registers.sp = (registers.sp + 1) and 0xFFFF
         return address
     }
