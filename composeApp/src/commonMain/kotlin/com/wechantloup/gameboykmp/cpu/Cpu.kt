@@ -9,7 +9,7 @@ class Cpu(
     var isHalted = false
     var ime = false
 
-    fun step() {
+    fun step(): Int {
         // Check for pending interrupts
         val pending = bus.ie and bus.iF and 0x1F
 
@@ -37,13 +37,14 @@ class Cpu(
                     else -> 0x0040
                 }
             }
-            return
+            return 4 // TODO: return correct interrupt cycles
         }
 
-        if (isHalted) return
+        if (isHalted) return 4
 
         val opcode = fetch()
-        execute(opcode)
+        execute(opcode) // TODO: return correct cycles per opcode
+        return 4
     }
 
     fun reset() {

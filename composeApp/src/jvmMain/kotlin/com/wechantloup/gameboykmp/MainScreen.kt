@@ -3,16 +3,14 @@ package com.wechantloup.gameboykmp
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.tooling.preview.Preview
-import com.wechantloup.gameboykmp.cartridge.CartridgeFactory
-import com.wechantloup.gameboykmp.cpu.Cpu
-import com.wechantloup.gameboykmp.bus.Bus
+import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.wechantloup.gameboykmp.ui.GameBoyScreen
+import com.wechantloup.gameboykmp.ui.GameBoyViewModel
 import javax.swing.JFileChooser
 import javax.swing.SwingUtilities.invokeAndWait
 import javax.swing.filechooser.FileNameExtensionFilter
@@ -24,16 +22,22 @@ import java.io.File
 @Composable
 @Preview
 fun MainScreen() {
-    val coroutineScope = rememberCoroutineScope()
-    var romBytes by remember { mutableStateOf<ByteArray?>(null) }
+    val owner = checkNotNull(LocalViewModelStoreOwner.current)
+    val viewModel = viewModel<GameBoyViewModel>(
+        viewModelStoreOwner = owner,
+        factory = GameBoyViewModel.Factory()
+    )
 
-    if (romBytes == null) {
+    val coroutineScope = rememberCoroutineScope()
+    val uiState by viewModel.stateFlow.collectAsState()
+
+    if (uiState.frameBuffer == null) {
         Button(
             onClick = {
                 coroutineScope.launch {
                     val rom = pickRom()
                     rom?.let {
-                        romBytes = rom.readBytes()
+                        viewModel.loadRom(it.readBytes())
                     }
                 }
             },
@@ -41,19 +45,7 @@ fun MainScreen() {
             Text("Load ROM")
         }
     } else {
-        val cartridge = remember(romBytes) { CartridgeFactory.create(romBytes!!) }
-        val bus = remember(cartridge) { Bus(cartridge) }
-        val cpu = remember(bus) { Cpu(bus).also { it.reset() } }
-
-        LaunchedEffect(cpu) {
-            withContext(Dispatchers.Default) {
-                while (true) {
-                    cpu.step()
-                }
-            }
-        }
-
-        Text("Running!")
+        GameBoyScreen(frameBuffer = uiState.frameBuffer!!)
     }
 }
 

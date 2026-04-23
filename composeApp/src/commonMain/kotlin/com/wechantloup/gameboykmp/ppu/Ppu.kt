@@ -1,6 +1,15 @@
 package com.wechantloup.gameboykmp.ppu
 
-class Ppu {
+import com.wechantloup.gameboykmp.bus.Bus
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+
+class Ppu(
+    private val bus: Bus,
+) {
+    private val _frameFlow = MutableStateFlow(IntArray(160 * 144))
+    val frameFlow: StateFlow<IntArray> = _frameFlow
+
     // VRAM 8KB
     private val vram = IntArray(0x2000)
 
