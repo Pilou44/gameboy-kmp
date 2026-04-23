@@ -946,17 +946,6 @@ class CpuTest {
         memory.write(0xC081, 0x80) // -128 signed
         cpu.step()
         assertEquals(0xC002, cpu.registers.pc)
-
-//        // jump from 0xFFFF area
-//        cpu.reset()
-//        cpu.registers.f = 0x00
-//        cpu.registers.pc = 0xC000
-//        cpu.registers.pc = 0xFFFE
-//        memory.write(0xFFFE, 0x18)
-//        memory.write(0xFFFF, 0x05)
-//        cpu.step()
-//        // 0x10000 + 5 = 0x10005 and 0xFFFF = 0x05
-//        assertEquals(0x05, cpu.registers.pc)
     }
 
     @Test
@@ -994,18 +983,6 @@ class CpuTest {
         cpu.step()
         assertEquals(0xC002, cpu.registers.pc)
 
-//        // jump from 0xFFFF area if c true
-//        cpu.reset()
-//        cpu.registers.f = 0x00
-//        cpu.registers.pc = 0xC000
-//        cpu.registers.flagC = true
-//        cpu.registers.pc = 0xFFFE
-//        memory.write(0xFFFE, 0x38)
-//        memory.write(0xFFFF, 0x05)
-//        cpu.step()
-//        // 0x10000 + 5 = 0x10005 and 0xFFFF = 0x05
-//        assertEquals(0x05, cpu.registers.pc)
-
         // jump to pc +10 if !c true
         cpu.reset()
         cpu.registers.f = 0x00
@@ -1036,18 +1013,6 @@ class CpuTest {
         memory.write(0xC081, 0x80) // -128 signed
         cpu.step()
         assertEquals(0xC002, cpu.registers.pc)
-
-//        // jump from 0xFFFF area if !c true
-//        cpu.reset()
-//        cpu.registers.f = 0x00
-//        cpu.registers.pc = 0xC000
-//        cpu.registers.flagC = false
-//        cpu.registers.pc = 0xFFFE
-//        memory.write(0xFFFE, 0x30)
-//        memory.write(0xFFFF, 0x05)
-//        cpu.step()
-//        // 0x10000 + 5 = 0x10005 and 0xFFFF = 0x05
-//        assertEquals(0x05, cpu.registers.pc)
 
         /* No jump */
 
@@ -1082,17 +1047,6 @@ class CpuTest {
         cpu.step()
         assertEquals(0xC002, cpu.registers.pc)
 
-//        // jump from 0xFFFF area if c false
-//        cpu.reset()
-//        cpu.registers.f = 0x00
-//        cpu.registers.pc = 0xC000
-//        cpu.registers.flagC = false
-//        cpu.registers.pc = 0xFFFE
-//        memory.write(0xFFFE, 0x38)
-//        memory.write(0xFFFF, 0x05)
-//        cpu.step()
-//        assertEquals(0x00, cpu.registers.pc)
-
         // jump to pc +10 if !c false
         cpu.reset()
         cpu.registers.f = 0x00
@@ -1123,17 +1077,6 @@ class CpuTest {
         memory.write(0xC001, 0x80) // -128 signed
         cpu.step()
         assertEquals(0xC002, cpu.registers.pc)
-
-//        // jump from 0xFFFF area if !c false
-//        cpu.reset()
-//        cpu.registers.f = 0x00
-//        cpu.registers.pc = 0xC000
-//        cpu.registers.flagC = true
-//        cpu.registers.pc = 0xFFFE
-//        memory.write(0xFFFE, 0x30)
-//        memory.write(0xFFFF, 0x05)
-//        cpu.step()
-//        assertEquals(0x00, cpu.registers.pc)
     }
 
     @Test
@@ -1171,18 +1114,6 @@ class CpuTest {
         cpu.step()
         assertEquals(0xC002, cpu.registers.pc)
 
-//        // jump from 0xFFFF area if z true
-//        cpu.reset()
-//        cpu.registers.f = 0x00
-//        cpu.registers.pc = 0xC000
-//        cpu.registers.flagZ = true
-//        cpu.registers.pc = 0xFFFE
-//        memory.write(0xFFFE, 0x28)
-//        memory.write(0xFFFF, 0x05)
-//        cpu.step()
-//        // 0x10000 + 5 = 0x10005 and 0xFFFF = 0x05
-//        assertEquals(0x05, cpu.registers.pc)
-
         // jump to pc +10 if !z true
         cpu.reset()
         cpu.registers.f = 0x00
@@ -1213,18 +1144,6 @@ class CpuTest {
         memory.write(0xC081, 0x80) // -128 signed
         cpu.step()
         assertEquals(0xC002, cpu.registers.pc)
-
-//        // jump from 0xFFFF area if !z true
-//        cpu.reset()
-//        cpu.registers.f = 0x00
-//        cpu.registers.pc = 0xC000
-//        cpu.registers.flagZ = false
-//        cpu.registers.pc = 0xFFFE
-//        memory.write(0xFFFE, 0x20)
-//        memory.write(0xFFFF, 0x05)
-//        cpu.step()
-//        // 0x10000 + 5 = 0x10005 and 0xFFFF = 0x05
-//        assertEquals(0x05, cpu.registers.pc)
 
         /* No jump */
 
@@ -1259,17 +1178,6 @@ class CpuTest {
         cpu.step()
         assertEquals(0xC002, cpu.registers.pc)
 
-//        // jump from 0xFFFF area if z false
-//        cpu.reset()
-//        cpu.registers.f = 0x00
-//        cpu.registers.pc = 0xC000
-//        cpu.registers.flagZ = false
-//        cpu.registers.pc = 0xFFFE
-//        memory.write(0xFFFE, 0x28)
-//        memory.write(0xFFFF, 0x05)
-//        cpu.step()
-//        assertEquals(0x00, cpu.registers.pc)
-
         // jump to pc +10 if !z false
         cpu.reset()
         cpu.registers.f = 0x00
@@ -1300,17 +1208,6 @@ class CpuTest {
         memory.write(0xC001, 0x80) // -128 signed
         cpu.step()
         assertEquals(0xC002, cpu.registers.pc)
-
-//        // jump from 0xFFFF area if !z false
-//        cpu.reset()
-//        cpu.registers.f = 0x00
-//        cpu.registers.pc = 0xC000
-//        cpu.registers.flagZ = true
-//        cpu.registers.pc = 0xFFFE
-//        memory.write(0xFFFE, 0x20)
-//        memory.write(0xFFFF, 0x05)
-//        cpu.step()
-//        assertEquals(0x00, cpu.registers.pc)
     }
 
     @Test
@@ -1598,5 +1495,55 @@ class CpuTest {
         cpu.step()
         assertTrue(cpu.ime)
         assertEquals(0x1303, cpu.registers.pc)
+    }
+
+    @Test
+    fun interruptHandlingTest() {
+        // IME true, V-Blank pending -> jump to 0x0040
+        cpu.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.pc = 0xC000
+        cpu.ime = true
+        memory.write(0xFFFF, 0x01)  // IE: V-Blank enabled
+        memory.setIF(0x01)  // IF: V-Blank pending
+        cpu.step()
+        assertEquals(0x0040, cpu.registers.pc)
+        assertTrue(cpu.registers.sp < 0xFFFE)  // PC a été pushé
+        assertEquals(0x00, memory.iF and 0x01)  // bit 0 effacé dans IF
+        assertFalse(cpu.ime)  // IME désactivé
+
+        // IME false, interrupt pending -> ignored
+        cpu.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.pc = 0xC000
+        cpu.ime = false
+        memory.write(0xFFFF, 0x01)  // IE: V-Blank enabled
+        memory.setIF(0x01)  // IF: V-Blank pending
+        memory.write(0xC000, 0x00)  // NOP
+        cpu.step()
+        assertEquals(0xC000, cpu.registers.pc)  // pas de saut, mais NOP non exécuté non plus
+
+        // HALT woken by interrupt (IME false)
+        cpu.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.pc = 0xC000
+        cpu.ime = false
+        cpu.isHalted = true
+        memory.write(0xFFFF, 0x01)  // IE: V-Blank enabled
+        memory.setIF(0x01)  // IF: V-Blank pending
+        cpu.step()
+        assertFalse(cpu.isHalted)
+        assertEquals(0xC000, cpu.registers.pc)  // pas de saut car IME false
+
+        // Priority: Timer (bit 2) et V-Blank (bit 0) pending -> V-Blank traité en premier
+        cpu.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.pc = 0xC000
+        cpu.ime = true
+        memory.write(0xFFFF, 0x05)  // IE: V-Blank et Timer enabled
+        memory.setIF(0x05)  // IF: V-Blank et Timer pending
+        cpu.step()
+        assertEquals(0x0040, cpu.registers.pc)  // V-Blank prioritaire
+        assertEquals(0x04, memory.iF and 0x05)  // seul bit 0 effacé
     }
 }

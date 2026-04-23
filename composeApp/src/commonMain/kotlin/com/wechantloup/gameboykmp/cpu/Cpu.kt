@@ -10,6 +10,38 @@ class Cpu(
     var ime = false
 
     fun step() {
+        // Check for pending interrupts
+        val pending = memory.ie and memory.iF and 0x1F
+
+        if (pending != 0) {
+            // Wake from HALT regardless of IME
+            isHalted = false
+
+            if (ime) {
+                ime = false
+
+                // Find highest priority interrupt (lowest bit)
+                val bit = pending.countTrailingZeroBits()
+
+                // Clear the bit in IF
+                memory.setIF(memory.iF and (1 shl bit).inv())
+
+                // Push current PC and jump to interrupt vector
+                push(registers.pc)
+                registers.pc = when (bit) {
+                    0 -> 0x0040  // V-Blank
+                    1 -> 0x0048  // LCD STAT
+                    2 -> 0x0050  // Timer
+                    3 -> 0x0058  // Serial
+                    4 -> 0x0060  // Joypad
+                    else -> 0x0040
+                }
+            }
+            return
+        }
+
+        if (isHalted) return
+
         val opcode = fetch()
         execute(opcode)
     }

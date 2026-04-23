@@ -22,6 +22,9 @@ import com.wechantloup.gameboykmp.cartridge.Cartridge
 class Memory(
     private val cartridge: Cartridge,
 ) {
+    val ie: Int get() = read(0xFFFF)
+    val iF: Int get() = read(0xFF0F)
+
     private val internalRam = IntArray(0x10000)
 
     fun read(address: Int): Int = when (address) {
@@ -38,4 +41,6 @@ class Memory(
             else -> internalRam[address] = v
         }
     }
+
+    fun setIF(value: Int) = write(0xFF0F, value)
 }
