@@ -15,7 +15,7 @@ class CpuTest {
     fun setUp() {
         memory = Memory()
         cpu = Cpu(memory)
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
     }
 
@@ -78,7 +78,7 @@ class CpuTest {
             for (dst in 0..7) {
                 if (dst == 6) continue  // (HL) - ToDo not implemented
 
-                cpu.registers.reset()
+                cpu.reset()
                 cpu.registers.f = 0x00
                 val code = 0x40 or (dst shl 3) or src
                 memory.write(0x100, code)
@@ -99,7 +99,7 @@ class CpuTest {
     @Test
     fun addFlagsTest() {
         // Z = true, C = true (0x01 + 0xFF = 0x100 -> 0x00)
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.a = 0x01
         memory.write(0x100, 0x80) // ADD A, B
@@ -111,7 +111,7 @@ class CpuTest {
         assertTrue(cpu.registers.flagC)
 
         // H = true (0x08 + 0x08)
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.a = 0x08
         cpu.registers.b = 0x08
@@ -120,7 +120,7 @@ class CpuTest {
         assertTrue(cpu.registers.flagH)
 
         // H = false, Z = false, C = false (0x04 + 0x03)
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.a = 0x04
         cpu.registers.b = 0x03
@@ -132,7 +132,7 @@ class CpuTest {
         assertFalse(cpu.registers.flagC)
 
         // Same tests with C = true
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = true
         cpu.registers.a = 0x01
@@ -144,7 +144,7 @@ class CpuTest {
         assertFalse(cpu.registers.flagN)
         assertTrue(cpu.registers.flagC)
 
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = true
         cpu.registers.a = 0x08
@@ -153,7 +153,7 @@ class CpuTest {
         cpu.step()
         assertTrue(cpu.registers.flagH)
 
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = true
         cpu.registers.a = 0x04
@@ -169,7 +169,7 @@ class CpuTest {
     @Test
     fun addWithCarryTest() {
         // Z = true, C = true (0x01 + 0xFF = 0x100 -> 0x00)
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.a = 0x01
         cpu.registers.flagC = true
@@ -182,7 +182,7 @@ class CpuTest {
         assertTrue(cpu.registers.flagC)
 
         // H = true (0x08 + 0x08)
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.a = 0x08
         cpu.registers.b = 0x08
@@ -192,7 +192,7 @@ class CpuTest {
         assertTrue(cpu.registers.flagH)
 
         // H = false, Z = false, C = false (0x04 + 0x03)
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.a = 0x04
         cpu.registers.b = 0x03
@@ -208,7 +208,7 @@ class CpuTest {
     @Test
     fun subFlagsTest() {
         // C = false (a = 0xFF, b = 0x01)
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.a = 0xFF
         memory.write(0x100, 0x90) // SUB A, B
@@ -220,7 +220,7 @@ class CpuTest {
         assertFalse(cpu.registers.flagC)
 
         // C = true (a = 0xFF, b = 0x01)
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.a = 0x01
         memory.write(0x100, 0x90) // SUB A, B
@@ -232,7 +232,7 @@ class CpuTest {
         assertTrue(cpu.registers.flagC)
 
         // Z = true (0x08 - 0x08)
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.a = 0x08
         cpu.registers.b = 0x08
@@ -241,7 +241,7 @@ class CpuTest {
         assertTrue(cpu.registers.flagZ)
 
         // H = true (a = 0x10, b = 0x01)
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.a = 0x10
         cpu.registers.b = 0x01
@@ -253,7 +253,7 @@ class CpuTest {
         assertFalse(cpu.registers.flagC)
 
         // H = false (a = 0x0F, b = 0x01)
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.a = 0x0F
         cpu.registers.b = 0x01
@@ -265,7 +265,7 @@ class CpuTest {
         assertFalse(cpu.registers.flagC)
 
         // Same tests with C = true
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = true
         cpu.registers.a = 0xFF
@@ -278,7 +278,7 @@ class CpuTest {
         assertFalse(cpu.registers.flagC)
 
         // C = true (a = 0xFF, b = 0x01)
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = true
         cpu.registers.a = 0x01
@@ -291,7 +291,7 @@ class CpuTest {
         assertTrue(cpu.registers.flagC)
 
         // Z = true (0x08 - 0x08)
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = true
         cpu.registers.a = 0x08
@@ -301,7 +301,7 @@ class CpuTest {
         assertTrue(cpu.registers.flagZ)
 
         // H = true (a = 0x10, b = 0x01)
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = true
         cpu.registers.a = 0x10
@@ -314,7 +314,7 @@ class CpuTest {
         assertFalse(cpu.registers.flagC)
 
         // H = false (a = 0x0F, b = 0x01)
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = true
         cpu.registers.a = 0x0F
@@ -330,7 +330,7 @@ class CpuTest {
     @Test
     fun subWithCarryTest() {
         // C = false (a = 0xFF, b = 0x01)
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = true
         cpu.registers.a = 0xFF
@@ -343,7 +343,7 @@ class CpuTest {
         assertFalse(cpu.registers.flagC)
 
         // C = true (a = 0xFF, b = 0x01)
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = true
         cpu.registers.a = 0x01
@@ -356,7 +356,7 @@ class CpuTest {
         assertTrue(cpu.registers.flagC)
 
         // Z = false (0x08 - 0x08)
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = true
         cpu.registers.a = 0x08
@@ -366,7 +366,7 @@ class CpuTest {
         assertFalse(cpu.registers.flagZ)
 
         // H = true (a = 0x10, b = 0x01)
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = true
         cpu.registers.a = 0x10
@@ -379,7 +379,7 @@ class CpuTest {
         assertFalse(cpu.registers.flagC)
 
         // H = false (a = 0x0F, b = 0x01)
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = true
         cpu.registers.a = 0x0F
@@ -392,7 +392,7 @@ class CpuTest {
         assertFalse(cpu.registers.flagC)
 
         // C = false (a = 0xFF, b = 0x01)
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.a = 0xFF
         memory.write(0x100, 0x98) // SBC A, B
@@ -404,7 +404,7 @@ class CpuTest {
         assertFalse(cpu.registers.flagC)
 
         // C = true (a = 0xFF, b = 0x01)
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.a = 0x01
         memory.write(0x100, 0x98) // SBC A, B
@@ -416,7 +416,7 @@ class CpuTest {
         assertTrue(cpu.registers.flagC)
 
         // Z = true (0x08 - 0x08)
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.a = 0x08
         cpu.registers.b = 0x08
@@ -425,7 +425,7 @@ class CpuTest {
         assertTrue(cpu.registers.flagZ)
 
         // H = true (a = 0x10, b = 0x01)
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.a = 0x10
         cpu.registers.b = 0x01
@@ -437,7 +437,7 @@ class CpuTest {
         assertFalse(cpu.registers.flagC)
 
         // H = false (a = 0x0F, b = 0x01)
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.a = 0x0F
         cpu.registers.b = 0x01
@@ -525,7 +525,7 @@ class CpuTest {
     @Test
     fun cpFlagsTest() {
         // C = false (a = 0xFF, b = 0x01)
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.a = 0xFF
         memory.write(0x100, 0xB8) // CP A, B
@@ -537,7 +537,7 @@ class CpuTest {
         assertFalse(cpu.registers.flagC)
 
         // C = true (a = 0xFF, b = 0x01)
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.a = 0x01
         memory.write(0x100, 0xB8) // CP A, B
@@ -549,7 +549,7 @@ class CpuTest {
         assertTrue(cpu.registers.flagC)
 
         // Z = true (0x08 - 0x08)
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.a = 0x08
         cpu.registers.b = 0x08
@@ -559,7 +559,7 @@ class CpuTest {
         assertTrue(cpu.registers.flagZ)
 
         // H = true (a = 0x10, b = 0x01)
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.a = 0x10
         cpu.registers.b = 0x01
@@ -571,7 +571,7 @@ class CpuTest {
         assertFalse(cpu.registers.flagC)
 
         // H = false (a = 0x0F, b = 0x01)
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.a = 0x0F
         cpu.registers.b = 0x01
@@ -586,7 +586,7 @@ class CpuTest {
     @Test
     fun incFlagsTest() {
         // inc from 0x01, c = false
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.a = 0x01
         memory.write(0x100, 0x3C) // INC A
@@ -598,7 +598,7 @@ class CpuTest {
         assertFalse(cpu.registers.flagC)
 
         // inc from 0x0F, c = false
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.a = 0x0F
         memory.write(0x100, 0x3C) // INC A
@@ -610,7 +610,7 @@ class CpuTest {
         assertFalse(cpu.registers.flagC)
 
         // inc from 0xFF, c = false
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.a = 0xFF
         memory.write(0x100, 0x3C) // INC A
@@ -622,7 +622,7 @@ class CpuTest {
         assertFalse(cpu.registers.flagC)
 
         // inc from 0x01, c = true
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = true
         cpu.registers.a = 0x01
@@ -635,7 +635,7 @@ class CpuTest {
         assertTrue(cpu.registers.flagC)
 
         // inc from 0x0F, c = true
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = true
         cpu.registers.a = 0x0F
@@ -648,7 +648,7 @@ class CpuTest {
         assertTrue(cpu.registers.flagC)
 
         // inc from 0xFF, c = true
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = true
         cpu.registers.a = 0xFF
@@ -664,7 +664,7 @@ class CpuTest {
     @Test
     fun decFlagsTest() {
         // dec from 0x02, c = false
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.a = 0x02
         memory.write(0x100, 0x3D) // DEC A
@@ -676,7 +676,7 @@ class CpuTest {
         assertFalse(cpu.registers.flagC)
 
         // dec from 0x10, c = false
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.a = 0x10
         memory.write(0x100, 0x3D) // DEC A
@@ -688,7 +688,7 @@ class CpuTest {
         assertFalse(cpu.registers.flagC)
 
         // dec from 0x00, c = false
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.a = 0x00
         memory.write(0x100, 0x3D) // DEC A
@@ -700,7 +700,7 @@ class CpuTest {
         assertFalse(cpu.registers.flagC)
 
         // dec from 0x01, c = false
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.a = 0x01
         memory.write(0x100, 0x3D) // DEC A
@@ -712,7 +712,7 @@ class CpuTest {
         assertFalse(cpu.registers.flagC)
 
         // dec from 0x02, c = false
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = true
         cpu.registers.a = 0x02
@@ -725,7 +725,7 @@ class CpuTest {
         assertTrue(cpu.registers.flagC)
 
         // dec from 0x10, c = false
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = true
         cpu.registers.a = 0x10
@@ -738,7 +738,7 @@ class CpuTest {
         assertTrue(cpu.registers.flagC)
 
         // dec from 0x00, c = false
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = true
         cpu.registers.a = 0x00
@@ -751,7 +751,7 @@ class CpuTest {
         assertTrue(cpu.registers.flagC)
 
         // dec from 0x01, c = false
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = true
         cpu.registers.a = 0x01
@@ -767,7 +767,7 @@ class CpuTest {
     @Test
     fun jpTest() {
         // jump to 0x1303
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         memory.write(0x100, 0xC3) // JP
         memory.write(0x101, 0x03)
@@ -776,7 +776,7 @@ class CpuTest {
         assertEquals(0x1303, cpu.registers.pc)
 
         // jump to 0x1303 if z true
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagZ = true
         memory.write(0x100, 0xCA) // JP
@@ -786,7 +786,7 @@ class CpuTest {
         assertEquals(0x1303, cpu.registers.pc)
 
         // jump to 0x1303 if c true
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = true
         memory.write(0x100, 0xDA) // JP
@@ -796,7 +796,7 @@ class CpuTest {
         assertEquals(0x1303, cpu.registers.pc)
 
         // jump to 0x1303 if !z true
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagZ = false
         memory.write(0x100, 0xC2) // JP
@@ -806,7 +806,7 @@ class CpuTest {
         assertEquals(0x1303, cpu.registers.pc)
 
         // jump to 0x1303 if !c true
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = false
         memory.write(0x100, 0xD2) // JP
@@ -816,7 +816,7 @@ class CpuTest {
         assertEquals(0x1303, cpu.registers.pc)
 
         // jump to 0x1303 if z false
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagZ = false
         memory.write(0x100, 0xCA) // JP
@@ -826,7 +826,7 @@ class CpuTest {
         assertEquals(0x103, cpu.registers.pc)
 
         // jump to 0x1303 if c false
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = false
         memory.write(0x100, 0xDA) // JP
@@ -836,7 +836,7 @@ class CpuTest {
         assertEquals(0x103, cpu.registers.pc)
 
         // jump to 0x1303 if !z false
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagZ = true
         memory.write(0x100, 0xC2) // JP
@@ -846,7 +846,7 @@ class CpuTest {
         assertEquals(0x103, cpu.registers.pc)
 
         // jump to 0x1303 if !c false
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = true
         memory.write(0x100, 0xD2) // JP
@@ -859,7 +859,7 @@ class CpuTest {
     @Test
     fun jrTest() {
         // jump to pc +10
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         memory.write(0x100, 0x18) // JR
         memory.write(0x101, 10)
@@ -867,7 +867,7 @@ class CpuTest {
         assertEquals(0x10C, cpu.registers.pc)
 
         // jump to pc -10
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         memory.write(0x100, 0x18) // JR
         memory.write(0x101, -10)
@@ -876,7 +876,7 @@ class CpuTest {
 
         // jump from 0x0100 with offset -128
         // 0x102 + (-128) = 0x82
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         memory.write(0x100, 0x18)
         memory.write(0x101, 0x80) // -128 signed
@@ -884,7 +884,7 @@ class CpuTest {
         assertEquals(0x82, cpu.registers.pc)
 
         // jump from 0xFFFF area
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.pc = 0xFFFE
         memory.write(0xFFFE, 0x18)
@@ -899,7 +899,7 @@ class CpuTest {
         /* Jump */
 
         // jump to pc +10 if c true
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = true
         memory.write(0x100, 0x38) // JR
@@ -908,7 +908,7 @@ class CpuTest {
         assertEquals(0x10C, cpu.registers.pc)
 
         // jump to pc -10 if c true
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = true
         memory.write(0x100, 0x38) // JR
@@ -918,7 +918,7 @@ class CpuTest {
 
         // jump from 0x0100 with offset -128 if c true
         // 0x102 + (-128) = 0x82
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = true
         memory.write(0x100, 0x38)
@@ -927,7 +927,7 @@ class CpuTest {
         assertEquals(0x82, cpu.registers.pc)
 
         // jump from 0xFFFF area if c true
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = true
         cpu.registers.pc = 0xFFFE
@@ -938,7 +938,7 @@ class CpuTest {
         assertEquals(0x05, cpu.registers.pc)
 
         // jump to pc +10 if !c true
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = false
         memory.write(0x100, 0x30) // JR
@@ -947,7 +947,7 @@ class CpuTest {
         assertEquals(0x10C, cpu.registers.pc)
 
         // jump to pc -10 if !c true
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = false
         memory.write(0x100, 0x30) // JR
@@ -957,7 +957,7 @@ class CpuTest {
 
         // jump from 0x0100 with offset -128 if !c true
         // 0x102 + (-128) = 0x82
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = false
         memory.write(0x100, 0x30)
@@ -966,7 +966,7 @@ class CpuTest {
         assertEquals(0x82, cpu.registers.pc)
 
         // jump from 0xFFFF area if !c true
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = false
         cpu.registers.pc = 0xFFFE
@@ -979,7 +979,7 @@ class CpuTest {
         /* No jump */
 
         // jump to pc +10 if c false
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = false
         memory.write(0x100, 0x38) // JR
@@ -988,7 +988,7 @@ class CpuTest {
         assertEquals(0x102, cpu.registers.pc)
 
         // jump to pc -10 if c false
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = false
         memory.write(0x100, 0x38) // JR
@@ -998,7 +998,7 @@ class CpuTest {
 
         // jump from 0x0100 with offset -128 if c false
         // 0x102 + (-128) = 0x82
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = false
         memory.write(0x100, 0x38)
@@ -1007,7 +1007,7 @@ class CpuTest {
         assertEquals(0x102, cpu.registers.pc)
 
         // jump from 0xFFFF area if c false
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = false
         cpu.registers.pc = 0xFFFE
@@ -1017,7 +1017,7 @@ class CpuTest {
         assertEquals(0x00, cpu.registers.pc)
 
         // jump to pc +10 if !c false
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = true
         memory.write(0x100, 0x30) // JR
@@ -1026,7 +1026,7 @@ class CpuTest {
         assertEquals(0x102, cpu.registers.pc)
 
         // jump to pc -10 if !c false
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = true
         memory.write(0x100, 0x30) // JR
@@ -1036,7 +1036,7 @@ class CpuTest {
 
         // jump from 0x0100 with offset -128 if !c false
         // 0x102 + (-128) = 0x82
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = true
         memory.write(0x100, 0x30)
@@ -1045,7 +1045,7 @@ class CpuTest {
         assertEquals(0x102, cpu.registers.pc)
 
         // jump from 0xFFFF area if !c false
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = true
         cpu.registers.pc = 0xFFFE
@@ -1060,7 +1060,7 @@ class CpuTest {
         /* Jump */
 
         // jump to pc +10 if z true
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagZ = true
         memory.write(0x100, 0x28) // JR
@@ -1069,7 +1069,7 @@ class CpuTest {
         assertEquals(0x10C, cpu.registers.pc)
 
         // jump to pc -10 if z true
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagZ = true
         memory.write(0x100, 0x28) // JR
@@ -1079,7 +1079,7 @@ class CpuTest {
 
         // jump from 0x0100 with offset -128 if z true
         // 0x102 + (-128) = 0x82
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagZ = true
         memory.write(0x100, 0x28)
@@ -1088,7 +1088,7 @@ class CpuTest {
         assertEquals(0x82, cpu.registers.pc)
 
         // jump from 0xFFFF area if z true
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagZ = true
         cpu.registers.pc = 0xFFFE
@@ -1099,7 +1099,7 @@ class CpuTest {
         assertEquals(0x05, cpu.registers.pc)
 
         // jump to pc +10 if !z true
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagZ = false
         memory.write(0x100, 0x20) // JR
@@ -1108,7 +1108,7 @@ class CpuTest {
         assertEquals(0x10C, cpu.registers.pc)
 
         // jump to pc -10 if !z true
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagZ = false
         memory.write(0x100, 0x20) // JR
@@ -1118,7 +1118,7 @@ class CpuTest {
 
         // jump from 0x0100 with offset -128 if !z true
         // 0x102 + (-128) = 0x82
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagZ = false
         memory.write(0x100, 0x20)
@@ -1127,7 +1127,7 @@ class CpuTest {
         assertEquals(0x82, cpu.registers.pc)
 
         // jump from 0xFFFF area if !z true
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagZ = false
         cpu.registers.pc = 0xFFFE
@@ -1140,7 +1140,7 @@ class CpuTest {
         /* No jump */
 
         // jump to pc +10 if z false
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagZ = false
         memory.write(0x100, 0x28) // JR
@@ -1149,7 +1149,7 @@ class CpuTest {
         assertEquals(0x102, cpu.registers.pc)
 
         // jump to pc -10 if z false
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagZ = false
         memory.write(0x100, 0x28) // JR
@@ -1159,7 +1159,7 @@ class CpuTest {
 
         // jump from 0x0100 with offset -128 if z false
         // 0x102 + (-128) = 0x82
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagZ = false
         memory.write(0x100, 0x28)
@@ -1168,7 +1168,7 @@ class CpuTest {
         assertEquals(0x102, cpu.registers.pc)
 
         // jump from 0xFFFF area if z false
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagZ = false
         cpu.registers.pc = 0xFFFE
@@ -1178,7 +1178,7 @@ class CpuTest {
         assertEquals(0x00, cpu.registers.pc)
 
         // jump to pc +10 if !z false
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagZ = true
         memory.write(0x100, 0x20) // JR
@@ -1187,7 +1187,7 @@ class CpuTest {
         assertEquals(0x102, cpu.registers.pc)
 
         // jump to pc -10 if !z false
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagZ = true
         memory.write(0x100, 0x20) // JR
@@ -1197,7 +1197,7 @@ class CpuTest {
 
         // jump from 0x0100 with offset -128 if !z false
         // 0x102 + (-128) = 0x82
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagZ = true
         memory.write(0x100, 0x20)
@@ -1206,7 +1206,7 @@ class CpuTest {
         assertEquals(0x102, cpu.registers.pc)
 
         // jump from 0xFFFF area if !z false
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagZ = true
         cpu.registers.pc = 0xFFFE
@@ -1219,7 +1219,7 @@ class CpuTest {
     @Test
     fun callRetTest() {
         // call to 0x1303
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         memory.write(0x100, 0xCD) // CALL
         memory.write(0x101, 0x03)
@@ -1238,7 +1238,7 @@ class CpuTest {
     @Test
     fun callOkRetOkTest() {
         // call to 0x1303 if c true
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = true
         memory.write(0x100, 0xDC) // CALL
@@ -1255,7 +1255,7 @@ class CpuTest {
         assertEquals(0x0103, cpu.registers.pc)
 
         // call to 0x1303 if z true
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagZ = true
         memory.write(0x100, 0xCC) // CALL
@@ -1272,7 +1272,7 @@ class CpuTest {
         assertEquals(0x0103, cpu.registers.pc)
 
         // call to 0x1303 if !c true
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = false
         memory.write(0x100, 0xD4) // CALL
@@ -1289,7 +1289,7 @@ class CpuTest {
         assertEquals(0x0103, cpu.registers.pc)
 
         // call to 0x1303 if !z true
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagZ = false
         memory.write(0x100, 0xC4) // CALL
@@ -1309,7 +1309,7 @@ class CpuTest {
     @Test
     fun callOkRetNokTest() {
         // call to 0x1303 if c true
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = true
         memory.write(0x100, 0xDC) // CALL
@@ -1327,7 +1327,7 @@ class CpuTest {
         assertEquals(0x1304, cpu.registers.pc)
 
         // call to 0x1303 if z true
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagZ = true
         memory.write(0x100, 0xCC) // CALL
@@ -1345,7 +1345,7 @@ class CpuTest {
         assertEquals(0x1304, cpu.registers.pc)
 
         // call to 0x1303 if !c true
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = false
         memory.write(0x100, 0xD4) // CALL
@@ -1363,7 +1363,7 @@ class CpuTest {
         assertEquals(0x1304, cpu.registers.pc)
 
         // call to 0x1303 if !z true
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagZ = false
         memory.write(0x100, 0xC4) // CALL
@@ -1384,7 +1384,7 @@ class CpuTest {
     @Test
     fun callNokTest() {
         // call to 0x1303 if c true
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = false
         memory.write(0x100, 0xDC) // CALL
@@ -1394,7 +1394,7 @@ class CpuTest {
         assertEquals(0x103, cpu.registers.pc)
 
         // call to 0x1303 if z true
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagZ = false
         memory.write(0x100, 0xCC) // CALL
@@ -1404,7 +1404,7 @@ class CpuTest {
         assertEquals(0x103, cpu.registers.pc)
 
         // call to 0x1303 if !c true
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagC = true
         memory.write(0x100, 0xD4) // CALL
@@ -1414,7 +1414,7 @@ class CpuTest {
         assertEquals(0x103, cpu.registers.pc)
 
         // call to 0x1303 if !z true
-        cpu.registers.reset()
+        cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.flagZ = true
         memory.write(0x100, 0xC4) // CALL
@@ -1470,5 +1470,26 @@ class CpuTest {
         memory.write(0x101, 0xF1) // POP AF
         cpu.step()
         assertEquals(0x1300, cpu.registers.af)
+    }
+
+    @Test
+    fun interruptionsTest() {
+        assertFalse(cpu.ime)
+        memory.write(0x100, 0xFB) // EI
+        cpu.step()
+        assertTrue(cpu.ime)
+        memory.write(0x101, 0xF3) // DI
+        cpu.step()
+        assertFalse(cpu.ime)
+        memory.write(0x102, 0xD9) // RETI
+
+        // Simulate push of 0x1303
+        memory.write(cpu.registers.sp - 1, 0x13) // high byte
+        memory.write(cpu.registers.sp - 2, 0x03) // low byte
+        cpu.registers.sp = (cpu.registers.sp - 2) and 0xFFFF
+
+        cpu.step()
+        assertTrue(cpu.ime)
+        assertEquals(0x1303, cpu.registers.pc)
     }
 }

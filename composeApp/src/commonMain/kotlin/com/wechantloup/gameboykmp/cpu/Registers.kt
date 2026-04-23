@@ -126,23 +126,6 @@ class Registers {
         set(value) = setFlag(4, value)
 
     /**
-     * Initialize registers with boot values.
-     */
-    fun reset() {
-        a = 0x01
-        b = 0x00
-        c = 0x13
-        d = 0x00
-        e = 0xD8
-        h = 0x01
-        l = 0x4D
-        f = 0xB0
-        pc = 0x0100
-        sp = 0xFFFE
-
-    }
-
-    /**
      * Sets or clears a specific bit in the F register.
      * Always masks the lower 4 bits to 0 (they must always be 0).
      */

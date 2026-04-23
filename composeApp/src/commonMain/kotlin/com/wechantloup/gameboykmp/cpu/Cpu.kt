@@ -7,10 +7,16 @@ class Cpu(
 ) {
     val registers = Registers()
     var isHalted = false
+    var ime = false
 
     fun step() {
         val opcode = fetch()
         execute(opcode)
+    }
+
+    fun reset() {
+        ime = false
+        registers.reset()
     }
 
     internal fun getRegister(code: Int): Int {
@@ -124,6 +130,12 @@ class Cpu(
             0xD1 -> registers.de = pop() /* POP DE */
             0xE1 -> registers.hl = pop() /* POP HL */
             0xF1 -> registers.af = pop() /* POP AF */
+
+            /* Interruptions */
+
+            0xF3 -> ime = false /* DI - Disable Interrupts */
+            0xFB -> ime = true  /* EI - Enable Interrupts */
+            0xD9 -> { registers.pc = pop(); ime = true } /* RETI - Return from Interrupt */
 
             /* Unknown opcode */
             else -> TODO("Opcode 0x${opcode.toString(16)} not implemented")
@@ -275,5 +287,21 @@ class Cpu(
         address = address or (memory.read(registers.sp) shl 8)
         registers.sp = (registers.sp + 1) and 0xFFFF
         return address
+    }
+
+    /**
+     * Initialize registers with boot values.
+     */
+    private fun Registers.reset() {
+        a = 0x01
+        b = 0x00
+        c = 0x13
+        d = 0x00
+        e = 0xD8
+        h = 0x01
+        l = 0x4D
+        f = 0xB0
+        pc = 0x0100
+        sp = 0xFFFE
     }
 }
