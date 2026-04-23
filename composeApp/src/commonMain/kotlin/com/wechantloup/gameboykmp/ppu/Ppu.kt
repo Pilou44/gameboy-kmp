@@ -10,9 +10,6 @@ class Ppu(
     private val _frameFlow = MutableStateFlow(IntArray(160 * 144))
     val frameFlow: StateFlow<IntArray> = _frameFlow
 
-    // VRAM 8KB
-    private val vram = IntArray(0x2000)
-
     // OAM 160 bytes (40 sprites × 4 bytes)
     private val oam = IntArray(0xA0)
 
@@ -68,6 +65,7 @@ class Ppu(
                 if (ly == 144) {
                     // All visible scanlines drawn, enter V-Blank
                     mode = 1
+                    _frameFlow.value = frameBuffer.copyOf()
                     // TODO: trigger V-Blank interrupt
                 } else {
                     // Start next scanline
@@ -106,12 +104,12 @@ class Ppu(
 
             // Read tile index from tile map (0x9800 in VRAM, offset by 0x8000)
             val tileMapAddr = 0x9800 - 0x8000 + tileRow * 32 + tileCol
-            val tileIndex = vram[tileMapAddr]
+            val tileIndex = bus.readVram(tileMapAddr)
 
             // Read the 2 bytes encoding the pixel row in the tile
             val tileAddr = tileIndex * 16 + tilePixelY * 2
-            val loByte = vram[tileAddr]
-            val hiByte = vram[tileAddr + 1]
+            val loByte = bus.readVram(tileAddr)
+            val hiByte = bus.readVram(tileAddr + 1)
 
             // Extract color index from the 2 bytes (bit 7 = leftmost pixel)
             val loBit = (loByte shr (7 - tilePixelX)) and 0x01
