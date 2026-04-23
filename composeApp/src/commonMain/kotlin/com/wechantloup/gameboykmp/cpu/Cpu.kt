@@ -97,6 +97,37 @@ class Cpu(
 
             in 0x40..0x7F -> load(opcode)
 
+            0x01 -> registers.bc = fetch16() /* LD BC, nn */
+            0x11 -> registers.de = fetch16() /* LD DE, nn */
+            0x21 -> registers.hl = fetch16() /* LD HL, nn */
+            0x31 -> registers.sp = fetch16() /* LD SP, nn */
+
+            0x22 -> {
+                memory.write(registers.hl, registers.a)
+                registers.hl = (registers.hl + 1) and 0xFFFF
+            } /* LD (HL+), A  - écrire A à (HL) puis incrémenter HL */
+            0x32 -> {
+                memory.write(registers.hl, registers.a)
+                registers.hl = (registers.hl - 1) and 0xFFFF
+            } /* LD (HL-), A  - écrire A à (HL) puis décrémenter HL */
+            0x2A -> {
+                registers.a = memory.read(registers.hl)
+                registers.hl = (registers.hl + 1) and 0xFFFF
+            } /* LD A, (HL+)  - lire (HL) dans A puis incrémenter HL */
+            0x3A -> {
+                registers.a = memory.read(registers.hl)
+                registers.hl = (registers.hl - 1) and 0xFFFF
+            } /* LD A, (HL-)  - lire (HL) dans A puis décrémenter HL */
+
+            0xE0 -> {
+                val offset = fetch()
+                memory.write(0xFF00 + offset, registers.a)
+            } /* LD (0xFF00+n), A */
+            0xF0 -> {
+                val offset = fetch()
+                registers.a = memory.read(0xFF00 + offset)
+            }/* LD A, (0xFF00+n)  - lire depuis 0xFF00+n dans A */
+
             /* Arithmetic block */
 
             in 0x80..0x87 -> add(opcode) /* ADD A, r */
@@ -276,9 +307,8 @@ class Cpu(
     }
 
     private fun jp(condition: Boolean = true) {
-        val low = fetch()
-        val high = fetch()
-        if (condition) registers.pc = (high shl 8) or low
+        val value = fetch16()
+        if (condition) registers.pc = value
     }
 
     private fun jr(condition: Boolean = true) {
@@ -287,11 +317,10 @@ class Cpu(
     }
 
     private fun call(condition: Boolean = true) {
-        val low = fetch()
-        val high = fetch()
+        val value = fetch16()
         if (condition) {
             push(registers.pc)
-            registers.pc = (high shl 8) or low
+            registers.pc = value
         }
     }
 
@@ -303,6 +332,12 @@ class Cpu(
         val data = memory.read(registers.pc) and 0xFF
         registers.pc = (registers.pc + 1) and 0xFFFF
         return data
+    }
+
+    private fun fetch16(): Int {
+        val low = fetch()
+        val high = fetch()
+        return (high shl 8) or low
     }
 
     private fun push(address: Int) {

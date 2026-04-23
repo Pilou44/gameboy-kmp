@@ -1546,4 +1546,35 @@ class CpuTest {
         assertEquals(0x0040, cpu.registers.pc)  // V-Blank prioritaire
         assertEquals(0x04, memory.iF and 0x05)  // seul bit 0 effacé
     }
+
+    @Test
+    fun fetch16Test() {
+        memory.write(0xC000, 0x21) // LD HL, nn
+        memory.write(0xC001, 0x03) // low byte
+        memory.write(0xC002, 0x13) // high byte
+        cpu.step()
+        assertEquals(0x1303, cpu.registers.hl)
+    }
+
+    @Test
+    fun ldHlIncDecTest() {
+        // LD (HL+), A
+        cpu.registers.a = 0x42
+        cpu.registers.hl = 0xC100
+        memory.write(0xC000, 0x22)
+        cpu.step()
+        assertEquals(0x42, memory.read(0xC100))
+        assertEquals(0xC101, cpu.registers.hl)
+
+        // LD (HL-), A
+        cpu.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.pc = 0xC000
+        cpu.registers.a = 0x42
+        cpu.registers.hl = 0xC100
+        memory.write(0xC000, 0x32)
+        cpu.step()
+        assertEquals(0x42, memory.read(0xC100))
+        assertEquals(0xC0FF, cpu.registers.hl)
+    }
 }
