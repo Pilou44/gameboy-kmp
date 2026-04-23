@@ -1,5 +1,7 @@
 package com.wechantloup.gameboykmp.memory
 
+import com.wechantloup.gameboykmp.cartridge.Cartridge
+
 /**
  * Represents the Game Boy memory bus - the full 64KB addressable space.
  *
@@ -17,14 +19,23 @@ package com.wechantloup.gameboykmp.memory
  * 0xFF80 - 0xFFFE  High RAM (HRAM)
  * 0xFFFF           Interrupt Enable Register
  */
-class Memory {
-    private val memory = IntArray(0x10000)
+class Memory(
+    private val cartridge: Cartridge,
+) {
+    private val internalRam = IntArray(0x10000)
 
-    fun read(address: Int): Int {
-        return memory[address]
+    fun read(address: Int): Int = when (address) {
+        in 0x0000..0x7FFF -> cartridge.readRom(address)
+        in 0xA000..0xBFFF -> cartridge.readRam(address - 0xA000)
+        else -> internalRam[address]
     }
 
     fun write(address: Int, value: Int) {
-        memory[address] = value and 0xFF
+        val v = value and 0xFF
+        when (address) {
+            in 0x0000..0x7FFF -> cartridge.writeRom(address, v)
+            in 0xA000..0xBFFF -> cartridge.writeRam(address - 0xA000, v)
+            else -> internalRam[address] = v
+        }
     }
 }
