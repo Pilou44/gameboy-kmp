@@ -6,6 +6,7 @@ class Cpu(
     private val memory: Memory,
 ) {
     val registers = Registers()
+    var isHalted = false
 
     fun step() {
         val opcode = fetch()
@@ -43,6 +44,8 @@ class Cpu(
     private fun execute(opcode: Int) {
         when (opcode) {
             0x00 -> { /* NOP - do nothing */ }
+
+            0x76 -> halt() /* HALT - stop CPU until interrupt */
 
             /* Load block */
 
@@ -125,6 +128,10 @@ class Cpu(
             /* Unknown opcode */
             else -> TODO("Opcode 0x${opcode.toString(16)} not implemented")
         }
+    }
+
+    private fun halt() {
+        isHalted = true
     }
 
     private fun add(code: Int, withCarry: Boolean = false) {
