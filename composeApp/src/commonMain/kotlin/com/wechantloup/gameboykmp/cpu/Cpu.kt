@@ -68,6 +68,22 @@ class Cpu(
 
             in 0xB8..0xBF -> sub(opcode, storeResult = false) /* CP */
 
+            0x04 -> inc(0) /* INC B */
+            0x0C -> inc(1) /* INC C */
+            0x14 -> inc(2) /* INC D */
+            0x1C -> inc(3) /* INC E */
+            0x24 -> inc(4) /* INC H */
+            0x2C -> inc(5) /* INC L */
+            0x3C -> inc(7) /* INC A */
+
+            0x05 -> dec(0) /* DEC B */
+            0x0D -> dec(1) /* DEC C */
+            0x15 -> dec(2) /* DEC D */
+            0x1D -> dec(3) /* DEC E */
+            0x25 -> dec(4) /* DEC H */
+            0x2D -> dec(5) /* DEC L */
+            0x3D -> dec(7) /* DEC A */
+
             /* Unknown opcode */
             else -> TODO("Opcode 0x${opcode.toString(16)} not implemented")
         }
@@ -142,6 +158,24 @@ class Cpu(
         registers.flagN = false
         registers.flagH = false
         registers.flagC = false
+    }
+
+    private fun inc(registerCode: Int) {
+        var value = getRegister(registerCode)
+        value++
+        setRegister(registerCode, value and 0xFF)
+        registers.flagZ = (value and 0xFF) == 0
+        registers.flagN = false
+        registers.flagH = (value - 1) and 0x0F == 0x0F
+    }
+
+    private fun dec(registerCode: Int) {
+        var value = getRegister(registerCode)
+        value--
+        setRegister(registerCode, value and 0xFF)
+        registers.flagZ = (value and 0xFF) == 0
+        registers.flagN = true
+        registers.flagH = (value + 1) and 0x0F == 0x00
     }
 
     private fun load(code: Int) {

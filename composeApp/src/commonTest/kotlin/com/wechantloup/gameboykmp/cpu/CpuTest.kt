@@ -582,4 +582,185 @@ class CpuTest {
         assertFalse(cpu.registers.flagH)
         assertFalse(cpu.registers.flagC)
     }
+
+    @Test
+    fun incFlagsTest() {
+        // inc from 0x01, c = false
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.a = 0x01
+        memory.write(0x100, 0x3C) // INC A
+        cpu.step()
+        assertEquals(0x02, cpu.registers.a)
+        assertFalse(cpu.registers.flagZ)
+        assertFalse(cpu.registers.flagN)
+        assertFalse(cpu.registers.flagH)
+        assertFalse(cpu.registers.flagC)
+
+        // inc from 0x0F, c = false
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.a = 0x0F
+        memory.write(0x100, 0x3C) // INC A
+        cpu.step()
+        assertEquals(0x10, cpu.registers.a)
+        assertFalse(cpu.registers.flagZ)
+        assertFalse(cpu.registers.flagN)
+        assertTrue(cpu.registers.flagH)
+        assertFalse(cpu.registers.flagC)
+
+        // inc from 0xFF, c = false
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.a = 0xFF
+        memory.write(0x100, 0x3C) // INC A
+        cpu.step()
+        assertEquals(0x00, cpu.registers.a)
+        assertTrue(cpu.registers.flagZ)
+        assertFalse(cpu.registers.flagN)
+        assertTrue(cpu.registers.flagH)
+        assertFalse(cpu.registers.flagC)
+
+        // inc from 0x01, c = true
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagC = true
+        cpu.registers.a = 0x01
+        memory.write(0x100, 0x3C) // INC A
+        cpu.step()
+        assertEquals(0x02, cpu.registers.a)
+        assertFalse(cpu.registers.flagZ)
+        assertFalse(cpu.registers.flagN)
+        assertFalse(cpu.registers.flagH)
+        assertTrue(cpu.registers.flagC)
+
+        // inc from 0x0F, c = true
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagC = true
+        cpu.registers.a = 0x0F
+        memory.write(0x100, 0x3C) // INC A
+        cpu.step()
+        assertEquals(0x10, cpu.registers.a)
+        assertFalse(cpu.registers.flagZ)
+        assertFalse(cpu.registers.flagN)
+        assertTrue(cpu.registers.flagH)
+        assertTrue(cpu.registers.flagC)
+
+        // inc from 0xFF, c = true
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagC = true
+        cpu.registers.a = 0xFF
+        memory.write(0x100, 0x3C) // INC A
+        cpu.step()
+        assertEquals(0x00, cpu.registers.a)
+        assertTrue(cpu.registers.flagZ)
+        assertFalse(cpu.registers.flagN)
+        assertTrue(cpu.registers.flagH)
+        assertTrue(cpu.registers.flagC)
+    }
+
+    @Test
+    fun decFlagsTest() {
+        // dec from 0x02, c = false
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.a = 0x02
+        memory.write(0x100, 0x3D) // DEC A
+        cpu.step()
+        assertEquals(0x01, cpu.registers.a)
+        assertFalse(cpu.registers.flagZ)
+        assertTrue(cpu.registers.flagN)
+        assertFalse(cpu.registers.flagH)
+        assertFalse(cpu.registers.flagC)
+
+        // dec from 0x10, c = false
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.a = 0x10
+        memory.write(0x100, 0x3D) // DEC A
+        cpu.step()
+        assertEquals(0x0F, cpu.registers.a)
+        assertFalse(cpu.registers.flagZ)
+        assertTrue(cpu.registers.flagN)
+        assertTrue(cpu.registers.flagH)
+        assertFalse(cpu.registers.flagC)
+
+        // dec from 0x00, c = false
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.a = 0x00
+        memory.write(0x100, 0x3D) // DEC A
+        cpu.step()
+        assertEquals(0xFF, cpu.registers.a)
+        assertFalse(cpu.registers.flagZ)
+        assertTrue(cpu.registers.flagN)
+        assertTrue(cpu.registers.flagH)
+        assertFalse(cpu.registers.flagC)
+
+        // dec from 0x01, c = false
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.a = 0x01
+        memory.write(0x100, 0x3D) // DEC A
+        cpu.step()
+        assertEquals(0x00, cpu.registers.a)
+        assertTrue(cpu.registers.flagZ)
+        assertTrue(cpu.registers.flagN)
+        assertFalse(cpu.registers.flagH)
+        assertFalse(cpu.registers.flagC)
+
+        // dec from 0x02, c = false
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagC = true
+        cpu.registers.a = 0x02
+        memory.write(0x100, 0x3D) // DEC A
+        cpu.step()
+        assertEquals(0x01, cpu.registers.a)
+        assertFalse(cpu.registers.flagZ)
+        assertTrue(cpu.registers.flagN)
+        assertFalse(cpu.registers.flagH)
+        assertTrue(cpu.registers.flagC)
+
+        // dec from 0x10, c = false
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagC = true
+        cpu.registers.a = 0x10
+        memory.write(0x100, 0x3D) // DEC A
+        cpu.step()
+        assertEquals(0x0F, cpu.registers.a)
+        assertFalse(cpu.registers.flagZ)
+        assertTrue(cpu.registers.flagN)
+        assertTrue(cpu.registers.flagH)
+        assertTrue(cpu.registers.flagC)
+
+        // dec from 0x00, c = false
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagC = true
+        cpu.registers.a = 0x00
+        memory.write(0x100, 0x3D) // DEC A
+        cpu.step()
+        assertEquals(0xFF, cpu.registers.a)
+        assertFalse(cpu.registers.flagZ)
+        assertTrue(cpu.registers.flagN)
+        assertTrue(cpu.registers.flagH)
+        assertTrue(cpu.registers.flagC)
+
+        // dec from 0x01, c = false
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.flagC = true
+        cpu.registers.a = 0x01
+        memory.write(0x100, 0x3D) // DEC A
+        cpu.step()
+        assertEquals(0x00, cpu.registers.a)
+        assertTrue(cpu.registers.flagZ)
+        assertTrue(cpu.registers.flagN)
+        assertFalse(cpu.registers.flagH)
+        assertTrue(cpu.registers.flagC)
+    }
 }
