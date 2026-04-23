@@ -449,7 +449,6 @@ class CpuTest {
         assertFalse(cpu.registers.flagC)
     }
 
-    /* Logic */
     @Test
     fun and8Test() {
         cpu.registers.a = 0xFF
@@ -519,6 +518,67 @@ class CpuTest {
         assertEquals(0x00, cpu.registers.a)
         assertTrue(cpu.registers.flagZ)
         assertFalse(cpu.registers.flagN)
+        assertFalse(cpu.registers.flagH)
+        assertFalse(cpu.registers.flagC)
+    }
+
+    @Test
+    fun cpFlagsTest() {
+        // C = false (a = 0xFF, b = 0x01)
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.a = 0xFF
+        memory.write(0x100, 0xB8) // CP A, B
+        cpu.registers.b = 0x01
+        cpu.step()
+        assertEquals(0xFF, cpu.registers.a)
+        assertFalse(cpu.registers.flagZ)
+        assertTrue(cpu.registers.flagN)
+        assertFalse(cpu.registers.flagC)
+
+        // C = true (a = 0xFF, b = 0x01)
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.a = 0x01
+        memory.write(0x100, 0xB8) // CP A, B
+        cpu.registers.b = 0xFF
+        cpu.step()
+        assertEquals(0x01, cpu.registers.a)
+        assertFalse(cpu.registers.flagZ)
+        assertTrue(cpu.registers.flagN)
+        assertTrue(cpu.registers.flagC)
+
+        // Z = true (0x08 - 0x08)
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.a = 0x08
+        cpu.registers.b = 0x08
+        memory.write(0x100, 0xB8) // CP A, B
+        cpu.step()
+        assertEquals(0x08, cpu.registers.a)
+        assertTrue(cpu.registers.flagZ)
+
+        // H = true (a = 0x10, b = 0x01)
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.a = 0x10
+        cpu.registers.b = 0x01
+        memory.write(0x100, 0xB8) // CP A, B
+        cpu.step()
+        assertEquals(0x10, cpu.registers.a)
+        assertFalse(cpu.registers.flagZ)
+        assertTrue(cpu.registers.flagH)
+        assertFalse(cpu.registers.flagC)
+
+        // H = false (a = 0x0F, b = 0x01)
+        cpu.registers.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.a = 0x0F
+        cpu.registers.b = 0x01
+        memory.write(0x100, 0xB8) // CP A, B
+        cpu.step()
+        assertEquals(0x0F, cpu.registers.a)
+        assertFalse(cpu.registers.flagZ)
         assertFalse(cpu.registers.flagH)
         assertFalse(cpu.registers.flagC)
     }

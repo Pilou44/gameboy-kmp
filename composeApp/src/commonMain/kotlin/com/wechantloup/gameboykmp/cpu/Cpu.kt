@@ -62,10 +62,11 @@ class Cpu(
             in 0x90..0x97 -> sub(opcode) /* SUB A, r */
             in 0x98..0x9F -> sub(opcode, withCarry = true) /* SBC A, r */
 
-            /* Logic block */
             in 0xA0..0xA7 -> and8(opcode)
             in 0xB0..0xB7 -> or8(opcode)
             in 0xA8..0xAF -> xor8(opcode)
+
+            in 0xB8..0xBF -> sub(opcode, storeResult = false) /* CP */
 
             /* Unknown opcode */
             else -> TODO("Opcode 0x${opcode.toString(16)} not implemented")
@@ -85,13 +86,19 @@ class Cpu(
         registers.flagC = addition > 0xff
     }
 
-    private fun sub(code: Int, withCarry: Boolean = false) {
+    private fun sub(
+        code: Int,
+        withCarry: Boolean = false,
+        storeResult: Boolean = true
+    ) {
         val src = code and 0x07
         val a = registers.a
         val b = getRegister(src)
         val carry = if (withCarry && registers.flagC) 1 else 0
         val subtraction = a - b - carry
-        registers.a = subtraction and 0xFF
+
+        if (storeResult) registers.a = subtraction and 0xFF
+
         registers.flagZ = (subtraction and 0xFF) == 0
         registers.flagN = true
         registers.flagH = (a and 0x0F) < (b and 0x0F) + carry
