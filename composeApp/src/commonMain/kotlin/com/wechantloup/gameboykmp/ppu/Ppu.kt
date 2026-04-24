@@ -4,16 +4,14 @@ import com.wechantloup.gameboykmp.bus.Bus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
-private val DMG_WHITE = 0xFF9BBC0F.toInt() // ToDo To check, should existe somewhere else
-
 class Ppu(
     private val bus: Bus,
 ) {
     // Initialize with DMG white (lightest green) so the screen is visible immediately
-    private val _frameFlow = MutableStateFlow(IntArray(160 * 144) { DMG_WHITE })
+    private val _frameFlow = MutableStateFlow(IntArray(160 * 144) { grayToColor(0) })
     val frameFlow: StateFlow<IntArray> = _frameFlow
 
-    val frameBuffer = IntArray(160 * 144) { DMG_WHITE }
+    val frameBuffer = IntArray(160 * 144) { grayToColor(0) }
 
     private var ly = 0
     private var modeClock = 0
@@ -114,7 +112,7 @@ class Ppu(
     private fun renderScanline(lcdc: Int) {
         if (lcdc and 0x80 == 0) {
             // LCD off: fill scanline with white
-            for (x in 0 until 160) frameBuffer[ly * 160 + x] = DMG_WHITE
+            for (x in 0 until 160) frameBuffer[ly * 160 + x] = grayToColor(0)
             return
         }
         if (lcdc and 0x01 != 0) renderBackground(lcdc)
@@ -164,7 +162,7 @@ class Ppu(
     }
 
     private fun grayToColor(gray: Int): Int = when (gray) {
-        0 -> DMG_WHITE // ToDo
+        0 -> 0xFF9BBC0F.toInt()
         1 -> 0xFF8BAC0F.toInt()
         2 -> 0xFF306230.toInt()
         3 -> 0xFF0F380F.toInt()
