@@ -25,7 +25,7 @@ class Bus(
     val ie: Int get() = read(0xFFFF)
     val iF: Int get() = read(0xFF0F)
 
-    private val internalRam = IntArray(0x10000)
+    private val internalRam = IntArray(0x10000).also { initPostBootRegisters(it) }
     private val vram = IntArray(0x2000)  // 8KB
 
     fun read(address: Int): Int = when (address) {
@@ -49,4 +49,47 @@ class Bus(
     fun writeVram(address: Int, value: Int) { vram[address] = value }
 
     fun setIF(value: Int) = write(0xFF0F, value)
+
+    companion object {
+        /**
+         * I/O register state left by the DMG boot ROM.
+         * We skip the boot ROM and start at 0x0100, so we must reproduce this state.
+         * Without it, LCDC=0 (LCD off) and games that poll LY==144 loop forever.
+         */
+        private fun initPostBootRegisters(ram: IntArray) {
+            ram[0xFF05] = 0x00  // TIMA
+            ram[0xFF06] = 0x00  // TMA
+            ram[0xFF07] = 0x00  // TAC
+            ram[0xFF10] = 0x80  // NR10
+            ram[0xFF11] = 0xBF  // NR11
+            ram[0xFF12] = 0xF3  // NR12
+            ram[0xFF14] = 0xBF  // NR14
+            ram[0xFF16] = 0x3F  // NR21
+            ram[0xFF17] = 0x00  // NR22
+            ram[0xFF19] = 0xBF  // NR24
+            ram[0xFF1A] = 0x7F  // NR30
+            ram[0xFF1B] = 0xFF  // NR31
+            ram[0xFF1C] = 0x9F  // NR32
+            ram[0xFF1E] = 0xBF  // NR33
+            ram[0xFF20] = 0xFF  // NR41
+            ram[0xFF21] = 0x00  // NR42
+            ram[0xFF22] = 0x00  // NR43
+            ram[0xFF23] = 0xBF  // NR44
+            ram[0xFF24] = 0x77  // NR50
+            ram[0xFF25] = 0xF3  // NR51
+            ram[0xFF26] = 0xF1  // NR52
+            ram[0xFF40] = 0x91  // LCDC — LCD on, BG on, tile data 0x8800, tile map 0x9800
+            ram[0xFF41] = 0x85  // STAT — mode 1 (V-Blank)
+            ram[0xFF42] = 0x00  // SCY
+            ram[0xFF43] = 0x00  // SCX
+            ram[0xFF44] = 0x00  // LY
+            ram[0xFF45] = 0x00  // LYC
+            ram[0xFF47] = 0xFC  // BGP
+            ram[0xFF48] = 0xFF  // OBP0
+            ram[0xFF49] = 0xFF  // OBP1
+            ram[0xFF4A] = 0x00  // WY
+            ram[0xFF4B] = 0x00  // WX
+            ram[0xFFFF] = 0x00  // IE
+        }
+    }
 }

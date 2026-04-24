@@ -4,13 +4,16 @@ import com.wechantloup.gameboykmp.bus.Bus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
+private val DMG_WHITE = 0xFF9BBC0F.toInt() // ToDo To check, should existe somewhere else
+
 class Ppu(
     private val bus: Bus,
 ) {
-    private val _frameFlow = MutableStateFlow(IntArray(160 * 144))
+    // Initialize with DMG white (lightest green) so the screen is visible immediately
+    private val _frameFlow = MutableStateFlow(IntArray(160 * 144) { DMG_WHITE })
     val frameFlow: StateFlow<IntArray> = _frameFlow
 
-    val frameBuffer = IntArray(160 * 144)
+    val frameBuffer = IntArray(160 * 144) { DMG_WHITE }
 
     private var ly = 0
     private var modeClock = 0
@@ -19,12 +22,12 @@ class Ppu(
     fun step(cycles: Int) {
         val lcdc = bus.read(0xFF40)
 
-        // When LCD is disabled, keep LY=0 and don't advance PPU
-        if (lcdc and 0x80 == 0) {
+        // When LCD is disabled, the screen shows white and LY stays 0.
+        // We still advance PPU timing so VBlank fires and games can init VRAM safely.
+        val lcdEnabled = lcdc and 0x80 != 0
+        if (!lcdEnabled) {
             ly = 0
             bus.write(0xFF44, 0)
-            updateStat(0)
-            return
         }
 
         modeClock += cycles
@@ -109,6 +112,11 @@ class Ppu(
     }
 
     private fun renderScanline(lcdc: Int) {
+        if (lcdc and 0x80 == 0) {
+            // LCD off: fill scanline with white
+            for (x in 0 until 160) frameBuffer[ly * 160 + x] = DMG_WHITE
+            return
+        }
         if (lcdc and 0x01 != 0) renderBackground(lcdc)
         // Sprites (bit 1) and Window (bit 5) can be added later
     }
@@ -156,10 +164,10 @@ class Ppu(
     }
 
     private fun grayToColor(gray: Int): Int = when (gray) {
-        0 -> 0xFF9BBC0F.toInt()  // lightest green
+        0 -> DMG_WHITE // ToDo
         1 -> 0xFF8BAC0F.toInt()
         2 -> 0xFF306230.toInt()
-        3 -> 0xFF0F380F.toInt()  // darkest green
+        3 -> 0xFF0F380F.toInt()
         else -> 0xFF000000.toInt()
     }
 }
