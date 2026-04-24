@@ -8,6 +8,7 @@ class Cpu(
     val registers = Registers()
     var isHalted = false
     var ime = false
+    var imeScheduled = false
 
     fun step(): Int {
         // Check for pending interrupts
@@ -49,6 +50,10 @@ class Cpu(
 
         val opcode = fetch()
         execute(opcode) // TODO: return correct cycles per opcode
+        if (imeScheduled) {
+            ime = true
+            imeScheduled = false
+        }
         return 4
     }
 
@@ -271,7 +276,7 @@ class Cpu(
 
             /* --- Interrupts --- */
             0xF3 -> ime = false
-            0xFB -> ime = true
+            0xFB -> imeScheduled = true
 
             /* --- CB prefix --- */
             0xCB -> executeCb(fetch())
@@ -473,7 +478,7 @@ class Cpu(
         var a = registers.a
         if (!registers.flagN) {
             if (registers.flagH || (a and 0x0F) > 9) a += 0x06
-            if (registers.flagC || a > 0x9F) { a += 0x60; registers.flagC = true }
+            if (registers.flagC || a > 0x99) { a += 0x60; registers.flagC = true }
         } else {
             if (registers.flagH) a -= 0x06
             if (registers.flagC) a -= 0x60
