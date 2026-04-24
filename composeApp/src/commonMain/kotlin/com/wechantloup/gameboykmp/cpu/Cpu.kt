@@ -37,8 +37,8 @@ class Cpu(
                     4 -> 0x0060  // Joypad
                     else -> 0x0040
                 }
+                return 4 // TODO: return correct interrupt cycles
             }
-            return 4 // TODO: return correct interrupt cycles
         }
 
         if (isHalted) return 4
