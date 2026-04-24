@@ -28,11 +28,13 @@ class Bus(
     private val internalRam = IntArray(0x10000)
     private val vram = IntArray(0x2000)  // 8KB
 
-    fun read(address: Int): Int = when (address) {
-        in 0x0000..0x7FFF -> cartridge.readRom(address)
-        in 0x8000..0x9FFF -> readVram(address - 0x8000)
-        in 0xA000..0xBFFF -> cartridge.readRam(address - 0xA000)
-        else -> internalRam[address]
+    fun read(address: Int): Int {
+        return when (address) {
+            in 0x0000..0x7FFF -> cartridge.readRom(address)
+            in 0x8000..0x9FFF -> readVram(address - 0x8000)
+            in 0xA000..0xBFFF -> cartridge.readRam(address - 0xA000)
+            else -> internalRam[address]
+        }
     }
 
     fun write(address: Int, value: Int) {
