@@ -7,32 +7,27 @@ import kotlinx.coroutines.flow.StateFlow
 class Ppu(
     private val bus: Bus,
 ) {
-    private val _frameFlow = MutableStateFlow(IntArray(160 * 144))
+    // Initialize with DMG white (lightest green) so the screen is visible immediately
+    private val _frameFlow = MutableStateFlow(IntArray(160 * 144) { grayToColor(0) })
     val frameFlow: StateFlow<IntArray> = _frameFlow
 
-    // OAM 160 bytes (40 sprites × 4 bytes)
-    private val oam = IntArray(0xA0)
+    val frameBuffer = IntArray(160 * 144) { grayToColor(0) }
 
-    // Framebuffer 160×144 pixels (ARGB)
-    val frameBuffer = IntArray(160 * 144)
-
-    // Registres LCD
-    var lcdc = 0x91  // LCD Control
-    var stat = 0x85  // LCD Status
-    var scy = 0x00   // Scroll Y
-    var scx = 0x00   // Scroll X
-    var ly = 0x00    // Current scanline
-    var lyc = 0x00   // LY Compare
-    var bgp = 0xFC   // BG Palette
-    var obp0 = 0xFF  // OBJ Palette 0
-    var obp1 = 0xFF  // OBJ Palette 1
-    var wy = 0x00    // Window Y
-    var wx = 0x00    // Window X
-
+    private var ly = 0
     private var modeClock = 0
     private var mode = 2
 
     fun step(cycles: Int) {
+        val lcdc = bus.read(0xFF40)
+
+        // When LCD is disabled, the screen shows white and LY stays 0.
+        // We still advance PPU timing so VBlank fires and games can init VRAM safely.
+        val lcdEnabled = lcdc and 0x80 != 0
+//        if (!lcdEnabled) {
+//            ly = 0
+//            bus.write(0xFF44, 0)
+//        }
+
         modeClock += cycles
 
         when (mode) {
@@ -43,6 +38,7 @@ class Ppu(
             2 -> if (modeClock >= 80) {
                 modeClock -= 80
                 mode = 3
+                updateStat(3)
             }
 
             // Mode 3 - Drawing
@@ -51,8 +47,9 @@ class Ppu(
             // Duration: 172 cycles
             3 -> if (modeClock >= 172) {
                 modeClock -= 172
-                renderBackground()
+                renderScanline(lcdc)
                 mode = 0
+                updateStat(0)
             }
 
             // Mode 0 - H-Blank
@@ -62,14 +59,16 @@ class Ppu(
             0 -> if (modeClock >= 204) {
                 modeClock -= 204
                 ly++
+                bus.write(0xFF44, ly)
+                checkLyc()
                 if (ly == 144) {
-                    // All visible scanlines drawn, enter V-Blank
                     mode = 1
+                    updateStat(1)
+                    bus.setIF(bus.iF or 0x01)  // V-Blank interrupt
                     _frameFlow.value = frameBuffer.copyOf()
-                    // TODO: trigger V-Blank interrupt
                 } else {
-                    // Start next scanline
                     mode = 2
+                    updateStat(2)
                 }
             }
 
@@ -81,55 +80,93 @@ class Ppu(
             1 -> if (modeClock >= 456) {
                 modeClock -= 456
                 ly++
+                bus.write(0xFF44, ly)
                 if (ly > 153) {
-                    // End of V-Blank, start new frame
                     ly = 0
+                    bus.write(0xFF44, 0)
+                    modeClock = 0
                     mode = 2
+                    updateStat(2)
                 }
             }
         }
     }
 
-    private fun renderBackground() {
-        // Which line in the tile grid? (accounting for vertical scroll)
+    private fun updateStat(newMode: Int) {
+        val stat = bus.read(0xFF41)
+        bus.write(0xFF41, (stat and 0xFC) or (newMode and 0x03))
+    }
+
+    private fun checkLyc() {
+        val lyc = bus.read(0xFF45)
+        val stat = bus.read(0xFF41)
+        if (ly == lyc) {
+            bus.write(0xFF41, stat or 0x04)  // Set coincidence flag
+            if (stat and 0x40 != 0) {        // LYC=LY interrupt enabled?
+                bus.setIF(bus.iF or 0x02)
+            }
+        } else {
+            bus.write(0xFF41, stat and 0x04.inv())
+        }
+    }
+
+    private fun renderScanline(lcdc: Int) {
+        if (lcdc and 0x80 == 0) {
+            // LCD off: fill scanline with white
+            for (x in 0 until 160) frameBuffer[ly * 160 + x] = grayToColor(0)
+            return
+        }
+        if (lcdc and 0x01 != 0) renderBackground(lcdc)
+        // Sprites (bit 1) and Window (bit 5) can be added later
+    }
+
+    private fun renderBackground(lcdc: Int) {
+        val scy = bus.read(0xFF42)
+        val scx = bus.read(0xFF43)
+        val bgp = bus.read(0xFF47)
+
+        // Bit 3: BG tile map — 0=0x9800, 1=0x9C00
+        val tileMapBase = if (lcdc and 0x08 != 0) 0x1C00 else 0x1800  // VRAM offsets
+
+        // Bit 4: Tile data area — 1=0x8000 (unsigned), 0=0x8800 (signed, base at 0x9000)
+        val unsignedTileData = lcdc and 0x10 != 0
+
         val scrolledY = (ly + scy) and 0xFF
-        val tileRow = scrolledY / 8        // which row of tiles
-        val tilePixelY = scrolledY % 8     // which line within the tile
+        val tileRow = scrolledY / 8
+        val tilePixelY = scrolledY % 8
 
         for (screenX in 0 until 160) {
-            // Which column of tiles? (accounting for horizontal scroll)
             val scrolledX = (screenX + scx) and 0xFF
             val tileCol = scrolledX / 8
             val tilePixelX = scrolledX % 8
 
-            // Read tile index from tile map (0x9800 in VRAM, offset by 0x8000)
-            val tileMapAddr = 0x9800 - 0x8000 + tileRow * 32 + tileCol
+            val tileMapAddr = tileMapBase + tileRow * 32 + tileCol
             val tileIndex = bus.readVram(tileMapAddr)
 
-            // Read the 2 bytes encoding the pixel row in the tile
-            val tileAddr = tileIndex * 16 + tilePixelY * 2
-            val loByte = bus.readVram(tileAddr)
-            val hiByte = bus.readVram(tileAddr + 1)
+            // Compute tile data address in VRAM
+            val tileDataAddr = if (unsignedTileData) {
+                tileIndex * 16 + tilePixelY * 2          // 0x8000-based, unsigned
+            } else {
+                0x1000 + tileIndex.toByte().toInt() * 16 + tilePixelY * 2  // 0x9000-based, signed
+            }
 
-            // Extract color index from the 2 bytes (bit 7 = leftmost pixel)
+            val loByte = bus.readVram(tileDataAddr)
+            val hiByte = bus.readVram(tileDataAddr + 1)
+
             val loBit = (loByte shr (7 - tilePixelX)) and 0x01
             val hiBit = (hiByte shr (7 - tilePixelX)) and 0x01
             val colorIndex = (hiBit shl 1) or loBit
 
-            // Apply background palette (BGP register)
-            // Each color index uses 2 bits in BGP
             val gray = (bgp shr (colorIndex * 2)) and 0x03
-
-            // Write pixel to framebuffer
             frameBuffer[ly * 160 + screenX] = grayToColor(gray)
         }
     }
 
     private fun grayToColor(gray: Int): Int = when (gray) {
-        0 -> 0xFF9BBC0F.toInt()  // white  → light green
-        1 -> 0xFF8BAC0F.toInt()  // light gray → medium green
-        2 -> 0xFF306230.toInt()  // dark gray → dark green
-        3 -> 0xFF0F380F.toInt()  // black → very dark green
+        0 -> 0xFF9BBC0F.toInt()
+        1 -> 0xFF8BAC0F.toInt()
+        2 -> 0xFF306230.toInt()
+        3 -> 0xFF0F380F.toInt()
         else -> 0xFF000000.toInt()
     }
 }
