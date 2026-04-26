@@ -43,11 +43,6 @@ class Cpu(
 
         if (isHalted) return 4
 
-//        // Log les 20 premières instructions
-//        if (registers.pc < 0x0400) {
-//            println("PC=0x${registers.pc.toString(16)} opcode=0x${bus.read(registers.pc).toString(16)}")
-//        }
-
         val opcode = fetch()
         execute(opcode) // TODO: return correct cycles per opcode
         if (imeScheduled) {
@@ -281,7 +276,7 @@ class Cpu(
             /* --- CB prefix --- */
             0xCB -> executeCb(fetch())
 
-            else -> println("Opcode 0x${opcode.toString(16).uppercase()} not implemented at PC=0x${(registers.pc - 1).toString(16)}")
+            else -> TODO("Opcode 0x${opcode.toString(16).uppercase()} not implemented at PC=0x${(registers.pc - 1).toString(16)}")
         }
     }
 
