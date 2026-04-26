@@ -111,12 +111,53 @@ class Ppu(
             return
         }
         if (lcdc and 0x01 != 0) renderBackground(lcdc)
-        if (lcdc and 0x20 != 0) renderWindow()
+        if (lcdc and 0x20 != 0) renderWindow(lcdc)
         // Sprites (bit 1) and Window (bit 5) can be added later
     }
 
-    private fun renderWindow() {
-        // Todo
+    private fun renderWindow(lcdc: Int) {
+        val wx = bus.read(0xFF4B)
+        val wy = bus.read(0xFF4A)
+        val bgp = bus.read(0xFF47)
+
+        if (ly < wy) return
+
+        val tileRow = windowLine / 8
+        val tilePixelY = windowLine % 8
+
+        // Bit 6: Window tile map — 0=0x9800, 1=0x9C00
+        val tileMapBase = if (lcdc and 0x40 != 0) 0x1C00 else 0x1800
+
+        // Bit 4: Tile data area — 1=0x8000 (unsigned), 0=0x8800 (signed, base at 0x9000)
+        val unsignedTileData = lcdc and 0x10 != 0
+
+        for (screenX in (wx - 7) until 160) {
+            val windowX = screenX - (wx - 7)
+            val tileCol = windowX / 8
+            val tilePixelX = windowX % 8
+
+            val tileMapAddr = tileMapBase + tileRow * 32 + tileCol
+            val tileIndex = bus.readVram(tileMapAddr)
+
+            // Compute tile data address in VRAM
+            val tileDataAddr = if (unsignedTileData) {
+                tileIndex * 16 + tilePixelY * 2          // 0x8000-based, unsigned
+            } else {
+                0x1000 + tileIndex.toByte().toInt() * 16 + tilePixelY * 2  // 0x9000-based, signed
+            }
+
+            val loByte = bus.readVram(tileDataAddr)
+            val hiByte = bus.readVram(tileDataAddr + 1)
+
+            val loBit = (loByte shr (7 - tilePixelX)) and 0x01
+            val hiBit = (hiByte shr (7 - tilePixelX)) and 0x01
+            val colorIndex = (hiBit shl 1) or loBit
+
+            val gray = (bgp shr (colorIndex * 2)) and 0x03
+            frameBuffer[ly * 160 + screenX] = grayToColor(gray)
+        }
+
+        windowLine++
     }
 
     private fun renderBackground(lcdc: Int) {
