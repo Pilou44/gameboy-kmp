@@ -20,14 +20,6 @@ class Ppu(
     fun step(cycles: Int) {
         val lcdc = bus.read(0xFF40)
 
-        // When LCD is disabled, the screen shows white and LY stays 0.
-        // We still advance PPU timing so VBlank fires and games can init VRAM safely.
-        val lcdEnabled = lcdc and 0x80 != 0
-//        if (!lcdEnabled) {
-//            ly = 0
-//            bus.write(0xFF44, 0)
-//        }
-
         modeClock += cycles
 
         when (mode) {
