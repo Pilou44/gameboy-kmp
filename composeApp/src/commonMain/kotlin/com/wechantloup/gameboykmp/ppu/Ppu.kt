@@ -84,6 +84,7 @@ class Ppu(
                 if (ly > 153) {
                     ly = 0
                     bus.write(0xFF44, 0)
+                    modeClock = 0
                     mode = 2
                     updateStat(2)
                 }
