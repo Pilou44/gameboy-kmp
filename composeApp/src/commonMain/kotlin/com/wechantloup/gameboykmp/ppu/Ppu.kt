@@ -16,6 +16,7 @@ class Ppu(
     private var ly = 0
     private var modeClock = 0
     private var mode = 2
+    private var windowLine = 0
 
     fun step(cycles: Int) {
         val lcdc = bus.read(0xFF40)
@@ -55,6 +56,7 @@ class Ppu(
                 checkLyc()
                 if (ly == 144) {
                     mode = 1
+                    windowLine = 0
                     updateStat(1)
                     bus.setIF(bus.iF or 0x01)  // V-Blank interrupt
                     _frameFlow.value = frameBuffer.copyOf()
@@ -109,7 +111,12 @@ class Ppu(
             return
         }
         if (lcdc and 0x01 != 0) renderBackground(lcdc)
+        if (lcdc and 0x20 != 0) renderWindow()
         // Sprites (bit 1) and Window (bit 5) can be added later
+    }
+
+    private fun renderWindow() {
+        // Todo
     }
 
     private fun renderBackground(lcdc: Int) {
