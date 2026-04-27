@@ -145,8 +145,11 @@ class Ppu(
                 // bits 3-0 — unused on DMG
                 val spriteAttributes = bus.readOam(spriteIndex * 4 + 3)
 
-                for (pixelX in 0 until 8) {
-                    val screenX = positionX - 8 + pixelX
+                for (pixelIndex in 0 until 8) {
+                    val flipX = spriteAttributes and 0x20 > 0
+
+                    val pixelX = if (flipX) 7 - pixelIndex else pixelIndex
+                    val screenX = positionX - 8 + pixelIndex
                     if (screenX < 0) continue
                     if (screenX >= 160) continue
 
