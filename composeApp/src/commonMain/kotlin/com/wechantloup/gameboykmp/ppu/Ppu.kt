@@ -12,6 +12,7 @@ class Ppu(
     val frameFlow: StateFlow<IntArray> = _frameFlow
 
     val frameBuffer = IntArray(160 * 144) { grayToColor(0) }
+    val bgColorIndexBuffer = IntArray(160 * 144)
 
     private var ly = 0
     private var modeClock = 0
@@ -141,6 +142,7 @@ class Ppu(
                 val spriteAttributes = bus.readOam(spriteIndex * 4 + 3)
                 val flipY = spriteAttributes and 0x40 > 0
                 val flipX = spriteAttributes and 0x20 > 0
+                val bgPriority = spriteAttributes and 0x80 > 0
                 val paletteAddress = if (spriteAttributes and 0x10 > 0) 0xFF49 else 0xFF48
 
                 val tileRow = if (!flipY) {
@@ -183,7 +185,10 @@ class Ppu(
 
                     val bgp = bus.read(paletteAddress)
                     val gray = (bgp shr (colorIndex * 2)) and 0x03
-                    frameBuffer[ly * 160 + screenX] = grayToColor(gray)
+
+                    if (!bgPriority || bgColorIndexBuffer[ly * 160 + screenX] == 0) {
+                        frameBuffer[ly * 160 + screenX] = grayToColor(gray)
+                    }
                 }
             }
         }
@@ -230,6 +235,7 @@ class Ppu(
 
             val gray = (bgp shr (colorIndex * 2)) and 0x03
             frameBuffer[ly * 160 + screenX] = grayToColor(gray)
+            bgColorIndexBuffer[ly * 160 + screenX] = colorIndex
         }
 
         windowLine++
@@ -274,6 +280,7 @@ class Ppu(
 
             val gray = (bgp shr (colorIndex * 2)) and 0x03
             frameBuffer[ly * 160 + screenX] = grayToColor(gray)
+            bgColorIndexBuffer[ly * 160 + screenX] = colorIndex
         }
     }
 
