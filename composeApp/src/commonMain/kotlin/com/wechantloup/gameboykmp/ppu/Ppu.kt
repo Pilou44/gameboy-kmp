@@ -144,8 +144,20 @@ class Ppu(
                     spriteHeight - 1 - (ly - (positionY - 16))
                 }
 
-                val tileIndex = bus.readOam(spriteIndex * 4 + 2)
-                val tileDataAddr = tileIndex * 16 + tileRow * 2
+                var tileIndex = bus.readOam(spriteIndex * 4 + 2)
+                if (!squareSprite) tileIndex = if (tileRow < 8) {
+                    tileIndex and 0xFE
+                } else {
+                    tileIndex or 0x01
+                }
+
+                val adjustedTileRow = if (tileRow >= 8) {
+                    tileRow - 8
+                } else {
+                    tileRow
+                }
+
+                val tileDataAddr = tileIndex * 16 + adjustedTileRow * 2
 
                 val loByte = bus.readVram(tileDataAddr)
                 val hiByte = bus.readVram(tileDataAddr + 1)
