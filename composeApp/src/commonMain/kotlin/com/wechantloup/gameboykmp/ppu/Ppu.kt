@@ -261,10 +261,14 @@ class Ppu(
     }
 
     private fun grayToColor(gray: Int): Int = when (gray) {
+//        0 -> 0xFF9BBC0F.toInt()
+//        1 -> 0xFF8BAC0F.toInt()
+//        2 -> 0xFF306230.toInt()
+//        3 -> 0xFF0F380F.toInt()
         0 -> 0xFF9BBC0F.toInt()
-        1 -> 0xFF8BAC0F.toInt()
-        2 -> 0xFF306230.toInt()
-        3 -> 0xFF0F380F.toInt()
+        1 -> 0xFF7B8F00.toInt()
+        2 -> 0xFF3E5C00.toInt()
+        3 -> 0xFF1F3A00.toInt()
         else -> 0xFF000000.toInt()
     }
 }
