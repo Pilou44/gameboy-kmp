@@ -121,12 +121,17 @@ class Ppu(
         // false for 8x8
         val squareSprite = lcdc and 0x04 == 0
 
+        var spriteCounter = 0
         for (spriteIndex in 0..39) {
             val positionY = bus.readOam(spriteIndex * 4)
 
             val spriteHeight = if (squareSprite) 8 else 16
             val isSpriteOnLine = ly >= positionY - 16 && ly < positionY - 16 + spriteHeight // sprite is displayed
-            if (isSpriteOnLine) {
+
+            // Max 10 sprites per line
+            if (isSpriteOnLine && spriteCounter < 10) {
+                spriteCounter++
+
                 // Sprite attributes (byte 3 of OAM):
                 // bit 7 — BG priority: 0=sprite in front of background, 1=sprite behind background
                 // bit 6 — Y flip: 0=normal, 1=sprite flipped vertically
