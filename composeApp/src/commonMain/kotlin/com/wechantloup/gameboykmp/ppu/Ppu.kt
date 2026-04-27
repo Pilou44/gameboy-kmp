@@ -127,7 +127,22 @@ class Ppu(
             val spriteHeight = if (squareSprite) 8 else 16
             val isSpriteOnLine = ly >= positionY - 16 && ly < positionY - 16 + spriteHeight // sprite is displayed
             if (isSpriteOnLine) {
-                val tileRow = ly - (positionY - 16)
+                // Sprite attributes (byte 3 of OAM):
+                // bit 7 — BG priority: 0=sprite in front of background, 1=sprite behind background
+                // bit 6 — Y flip: 0=normal, 1=sprite flipped vertically
+                // bit 5 — X flip: 0=normal, 1=sprite flipped horizontally
+                // bit 4 — Palette: 0=OBP0 (0xFF48), 1=OBP1 (0xFF49)
+                // bits 3-0 — unused on DMG
+                val spriteAttributes = bus.readOam(spriteIndex * 4 + 3)
+                val flipY = spriteAttributes and 0x40 > 0
+                val flipX = spriteAttributes and 0x20 > 0
+                val paletteAddress = if (spriteAttributes and 0x10 > 0) 0xFF49 else 0xFF48
+
+                val tileRow = if (!flipY) {
+                    ly - (positionY - 16)
+                } else {
+                    spriteHeight - 1 - (ly - (positionY - 16))
+                }
 
                 val tileIndex = bus.readOam(spriteIndex * 4 + 2)
                 val tileDataAddr = tileIndex * 16 + tileRow * 2
@@ -137,19 +152,9 @@ class Ppu(
 
                 val positionX = bus.readOam(spriteIndex * 4 + 1)
 
-                // Sprite attributes (byte 3 of OAM):
-                // bit 7 — BG priority: 0=sprite in front of background, 1=sprite behind background
-                // bit 6 — Y flip: 0=normal, 1=sprite flipped vertically
-                // bit 5 — X flip: 0=normal, 1=sprite flipped horizontally
-                // bit 4 — Palette: 0=OBP0 (0xFF48), 1=OBP1 (0xFF49)
-                // bits 3-0 — unused on DMG
-                val spriteAttributes = bus.readOam(spriteIndex * 4 + 3)
-
-                for (pixelIndex in 0 until 8) {
-                    val flipX = spriteAttributes and 0x20 > 0
-
-                    val pixelX = if (flipX) 7 - pixelIndex else pixelIndex
-                    val screenX = positionX - 8 + pixelIndex
+                for (pixelIndexX in 0 until 8) {
+                    val pixelX = if (flipX) 7 - pixelIndexX else pixelIndexX
+                    val screenX = positionX - 8 + pixelIndexX
                     if (screenX < 0) continue
                     if (screenX >= 160) continue
 
@@ -159,7 +164,6 @@ class Ppu(
 
                     if (colorIndex == 0) continue // Do not display transparent color
 
-                    val paletteAddress = if (spriteAttributes and 0x10 > 0) 0xFF49 else 0xFF48
                     val bgp = bus.read(paletteAddress)
                     val gray = (bgp shr (colorIndex * 2)) and 0x03
                     frameBuffer[ly * 160 + screenX] = grayToColor(gray)
