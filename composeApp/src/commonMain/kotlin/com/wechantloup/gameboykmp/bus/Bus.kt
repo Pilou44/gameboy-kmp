@@ -27,11 +27,13 @@ class Bus(
 
     private val internalRam = IntArray(0x10000).also { initPostBootRegisters(it) }
     private val vram = IntArray(0x2000)  // 8KB
+    private val oam = IntArray(0xA0) // 160 octets = 40 sprites × 4 octets
 
     fun read(address: Int): Int = when (address) {
         in 0x0000..0x7FFF -> cartridge.readRom(address)
         in 0x8000..0x9FFF -> readVram(address - 0x8000)
         in 0xA000..0xBFFF -> cartridge.readRam(address - 0xA000)
+        in 0xFE00..0xFE9F -> readOam(address - 0XFE00)
         else -> internalRam[address]
     }
 
@@ -41,12 +43,16 @@ class Bus(
             in 0x0000..0x7FFF -> cartridge.writeRom(address, v)
             in 0x8000..0x9FFF -> writeVram(address - 0x8000, v)
             in 0xA000..0xBFFF -> cartridge.writeRam(address - 0xA000, v)
+            in 0xFE00..0xFE9F -> writeOam(address - 0XFE00, v)
             else -> internalRam[address] = v
         }
     }
 
     fun readVram(address: Int): Int = vram[address]        // address 0x0000..0x1FFF
     fun writeVram(address: Int, value: Int) { vram[address] = value }
+
+    fun readOam(address: Int): Int = oam[address]
+    fun writeOam(address: Int, value: Int) { oam[address] = value }
 
     fun setIF(value: Int) = write(0xFF0F, value)
 
