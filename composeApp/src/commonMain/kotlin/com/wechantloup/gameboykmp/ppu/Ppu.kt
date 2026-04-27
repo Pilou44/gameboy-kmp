@@ -121,6 +121,7 @@ class Ppu(
         val bgp = bus.read(0xFF47)
 
         if (ly < wy) return
+        if (wx - 7 >= 160) return
 
         val tileRow = windowLine / 8
         val tilePixelY = windowLine % 8
