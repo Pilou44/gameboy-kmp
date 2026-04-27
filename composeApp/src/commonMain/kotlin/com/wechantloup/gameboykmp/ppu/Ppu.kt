@@ -121,74 +121,84 @@ class Ppu(
         // true for 8x16
         // false for 8x8
         val squareSprite = lcdc and 0x04 == 0
+        val spriteHeight = if (squareSprite) 8 else 16
 
         var spriteCounter = 0
+        var spriteIndexesToDisplay = mutableListOf<Int>()
         for (spriteIndex in 0..39) {
             val positionY = bus.readOam(spriteIndex * 4)
 
-            val spriteHeight = if (squareSprite) 8 else 16
             val isSpriteOnLine = ly >= positionY - 16 && ly < positionY - 16 + spriteHeight // sprite is displayed
 
             // Max 10 sprites per line
             if (isSpriteOnLine && spriteCounter < 10) {
                 spriteCounter++
+                spriteIndexesToDisplay.add(spriteIndex)
+            }
+        }
 
-                // Sprite attributes (byte 3 of OAM):
-                // bit 7 — BG priority: 0=sprite in front of background, 1=sprite behind background
-                // bit 6 — Y flip: 0=normal, 1=sprite flipped vertically
-                // bit 5 — X flip: 0=normal, 1=sprite flipped horizontally
-                // bit 4 — Palette: 0=OBP0 (0xFF48), 1=OBP1 (0xFF49)
-                // bits 3-0 — unused on DMG
-                val spriteAttributes = bus.readOam(spriteIndex * 4 + 3)
-                val flipY = spriteAttributes and 0x40 > 0
-                val flipX = spriteAttributes and 0x20 > 0
-                val bgPriority = spriteAttributes and 0x80 > 0
-                val paletteAddress = if (spriteAttributes and 0x10 > 0) 0xFF49 else 0xFF48
+        spriteIndexesToDisplay = spriteIndexesToDisplay
+            .reversed()
+            .sortedByDescending { bus.readOam(it * 4 + 1) }
+            .toMutableList()
+        for (spriteIndex in spriteIndexesToDisplay) {
+            val positionY = bus.readOam(spriteIndex * 4)
 
-                val tileRow = if (!flipY) {
-                    ly - (positionY - 16)
-                } else {
-                    spriteHeight - 1 - (ly - (positionY - 16))
-                }
+            // Sprite attributes (byte 3 of OAM):
+            // bit 7 — BG priority: 0=sprite in front of background, 1=sprite behind background
+            // bit 6 — Y flip: 0=normal, 1=sprite flipped vertically
+            // bit 5 — X flip: 0=normal, 1=sprite flipped horizontally
+            // bit 4 — Palette: 0=OBP0 (0xFF48), 1=OBP1 (0xFF49)
+            // bits 3-0 — unused on DMG
+            val spriteAttributes = bus.readOam(spriteIndex * 4 + 3)
+            val flipY = spriteAttributes and 0x40 > 0
+            val flipX = spriteAttributes and 0x20 > 0
+            val bgPriority = spriteAttributes and 0x80 > 0
+            val paletteAddress = if (spriteAttributes and 0x10 > 0) 0xFF49 else 0xFF48
 
-                var tileIndex = bus.readOam(spriteIndex * 4 + 2)
-                if (!squareSprite) tileIndex = if (tileRow < 8) {
-                    tileIndex and 0xFE
-                } else {
-                    tileIndex or 0x01
-                }
+            val tileRow = if (!flipY) {
+                ly - (positionY - 16)
+            } else {
+                spriteHeight - 1 - (ly - (positionY - 16))
+            }
 
-                val adjustedTileRow = if (tileRow >= 8) {
-                    tileRow - 8
-                } else {
-                    tileRow
-                }
+            var tileIndex = bus.readOam(spriteIndex * 4 + 2)
+            if (!squareSprite) tileIndex = if (tileRow < 8) {
+                tileIndex and 0xFE
+            } else {
+                tileIndex or 0x01
+            }
 
-                val tileDataAddr = tileIndex * 16 + adjustedTileRow * 2
+            val adjustedTileRow = if (tileRow >= 8) {
+                tileRow - 8
+            } else {
+                tileRow
+            }
 
-                val loByte = bus.readVram(tileDataAddr)
-                val hiByte = bus.readVram(tileDataAddr + 1)
+            val tileDataAddr = tileIndex * 16 + adjustedTileRow * 2
 
-                val positionX = bus.readOam(spriteIndex * 4 + 1)
+            val loByte = bus.readVram(tileDataAddr)
+            val hiByte = bus.readVram(tileDataAddr + 1)
 
-                for (pixelIndexX in 0 until 8) {
-                    val pixelX = if (flipX) 7 - pixelIndexX else pixelIndexX
-                    val screenX = positionX - 8 + pixelIndexX
-                    if (screenX < 0) continue
-                    if (screenX >= 160) continue
+            val positionX = bus.readOam(spriteIndex * 4 + 1)
 
-                    val loBit = (loByte shr (7 - pixelX)) and 0x01
-                    val hiBit = (hiByte shr (7 - pixelX)) and 0x01
-                    val colorIndex = (hiBit shl 1) or loBit
+            for (pixelIndexX in 0 until 8) {
+                val pixelX = if (flipX) 7 - pixelIndexX else pixelIndexX
+                val screenX = positionX - 8 + pixelIndexX
+                if (screenX < 0) continue
+                if (screenX >= 160) continue
 
-                    if (colorIndex == 0) continue // Do not display transparent color
+                val loBit = (loByte shr (7 - pixelX)) and 0x01
+                val hiBit = (hiByte shr (7 - pixelX)) and 0x01
+                val colorIndex = (hiBit shl 1) or loBit
 
-                    val bgp = bus.read(paletteAddress)
-                    val gray = (bgp shr (colorIndex * 2)) and 0x03
+                if (colorIndex == 0) continue // Do not display transparent color
 
-                    if (!bgPriority || bgColorIndexBuffer[ly * 160 + screenX] == 0) {
-                        frameBuffer[ly * 160 + screenX] = grayToColor(gray)
-                    }
+                val bgp = bus.read(paletteAddress)
+                val gray = (bgp shr (colorIndex * 2)) and 0x03
+
+                if (!bgPriority || bgColorIndexBuffer[ly * 160 + screenX] == 0) {
+                    frameBuffer[ly * 160 + screenX] = grayToColor(gray)
                 }
             }
         }
