@@ -37,19 +37,19 @@ class Cpu(
                     4 -> 0x0060  // Joypad
                     else -> 0x0040
                 }
-                return 4 // TODO: return correct interrupt cycles
+                return 20
             }
         }
 
         if (isHalted) return 4
 
         val opcode = fetch()
-        execute(opcode) // TODO: return correct cycles per opcode
+        val cycles = execute(opcode)
         if (imeScheduled) {
             ime = true
             imeScheduled = false
         }
-        return 4
+        return cycles
     }
 
     fun reset() {
@@ -85,36 +85,37 @@ class Cpu(
         }
     }
 
-    private fun execute(opcode: Int) {
-        when (opcode) {
-            0x00 -> { /* NOP - do nothing */ }
+    private fun execute(opcode: Int): Int {
+        return when (opcode) {
+            0x00 -> 4 /* NOP - do nothing */
 
-            0x76 -> isHalted = true  // HALT
+            0x76 -> { isHalted = true; 4 }  // HALT
 
             /* --- 8-bit loads: immediate --- */
-            0x06 -> registers.b = fetch()
-            0x0E -> registers.c = fetch()
-            0x16 -> registers.d = fetch()
-            0x1E -> registers.e = fetch()
-            0x26 -> registers.h = fetch()
-            0x2E -> registers.l = fetch()
-            0x36 -> bus.write(registers.hl, fetch())  // LD (HL), n
-            0x3E -> registers.a = fetch()
+            0x06 -> { registers.b = fetch(); 8 }
+            0x0E -> { registers.c = fetch(); 8 }
+            0x16 -> { registers.d = fetch(); 8 }
+            0x1E -> { registers.e = fetch(); 8 }
+            0x26 -> { registers.h = fetch(); 8 }
+            0x2E -> { registers.l = fetch(); 8 }
+            0x36 -> { bus.write(registers.hl, fetch()); 12 }  // LD (HL), n
+            0x3E -> { registers.a = fetch(); 8 }
 
             /* --- 8-bit loads: register to register (0x40–0x7F, 0x76=HALT handled above) --- */
             in 0x40..0x7F -> load(opcode)
 
             /* --- 16-bit loads: immediate --- */
-            0x01 -> registers.bc = fetch16()
-            0x11 -> registers.de = fetch16()
-            0x21 -> registers.hl = fetch16()
-            0x31 -> registers.sp = fetch16()
+            0x01 -> { registers.bc = fetch16(); 12 }
+            0x11 -> { registers.de = fetch16(); 12 }
+            0x21 -> { registers.hl = fetch16(); 12 }
+            0x31 -> { registers.sp = fetch16(); 12 }
 
             /* --- 16-bit loads: special --- */
             0x08 -> {                                   // LD (nn), SP
                 val addr = fetch16()
                 bus.write(addr, registers.sp and 0xFF)
                 bus.write(addr + 1, (registers.sp shr 8) and 0xFF)
+                20
             }
             0xF8 -> {                                   // LD HL, SP+n
                 val offset = fetch().toByte().toInt()
@@ -124,28 +125,29 @@ class Cpu(
                 registers.flagH = (registers.sp xor offset xor result) and 0x10 != 0
                 registers.flagC = (registers.sp xor offset xor result) and 0x100 != 0
                 registers.hl = result
+                12
             }
-            0xF9 -> registers.sp = registers.hl        // LD SP, HL
+            0xF9 -> { registers.sp = registers.hl; 8 }        // LD SP, HL
 
             /* --- LD (HL±), A / LD A, (HL±) --- */
-            0x22 -> { bus.write(registers.hl, registers.a); registers.hl = (registers.hl + 1) and 0xFFFF }
-            0x32 -> { bus.write(registers.hl, registers.a); registers.hl = (registers.hl - 1) and 0xFFFF }
-            0x2A -> { registers.a = bus.read(registers.hl); registers.hl = (registers.hl + 1) and 0xFFFF }
-            0x3A -> { registers.a = bus.read(registers.hl); registers.hl = (registers.hl - 1) and 0xFFFF }
+            0x22 -> { bus.write(registers.hl, registers.a); registers.hl = (registers.hl + 1) and 0xFFFF; 8 }
+            0x32 -> { bus.write(registers.hl, registers.a); registers.hl = (registers.hl - 1) and 0xFFFF; 8 }
+            0x2A -> { registers.a = bus.read(registers.hl); registers.hl = (registers.hl + 1) and 0xFFFF; 8 }
+            0x3A -> { registers.a = bus.read(registers.hl); registers.hl = (registers.hl - 1) and 0xFFFF; 8 }
 
             /* --- LD (BC/DE), A / LD A, (BC/DE) --- */
-            0x02 -> bus.write(registers.bc, registers.a)
-            0x12 -> bus.write(registers.de, registers.a)
-            0x0A -> registers.a = bus.read(registers.bc)
-            0x1A -> registers.a = bus.read(registers.de)
+            0x02 -> { bus.write(registers.bc, registers.a); 8 }
+            0x12 -> { bus.write(registers.de, registers.a); 8 }
+            0x0A -> { registers.a = bus.read(registers.bc); 8 }
+            0x1A -> { registers.a = bus.read(registers.de); 8 }
 
             /* --- I/O loads --- */
-            0xE0 -> bus.write(0xFF00 + fetch(), registers.a)
-            0xF0 -> registers.a = bus.read(0xFF00 + fetch())
-            0xE2 -> bus.write(0xFF00 + registers.c, registers.a)
-            0xF2 -> registers.a = bus.read(0xFF00 + registers.c)
-            0xEA -> bus.write(fetch16(), registers.a)
-            0xFA -> registers.a = bus.read(fetch16())
+            0xE0 -> { bus.write(0xFF00 + fetch(), registers.a); 12 }
+            0xF0 -> { registers.a = bus.read(0xFF00 + fetch()); 12 }
+            0xE2 -> { bus.write(0xFF00 + registers.c, registers.a); 8 }
+            0xF2 -> { registers.a = bus.read(0xFF00 + registers.c); 8 }
+            0xEA -> { bus.write(fetch16(), registers.a); 16 }
+            0xFA -> { registers.a = bus.read(fetch16()); 16 }
 
             /* --- 8-bit arithmetic: register --- */
             in 0x80..0x87 -> add(opcode)
@@ -168,22 +170,34 @@ class Cpu(
             0xFE -> subImmediate(fetch(), storeResult = false)  // CP n
 
             /* --- 8-bit INC/DEC --- */
-            0x04 -> inc(0); 0x0C -> inc(1); 0x14 -> inc(2); 0x1C -> inc(3)
-            0x24 -> inc(4); 0x2C -> inc(5); 0x34 -> inc(6); 0x3C -> inc(7)
+            0x04 -> inc(0)
+            0x0C -> inc(1)
+            0x14 -> inc(2)
+            0x1C -> inc(3)
+            0x24 -> inc(4)
+            0x2C -> inc(5)
+            0x34 -> inc(6)
+            0x3C -> inc(7)
 
-            0x05 -> dec(0); 0x0D -> dec(1); 0x15 -> dec(2); 0x1D -> dec(3)
-            0x25 -> dec(4); 0x2D -> dec(5); 0x35 -> dec(6); 0x3D -> dec(7)
+            0x05 -> dec(0)
+            0x0D -> dec(1)
+            0x15 -> dec(2)
+            0x1D -> dec(3)
+            0x25 -> dec(4)
+            0x2D -> dec(5)
+            0x35 -> dec(6)
+            0x3D -> dec(7)
 
             /* --- 16-bit INC/DEC --- */
-            0x03 -> registers.bc = (registers.bc + 1) and 0xFFFF
-            0x13 -> registers.de = (registers.de + 1) and 0xFFFF
-            0x23 -> registers.hl = (registers.hl + 1) and 0xFFFF
-            0x33 -> registers.sp = (registers.sp + 1) and 0xFFFF
+            0x03 -> { registers.bc = (registers.bc + 1) and 0xFFFF; 8 }
+            0x13 -> { registers.de = (registers.de + 1) and 0xFFFF; 8 }
+            0x23 -> { registers.hl = (registers.hl + 1) and 0xFFFF; 8 }
+            0x33 -> { registers.sp = (registers.sp + 1) and 0xFFFF; 8 }
 
-            0x0B -> registers.bc = (registers.bc - 1) and 0xFFFF
-            0x1B -> registers.de = (registers.de - 1) and 0xFFFF
-            0x2B -> registers.hl = (registers.hl - 1) and 0xFFFF
-            0x3B -> registers.sp = (registers.sp - 1) and 0xFFFF
+            0x0B -> { registers.bc = (registers.bc - 1) and 0xFFFF; 8 }
+            0x1B -> { registers.de = (registers.de - 1) and 0xFFFF; 8 }
+            0x2B -> { registers.hl = (registers.hl - 1) and 0xFFFF; 8 }
+            0x3B -> { registers.sp = (registers.sp - 1) and 0xFFFF; 8 }
 
             /* --- ADD HL, rr --- */
             0x09 -> addHL(registers.bc)
@@ -200,6 +214,7 @@ class Cpu(
                 registers.flagH = (registers.sp xor offset xor result) and 0x10 != 0
                 registers.flagC = (registers.sp xor offset xor result) and 0x100 != 0
                 registers.sp = result
+                16
             }
 
             /* --- Rotate accumulator --- */
@@ -208,12 +223,14 @@ class Cpu(
                 registers.a = ((registers.a shl 1) or bit7) and 0xFF
                 registers.flagZ = false; registers.flagN = false; registers.flagH = false
                 registers.flagC = bit7 != 0
+                4
             }
             0x0F -> {  // RRCA
                 val bit0 = registers.a and 1
                 registers.a = (registers.a ushr 1) or (bit0 shl 7)
                 registers.flagZ = false; registers.flagN = false; registers.flagH = false
                 registers.flagC = bit0 != 0
+                4
             }
             0x17 -> {  // RLA
                 val oldC = if (registers.flagC) 1 else 0
@@ -221,6 +238,7 @@ class Cpu(
                 registers.a = ((registers.a shl 1) or oldC) and 0xFF
                 registers.flagZ = false; registers.flagN = false; registers.flagH = false
                 registers.flagC = bit7 != 0
+                4
             }
             0x1F -> {  // RRA
                 val oldC = if (registers.flagC) 1 else 0
@@ -228,50 +246,67 @@ class Cpu(
                 registers.a = (registers.a ushr 1) or (oldC shl 7)
                 registers.flagZ = false; registers.flagN = false; registers.flagH = false
                 registers.flagC = bit0 != 0
+                4
             }
 
             /* --- Misc --- */
             0x27 -> daa()
-            0x2F -> { registers.a = registers.a.inv() and 0xFF; registers.flagN = true; registers.flagH = true }  // CPL
-            0x37 -> { registers.flagN = false; registers.flagH = false; registers.flagC = true }   // SCF
-            0x3F -> { registers.flagN = false; registers.flagH = false; registers.flagC = !registers.flagC }  // CCF
+            0x2F -> { registers.a = registers.a.inv() and 0xFF; registers.flagN = true; registers.flagH = true; 4 }  // CPL
+            0x37 -> { registers.flagN = false; registers.flagH = false; registers.flagC = true; 4 }   // SCF
+            0x3F -> { registers.flagN = false; registers.flagH = false; registers.flagC = !registers.flagC; 4 }  // CCF
 
             /* --- Jumps --- */
             0xC3 -> jp()
-            0xC2 -> jp(!registers.flagZ); 0xCA -> jp(registers.flagZ)
-            0xD2 -> jp(!registers.flagC); 0xDA -> jp(registers.flagC)
-            0xE9 -> registers.pc = registers.hl  // JP HL
+            0xC2 -> jp(!registers.flagZ)
+            0xCA -> jp(registers.flagZ)
+            0xD2 -> jp(!registers.flagC)
+            0xDA -> jp(registers.flagC)
+            0xE9 -> { registers.pc = registers.hl; 4 }  // JP HL
 
             0x18 -> jr()
-            0x20 -> jr(!registers.flagZ); 0x28 -> jr(registers.flagZ)
-            0x30 -> jr(!registers.flagC); 0x38 -> jr(registers.flagC)
+            0x20 -> jr(!registers.flagZ)
+            0x28 -> jr(registers.flagZ)
+            0x30 -> jr(!registers.flagC)
+            0x38 -> jr(registers.flagC)
 
             /* --- CALL / RET --- */
             0xCD -> call()
-            0xC4 -> call(!registers.flagZ); 0xCC -> call(registers.flagZ)
-            0xD4 -> call(!registers.flagC); 0xDC -> call(registers.flagC)
+            0xC4 -> call(!registers.flagZ)
+            0xCC -> call(registers.flagZ)
+            0xD4 -> call(!registers.flagC)
+            0xDC -> call(registers.flagC)
 
-            0xC9 -> ret()
-            0xC0 -> ret(!registers.flagZ); 0xC8 -> ret(registers.flagZ)
-            0xD0 -> ret(!registers.flagC); 0xD8 -> ret(registers.flagC)
-            0xD9 -> { registers.pc = pop(); ime = true }  // RETI
+            0xC9 -> { registers.pc = pop(); 16 }
+            0xC0 -> ret(!registers.flagZ)
+            0xC8 -> ret(registers.flagZ)
+            0xD0 -> ret(!registers.flagC)
+            0xD8 -> ret(registers.flagC)
+            0xD9 -> { registers.pc = pop(); ime = true; 16 }  // RETI
 
             /* --- PUSH / POP --- */
-            0xC5 -> push(registers.bc); 0xD5 -> push(registers.de)
-            0xE5 -> push(registers.hl); 0xF5 -> push(registers.af)
+            0xC5 -> { push(registers.bc); 16 }
+            0xD5 -> { push(registers.de); 16 }
+            0xE5 -> { push(registers.hl); 16 }
+            0xF5 -> { push(registers.af); 16 }
 
-            0xC1 -> registers.bc = pop(); 0xD1 -> registers.de = pop()
-            0xE1 -> registers.hl = pop(); 0xF1 -> registers.af = pop()
+            0xC1 -> { registers.bc = pop(); 12 }
+            0xD1 -> { registers.de = pop(); 12 }
+            0xE1 -> { registers.hl = pop(); 12 }
+            0xF1 -> { registers.af = pop(); 12 }
 
             /* --- RST --- */
-            0xC7 -> rst(0x00); 0xCF -> rst(0x08)
-            0xD7 -> rst(0x10); 0xDF -> rst(0x18)
-            0xE7 -> rst(0x20); 0xEF -> rst(0x28)
-            0xF7 -> rst(0x30); 0xFF -> rst(0x38)
+            0xC7 -> rst(0x00)
+            0xCF -> rst(0x08)
+            0xD7 -> rst(0x10)
+            0xDF -> rst(0x18)
+            0xE7 -> rst(0x20)
+            0xEF -> rst(0x28)
+            0xF7 -> rst(0x30)
+            0xFF -> rst(0x38)
 
             /* --- Interrupts --- */
-            0xF3 -> ime = false
-            0xFB -> imeScheduled = true
+            0xF3 -> { ime = false; 4 }
+            0xFB -> { imeScheduled = true; 4 }
 
             /* --- CB prefix --- */
             0xCB -> executeCb(fetch())
@@ -280,7 +315,7 @@ class Cpu(
         }
     }
 
-    private fun executeCb(opcode: Int) {
+    private fun executeCb(opcode: Int): Int {
         val reg = opcode and 0x07
         when (opcode and 0xF8) {
             0x00 -> {  // RLC r
@@ -358,9 +393,14 @@ class Cpu(
                 }
             }
         }
+        return when {
+            reg != 6 -> 8
+            opcode in 0x40..0x7F -> 12  // BIT b, (HL) — lecture seule
+            else -> 16                   // toutes les autres opérations sur (HL)
+        }
     }
 
-    private fun add(code: Int, withCarry: Boolean = false) {
+    private fun add(code: Int, withCarry: Boolean = false): Int {
         val a = registers.a
         val b = getRegister(code and 0x07)
         val carry = if (withCarry && registers.flagC) 1 else 0
@@ -370,9 +410,10 @@ class Cpu(
         registers.flagN = false
         registers.flagH = (a and 0x0F) + (b and 0x0F) + carry > 0x0F
         registers.flagC = result > 0xFF
+        return if (code and 0x07 == 6) 8 else 4
     }
 
-    private fun addImmediate(n: Int, withCarry: Boolean = false) {
+    private fun addImmediate(n: Int, withCarry: Boolean = false): Int {
         val a = registers.a
         val carry = if (withCarry && registers.flagC) 1 else 0
         val result = a + n + carry
@@ -381,9 +422,10 @@ class Cpu(
         registers.flagN = false
         registers.flagH = (a and 0x0F) + (n and 0x0F) + carry > 0x0F
         registers.flagC = result > 0xFF
+        return 8
     }
 
-    private fun sub(code: Int, withCarry: Boolean = false, storeResult: Boolean = true) {
+    private fun sub(code: Int, withCarry: Boolean = false, storeResult: Boolean = true): Int {
         val a = registers.a
         val b = getRegister(code and 0x07)
         val carry = if (withCarry && registers.flagC) 1 else 0
@@ -393,9 +435,10 @@ class Cpu(
         registers.flagN = true
         registers.flagH = (a and 0x0F) < (b and 0x0F) + carry
         registers.flagC = a < b + carry
+        return if (code and 0x07 == 6) 8 else 4
     }
 
-    private fun subImmediate(n: Int, withCarry: Boolean = false, storeResult: Boolean = true) {
+    private fun subImmediate(n: Int, withCarry: Boolean = false, storeResult: Boolean = true): Int {
         val a = registers.a
         val carry = if (withCarry && registers.flagC) 1 else 0
         val result = a - n - carry
@@ -404,72 +447,82 @@ class Cpu(
         registers.flagN = true
         registers.flagH = (a and 0x0F) < (n and 0x0F) + carry
         registers.flagC = a < n + carry
+        return 8
     }
 
-    private fun and8(code: Int) {
+    private fun and8(code: Int): Int {
         val result = registers.a and getRegister(code and 0x07)
         registers.a = result and 0xFF
         registers.flagZ = result == 0; registers.flagN = false; registers.flagH = true; registers.flagC = false
+        return if (code and 0x07 == 6) 8 else 4
     }
 
-    private fun andImmediate(n: Int) {
+    private fun andImmediate(n: Int): Int {
         val result = registers.a and n
         registers.a = result and 0xFF
         registers.flagZ = result == 0; registers.flagN = false; registers.flagH = true; registers.flagC = false
+        return 8
     }
 
-    private fun or8(code: Int) {
+    private fun or8(code: Int): Int {
         val result = registers.a or getRegister(code and 0x07)
         registers.a = result and 0xFF
         registers.flagZ = result == 0; registers.flagN = false; registers.flagH = false; registers.flagC = false
+        return if (code and 0x07 == 6) 8 else 4
     }
 
-    private fun orImmediate(n: Int) {
+    private fun orImmediate(n: Int): Int {
         val result = registers.a or n
         registers.a = result and 0xFF
         registers.flagZ = result == 0; registers.flagN = false; registers.flagH = false; registers.flagC = false
+        return 8
     }
 
-    private fun xor8(code: Int) {
+    private fun xor8(code: Int): Int {
         val result = registers.a xor getRegister(code and 0x07)
         registers.a = result and 0xFF
         registers.flagZ = result == 0; registers.flagN = false; registers.flagH = false; registers.flagC = false
+        return if (code and 0x07 == 6) 8 else 4
     }
 
-    private fun xorImmediate(n: Int) {
+    private fun xorImmediate(n: Int): Int {
         val result = registers.a xor n
         registers.a = result and 0xFF
         registers.flagZ = result == 0; registers.flagN = false; registers.flagH = false; registers.flagC = false
+        return 8
     }
 
-    private fun addHL(value: Int) {
+    private fun addHL(value: Int): Int {
         val hl = registers.hl
         val result = hl + value
         registers.hl = result and 0xFFFF
         registers.flagN = false
         registers.flagH = (hl and 0x0FFF) + (value and 0x0FFF) > 0x0FFF
         registers.flagC = result > 0xFFFF
+        return 8
     }
 
-    private fun inc(registerCode: Int) {
+    private fun inc(registerCode: Int): Int {
         val old = getRegister(registerCode)
         val value = (old + 1) and 0xFF
         setRegister(registerCode, value)
         registers.flagZ = value == 0
         registers.flagN = false
         registers.flagH = (old and 0x0F) == 0x0F
+        return if (registerCode == 6) 12 else 4
     }
 
-    private fun dec(registerCode: Int) {
+    private fun dec(registerCode: Int): Int {
         val old = getRegister(registerCode)
         val value = (old - 1) and 0xFF
         setRegister(registerCode, value)
         registers.flagZ = value == 0
         registers.flagN = true
         registers.flagH = (old and 0x0F) == 0x00
+        return if (registerCode == 6) 12 else 4
     }
 
-    private fun daa() {
+    private fun daa(): Int {
         var a = registers.a
         if (!registers.flagN) {
             if (registers.flagH || (a and 0x0F) > 9) a += 0x06
@@ -481,39 +534,55 @@ class Cpu(
         registers.a = a and 0xFF
         registers.flagZ = registers.a == 0
         registers.flagH = false
+        return 4
     }
 
-    private fun load(code: Int) {
+    private fun load(code: Int): Int {
         val src = code and 0x07
         val dst = (code and 0x38) shr 3
         setRegister(dst, getRegister(src))
+        return if ((code and 0x07 == 6) || (code and 0x38 shr 3 == 6)) 8 else 4
     }
 
-    private fun rst(vector: Int) {
+    private fun rst(vector: Int): Int {
         push(registers.pc)
         registers.pc = vector
+        return 16
     }
 
-    private fun jp(condition: Boolean = true) {
+    private fun jp(condition: Boolean = true): Int {
         val value = fetch16()
-        if (condition) registers.pc = value
+
+        if (!condition) return 12
+
+        registers.pc = value
+        return 16
     }
 
-    private fun jr(condition: Boolean = true) {
+    private fun jr(condition: Boolean = true): Int {
         val offset = fetch().toByte().toInt()
-        if (condition) registers.pc = (registers.pc + offset) and 0xFFFF
+
+        if (!condition) return 8
+
+        registers.pc = (registers.pc + offset) and 0xFFFF
+        return 12
     }
 
-    private fun call(condition: Boolean = true) {
+    private fun call(condition: Boolean = true): Int {
         val value = fetch16()
-        if (condition) {
-            push(registers.pc)
-            registers.pc = value
-        }
+
+        if (!condition) return 12
+
+        push(registers.pc)
+        registers.pc = value
+        return 24
     }
 
-    private fun ret(condition: Boolean = true) {
-        if (condition) registers.pc = pop()
+    private fun ret(condition: Boolean = true): Int {
+        if (!condition) return 8
+
+        registers.pc = pop()
+        return 20
     }
 
     private fun fetch(): Int {
