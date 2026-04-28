@@ -119,6 +119,9 @@ class Ppu(
     }
 
     private fun renderScanline(lcdc: Int) {
+        // Reset BG color index buffer for this scanline before rendering
+        for (x in 0 until 160) bgColorIndexBuffer[ly * 160 + x] = 0
+
         if (lcdc and 0x80 == 0) {
             // LCD off: fill scanline with white
             for (x in 0 until 160) frameBuffer[ly * 160 + x] = grayToColor(0)
