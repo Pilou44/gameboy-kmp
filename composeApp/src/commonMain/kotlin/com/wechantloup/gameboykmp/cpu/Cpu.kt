@@ -38,6 +38,8 @@ class Cpu(
                     else -> 0x0040
                 }
                 return 20
+            } else {
+                return 4
             }
         }
 
