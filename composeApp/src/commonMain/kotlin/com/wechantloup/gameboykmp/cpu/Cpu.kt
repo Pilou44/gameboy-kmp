@@ -533,13 +533,18 @@ class Cpu(
 
     private fun daa(): Int {
         var a = registers.a
-        if (!registers.flagN) {
-            if (registers.flagH || (a and 0x0F) > 9) a += 0x06
-            if (registers.flagC || a > 0x99) { a += 0x60; registers.flagC = true }
-        } else {
-            if (registers.flagH) a -= 0x06
-            if (registers.flagC) a -= 0x60
+        var correction = 0
+
+        if (registers.flagH || (!registers.flagN && (a and 0x0F) > 9)) {
+            correction = 0x06
         }
+        if (registers.flagC || (!registers.flagN && a > 0x99)) {
+            correction = correction or 0x60
+            registers.flagC = true
+        }
+
+        a = if (registers.flagN) a - correction else a + correction
+
         registers.a = a and 0xFF
         registers.flagZ = registers.a == 0
         registers.flagH = false

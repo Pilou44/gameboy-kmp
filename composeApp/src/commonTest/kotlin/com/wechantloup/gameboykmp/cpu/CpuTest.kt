@@ -1577,4 +1577,125 @@ class CpuTest {
         assertEquals(0x42, bus.read(0xC100))
         assertEquals(0xC0FF, cpu.registers.hl)
     }
+
+    @Test
+    fun daaTest() {
+        // Addition
+
+        cpu.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.pc = 0xC000
+
+        cpu.registers.flagN = false
+        cpu.registers.flagC = false
+        cpu.registers.flagH = false
+        cpu.registers.a = 0x45
+        bus.write(0xC000, 0x27)
+        cpu.step()
+        assertEquals(0x45, cpu.registers.a)
+        assertFalse(cpu.registers.flagC)
+        assertFalse(cpu.registers.flagZ)
+
+        cpu.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.pc = 0xC000
+
+        cpu.registers.flagN = false
+        cpu.registers.flagC = false
+        cpu.registers.flagH = true
+        cpu.registers.a = 0x4F
+        bus.write(0xC000, 0x27)
+        cpu.step()
+        assertEquals(0x55, cpu.registers.a)
+        assertFalse(cpu.registers.flagC)
+        assertFalse(cpu.registers.flagZ)
+
+        cpu.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.pc = 0xC000
+
+        cpu.registers.flagN = false
+        cpu.registers.flagC = true
+        cpu.registers.flagH = false
+        cpu.registers.a = 0xA0
+        bus.write(0xC000, 0x27)
+        cpu.step()
+        assertEquals(0x00, cpu.registers.a)
+        assertTrue(cpu.registers.flagC)
+        assertTrue(cpu.registers.flagZ)
+
+        cpu.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.pc = 0xC000
+
+        cpu.registers.flagN = false
+        cpu.registers.flagC = true
+        cpu.registers.flagH = true
+        cpu.registers.a = 0xFF
+        bus.write(0xC000, 0x27)
+        cpu.step()
+        assertEquals(0x65, cpu.registers.a)
+        assertTrue(cpu.registers.flagC)
+        assertFalse(cpu.registers.flagZ)
+
+        // Limit case addition
+
+        cpu.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.pc = 0xC000
+
+        cpu.registers.flagN = false
+        cpu.registers.flagC = false
+        cpu.registers.flagH = true
+        cpu.registers.a = 0x94
+        bus.write(0xC000, 0x27)
+        cpu.step()
+        assertEquals(0x9A, cpu.registers.a)
+        assertFalse(cpu.registers.flagC)
+        assertFalse(cpu.registers.flagZ)
+
+        // Subtraction
+
+        cpu.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.pc = 0xC000
+
+        cpu.registers.flagN = true
+        cpu.registers.flagC = false
+        cpu.registers.flagH = false
+        cpu.registers.a = 0x45
+        bus.write(0xC000, 0x27)
+        cpu.step()
+        assertEquals(0x45, cpu.registers.a)
+        assertFalse(cpu.registers.flagC)
+        assertFalse(cpu.registers.flagZ)
+
+        cpu.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.pc = 0xC000
+
+        cpu.registers.flagN = true
+        cpu.registers.flagC = false
+        cpu.registers.flagH = true
+        cpu.registers.a = 0x4F
+        bus.write(0xC000, 0x27)
+        cpu.step()
+        assertEquals(0x49, cpu.registers.a)
+        assertFalse(cpu.registers.flagC)
+        assertFalse(cpu.registers.flagZ)
+
+        cpu.reset()
+        cpu.registers.f = 0x00
+        cpu.registers.pc = 0xC000
+
+        cpu.registers.flagN = true
+        cpu.registers.flagC = true
+        cpu.registers.flagH = false
+        cpu.registers.a = 0x45
+        bus.write(0xC000, 0x27)
+        cpu.step()
+        assertEquals(0xE5, cpu.registers.a)
+        assertTrue(cpu.registers.flagC)
+        assertFalse(cpu.registers.flagZ)
+    }
 }
