@@ -22,8 +22,15 @@ import com.wechantloup.gameboykmp.cartridge.Cartridge
 class Bus(
     private val cartridge: Cartridge,
 ) {
-    val ie: Int get() = read(0xFFFF)
-    val iF: Int get() = read(0xFF0F)
+
+    // Bit 0 : V-Blank  - PPU entered V-Blank period (LY == 144)
+    // Bit 1 : LCD STAT - PPU mode change or LY==LYC coincidence (depends on STAT bits 3-6)
+    // Bit 2 : Timer    - TIMA overflowed and was reloaded from TMA
+    // Bit 3 : Serial   - Serial transfer complete
+    // Bit 4 : Joypad   - Joypad button pressed (high-to-low transition)
+    // Bits 5-7 : unused, always 0
+    val ie: Int get() = read(0xFFFF) // Enabled interrupts
+    val iF: Int get() = read(0xFF0F) //Requested interrupts
 
     private val internalRam = IntArray(0x10000).also { initPostBootRegisters(it) }
     private val vram = IntArray(0x2000)  // 8KB
