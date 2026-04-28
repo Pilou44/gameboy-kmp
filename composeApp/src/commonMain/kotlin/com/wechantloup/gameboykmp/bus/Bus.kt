@@ -30,6 +30,16 @@ class Bus(
     private val oam = IntArray(0xA0) // 160 octets = 40 sprites × 4 octets
 
     fun read(address: Int): Int = when (address) {
+        0xFF00 -> {
+            val p1 = internalRam[0xFF00]
+            // Bits 0-3 are active-low: force to 1 (released) since input is not yet implemented
+            // TODO: implement proper joypad input handling
+            return when {
+                p1 and 0x20 == 0 -> p1 or 0x0F  // direction keys group selected
+                p1 and 0x10 == 0 -> p1 or 0x0F  // action buttons group selected
+                else -> p1 or 0x0F
+            }
+        }
         in 0x0000..0x7FFF -> cartridge.readRom(address)
         in 0x8000..0x9FFF -> readVram(address - 0x8000)
         in 0xA000..0xBFFF -> cartridge.readRam(address - 0xA000)
@@ -68,6 +78,7 @@ class Bus(
          * Without it, LCDC=0 (LCD off) and games that poll LY==144 loop forever.
          */
         private fun initPostBootRegisters(ram: IntArray) {
+            ram[0xFF00] = 0xFF  // Joypad: all buttons released
             ram[0xFF05] = 0x00  // TIMA
             ram[0xFF06] = 0x00  // TMA
             ram[0xFF07] = 0x00  // TAC
