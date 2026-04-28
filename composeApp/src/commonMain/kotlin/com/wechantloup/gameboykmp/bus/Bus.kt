@@ -51,11 +51,21 @@ class Bus(
         val v = value and 0xFF
         when (address) {
             0xFF04 -> internalRam[0xFF04] = 0
+            0xFF46 -> triggerDmaTransfer(v)  // OAM DMA
             in 0x0000..0x7FFF -> cartridge.writeRom(address, v)
             in 0x8000..0x9FFF -> writeVram(address - 0x8000, v)
             in 0xA000..0xBFFF -> cartridge.writeRam(address - 0xA000, v)
             in 0xFE00..0xFE9F -> writeOam(address - 0XFE00, v)
             else -> internalRam[address] = v
+        }
+    }
+
+    private fun triggerDmaTransfer(sourceHighByte: Int) {
+        // OAM DMA: copies 160 bytes from (sourceHighByte * 0x100) to OAM (0xFE00-0xFE9F)
+        // TODO: DMA should block CPU access to non-HRAM memory for 160 microseconds (640 T-cycles)
+        val sourceBase = sourceHighByte shl 8
+        for (i in 0 until 0xA0) {
+            oam[i] = read(sourceBase + i)
         }
     }
 
