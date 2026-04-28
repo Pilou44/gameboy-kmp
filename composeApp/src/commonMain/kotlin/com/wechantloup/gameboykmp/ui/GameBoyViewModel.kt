@@ -8,6 +8,7 @@ import com.wechantloup.gameboykmp.bus.Bus
 import com.wechantloup.gameboykmp.cartridge.CartridgeFactory
 import com.wechantloup.gameboykmp.cpu.Cpu
 import com.wechantloup.gameboykmp.ppu.Ppu
+import com.wechantloup.gameboykmp.timer.Timer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,10 +26,12 @@ class GameBoyViewModel : ViewModel() {
 
     private lateinit var cpu: Cpu
     private lateinit var ppu: Ppu
+    private lateinit var timer: Timer
 
     fun loadRom(romBytes: ByteArray) {
         val cartridge = CartridgeFactory.create(romBytes)
         val bus = Bus(cartridge)
+        timer = Timer(bus)
         ppu = Ppu(bus)
         cpu = Cpu(bus).also { it.reset() }
 
@@ -48,6 +51,7 @@ class GameBoyViewModel : ViewModel() {
                 while (frameCycles < 70224) {
                     val cycles = cpu.step()
                     ppu.step(cycles)
+                    timer.step(cycles)
                     frameCycles += cycles
                 }
 

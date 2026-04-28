@@ -5,10 +5,14 @@ import com.wechantloup.gameboykmp.bus.Bus
 class Cpu(
     private val bus: Bus,
 ) {
-    val registers = Registers()
-    var isHalted = false
-    var ime = false
-    var imeScheduled = false
+    val registers = Registers() // Visible for tests
+    var isHalted = false // Visible for tests
+    var ime = false // Visible for tests
+
+    private var imeScheduled = false
+
+    private var haltBug = false
+    private var wasHalted = false
 
     fun step(): Int {
         // Check for pending interrupts
@@ -16,6 +20,7 @@ class Cpu(
 
         if (pending != 0) {
             // Wake from HALT regardless of IME
+            wasHalted = isHalted
             isHalted = false
 
             if (ime) {
@@ -38,10 +43,18 @@ class Cpu(
                     else -> 0x0040
                 }
                 return 20
-            } else {
+            } else if (!haltBug) {
+                haltBug = true
                 return 4
             }
         }
+
+        if (wasHalted) {
+            wasHalted = false
+            return 4  // PC inchangé
+        }
+
+        haltBug = false
 
         if (isHalted) return 4
 

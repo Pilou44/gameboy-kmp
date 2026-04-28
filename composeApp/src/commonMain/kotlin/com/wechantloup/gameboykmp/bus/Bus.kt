@@ -40,12 +40,17 @@ class Bus(
     fun write(address: Int, value: Int) {
         val v = value and 0xFF
         when (address) {
+            0xFF04 -> internalRam[0xFF04] = 0
             in 0x0000..0x7FFF -> cartridge.writeRom(address, v)
             in 0x8000..0x9FFF -> writeVram(address - 0x8000, v)
             in 0xA000..0xBFFF -> cartridge.writeRam(address - 0xA000, v)
             in 0xFE00..0xFE9F -> writeOam(address - 0XFE00, v)
             else -> internalRam[address] = v
         }
+    }
+
+    fun incDiv() {
+        internalRam[0xFF04] = (internalRam[0xFF04] + 1) and 0xFF
     }
 
     fun readVram(address: Int): Int = vram[address]        // address 0x0000..0x1FFF
