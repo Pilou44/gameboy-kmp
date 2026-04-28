@@ -76,9 +76,11 @@ class Ppu(
                 modeClock -= 456
                 ly++
                 bus.write(0xFF44, ly)
+                checkLyc()
                 if (ly > 153) {
                     ly = 0
                     bus.write(0xFF44, 0)
+                    checkLyc()
                     modeClock = 0
                     mode = 2
                     updateStat(2)
@@ -90,6 +92,17 @@ class Ppu(
     private fun updateStat(newMode: Int) {
         val stat = bus.read(0xFF41)
         bus.write(0xFF41, (stat and 0xFC) or (newMode and 0x03))
+
+        // Trigger STAT IRQ if the corresponding enable bit is set
+        val irqBit = when (newMode) {
+            0 -> 0x08  // H-Blank
+            1 -> 0x10  // V-Blank
+            2 -> 0x20  // OAM
+            else -> 0
+        }
+        if (irqBit != 0 && stat and irqBit != 0) {
+            bus.setIF(bus.iF or 0x02)
+        }
     }
 
     private fun checkLyc() {
