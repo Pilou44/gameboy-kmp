@@ -91,6 +91,13 @@ class Cpu(
 
             0x76 -> { isHalted = true; 4 }  // HALT
 
+            0x10 -> {
+                fetch() // consume the 0x00 byte that always follows STOP
+                // TODO: Implement proper STOP behavior - should halt until joypad interrupt (IF bit 4)
+                // Joypad not implemented yet, so we ignore STOP for now
+                4
+            }
+
             /* --- 8-bit loads: immediate --- */
             0x06 -> { registers.b = fetch(); 8 }
             0x0E -> { registers.c = fetch(); 8 }
