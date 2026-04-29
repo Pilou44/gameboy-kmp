@@ -70,6 +70,7 @@ class Cpu(
     fun reset() {
         ime = false
         registers.reset()
+        isHalted = false
     }
 
     internal fun getRegister(code: Int): Int {

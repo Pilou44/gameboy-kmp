@@ -77,10 +77,7 @@ class CpuTest {
     @Test
     fun loadRegisterTest() {
         for (src in 0..7) {
-            if (src == 6) continue  // (HL) - ToDo not implemented
             for (dst in 0..7) {
-                if (dst == 6) continue  // (HL) - ToDo not implemented
-
                 cpu.reset()
                 cpu.registers.f = 0x00
                 cpu.registers.pc = 0xC000
@@ -88,12 +85,16 @@ class CpuTest {
                 bus.write(0xC000, code)
 
                 for (i in 0..7) {
-                    if (i == 6) continue
+                    if (i == 6) continue // set (HL) separately
                     cpu.setRegister(i, i + 1)  // B=1, C=2, D=3...
                 }
+                cpu.registers.hl = 0xC100 // point HL to valid RAM address, after setting other registers
+                bus.write(0xC100, 7) // (HL) = 7
 
+                val expectedValue = cpu.getRegister(src)
                 cpu.step()
-                assertEquals(cpu.getRegister(src), cpu.getRegister(dst))
+                val result = cpu.getRegister(dst)
+                assertEquals(expectedValue, cpu.getRegister(dst))
             }
         }
     }
