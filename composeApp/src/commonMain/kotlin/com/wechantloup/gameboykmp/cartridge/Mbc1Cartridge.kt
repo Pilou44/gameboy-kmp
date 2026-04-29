@@ -10,9 +10,18 @@ class Mbc1Cartridge(private val rom: ByteArray) : Cartridge {
 
     override fun readRom(address: Int): Int {
         return when (address) {
-            in 0x0000..0x3FFF -> rom[address].toInt() and 0xFF
-            // TODO: For >32 banks, combine romBank with ramBank: romBank or (ramBank shl 5)
-            in 0x4000..0x7FFF -> rom[romBank * 0x4000 + (address - 0x4000)].toInt() and 0xFF
+            in 0x0000..0x3FFF -> {
+                // In RAM banking mode (mode 1), ramBank bits 0-1 become bits 5-6 of the ROM bank number
+                // allowing access to banks 0x00, 0x20, 0x40, 0x60 in the lower ROM area
+                val bank = if (bankingMode == 1) (ramBank shl 5) else 0
+                rom[bank * 0x4000 + address].toInt() and 0xFF
+            }
+            in 0x4000..0x7FFF -> {
+                // In ROM banking mode (mode 0), ramBank bits 0-1 become bits 5-6 of the ROM bank number,
+                // allowing access to all 128 banks (7 bits total: 5 from romBank + 2 from ramBank)
+                val bank = if (bankingMode == 0) romBank or (ramBank shl 5) else romBank
+                rom[bank * 0x4000 + (address - 0x4000)].toInt() and 0xFF
+            }
             else -> throw IllegalArgumentException("Bad address")
         }
     }
@@ -25,9 +34,12 @@ class Mbc1Cartridge(private val rom: ByteArray) : Cartridge {
             in 0x2000..0x3FFF -> { // select ROM bank (bits 0-4)
                 romBank = (value and 0x1F).coerceAtLeast(1)
             }
-            in 0x4000..0x5FFF -> { // select RAM bank or ROM high bits
+            in 0x4000..0x5FFF -> {
+                // Store 2 bits used as:
+                // - RAM bank number for 0xA000..0xBFFF in mode 1
+                // - bits 5-6 of ROM bank number for 0x4000..0x7FFF in mode 0
+                // - bits 5-6 of ROM bank number for 0x0000..0x3FFF in mode 1
                 ramBank = (value and 0x03)
-                // TODO: Handle high ROM bits for cartridges with more than 32 banks (bankingMode == 0)
             }
             in 0x6000..0x7FFF -> { // banking mode (0 or 1)
                 bankingMode = value and 0x01
