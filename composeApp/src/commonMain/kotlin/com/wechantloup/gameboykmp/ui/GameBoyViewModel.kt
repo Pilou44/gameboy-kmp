@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
+import com.wechantloup.gameboykmp.apu.Apu
 import com.wechantloup.gameboykmp.bus.Bus
 import com.wechantloup.gameboykmp.cartridge.CartridgeFactory
 import com.wechantloup.gameboykmp.cpu.Cpu
@@ -42,6 +43,7 @@ class GameBoyViewModel : ViewModel() {
 
         val timer = Timer(bus)
         val ppu = Ppu(bus)
+        val apu = Apu(bus)
         val cpu = Cpu(bus).also { it.reset() }
 
         // Observe PPU frames
@@ -60,6 +62,7 @@ class GameBoyViewModel : ViewModel() {
                 while (frameCycles < 70224) {
                     val cycles = cpu.step()
                     ppu.step(cycles)
+                    apu.step(cycles)
                     timer.step(cycles)
                     frameCycles += cycles
                 }
