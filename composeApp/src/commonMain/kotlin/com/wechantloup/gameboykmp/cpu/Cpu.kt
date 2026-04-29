@@ -109,8 +109,11 @@ class Cpu(
 
             0x10 -> {
                 fetch() // consume the 0x00 byte that always follows STOP
-                // TODO: Implement proper STOP behavior - should halt until joypad interrupt (IF bit 4)
-                // Joypad not implemented yet, so we ignore STOP for now
+                // STOP behavior on DMG: halt CPU until joypad interrupt (IF bit 4)
+                // Note: STOP also stops LCD and timer on real hardware, but this is not emulated
+                // as no commercial DMG game relies on this behavior
+                // TODO: implement full STOP behavior for Game Boy Color support (double speed mode switch)
+                if (bus.ie and 0x10 != 0) isHalted = true
                 4
             }
 
