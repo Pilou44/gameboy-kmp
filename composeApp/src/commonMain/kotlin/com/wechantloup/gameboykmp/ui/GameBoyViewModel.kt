@@ -24,16 +24,15 @@ class GameBoyViewModel : ViewModel() {
     private val _stateFlow = MutableStateFlow(GameBoyState())
     val stateFlow: StateFlow<GameBoyState> = _stateFlow
 
-    private lateinit var cpu: Cpu
-    private lateinit var ppu: Ppu
-    private lateinit var timer: Timer
+    private var bus: Bus? = null
 
     fun loadRom(romBytes: ByteArray) {
         val cartridge = CartridgeFactory.create(romBytes)
-        val bus = Bus(cartridge)
-        timer = Timer(bus)
-        ppu = Ppu(bus)
-        cpu = Cpu(bus).also { it.reset() }
+        bus = Bus(cartridge)
+
+        val timer = Timer(requireNotNull(bus))
+        val ppu = Ppu(requireNotNull(bus))
+        val cpu = Cpu(requireNotNull(bus)).also { it.reset() }
 
         // Observe PPU frames
         viewModelScope.launch {
@@ -61,6 +60,13 @@ class GameBoyViewModel : ViewModel() {
                 delay(remaining.toDuration(DurationUnit.NANOSECONDS))
                 frameStartNs = newFrameNs
             }
+        }
+    }
+
+    fun onIntent(intent: GameBoyIntent) {
+        when(intent) {
+            is GameBoyIntent.ButtonPressed -> bus?.setButtonPressed(intent.button)
+            is GameBoyIntent.ButtonReleased -> bus?.setButtonReleased(intent.button)
         }
     }
 

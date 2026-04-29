@@ -1,6 +1,8 @@
 package com.wechantloup.gameboykmp.bus
 
 import com.wechantloup.gameboykmp.cartridge.Cartridge
+import com.wechantloup.gameboykmp.joypad.JoypadButton
+import kotlin.concurrent.Volatile
 
 /**
  * Represents the Game Boy memory bus - the full 64KB addressable space.
@@ -35,15 +37,17 @@ class Bus(
     private val internalRam = IntArray(0x10000).also { initPostBootRegisters(it) }
     private val vram = IntArray(0x2000)  // 8KB
     private val oam = IntArray(0xA0) // 160 octets = 40 sprites × 4 octets
+    @Volatile
+    private var joypadState = 0xFF  // all buttons released
 
     fun read(address: Int): Int = when (address) {
         0xFF00 -> {
             val p1 = internalRam[0xFF00]
-            // Bits 0-3 are active-low: force to 1 (released) since input is not yet implemented
-            // TODO: implement proper joypad input handling
+            // Bits 0-3 are active-low: 0=pressed, 1=released
+            // Bit 5 selects direction keys, bit 4 selects action buttons
             return when {
-                p1 and 0x20 == 0 -> p1 or 0x0F  // direction keys group selected
-                p1 and 0x10 == 0 -> p1 or 0x0F  // action buttons group selected
+                p1 and 0x20 == 0 -> (p1 and 0xF0) or (joypadState shr 4 and 0x0F)  // directions
+                p1 and 0x10 == 0 -> (p1 and 0xF0) or (joypadState and 0x0F)         // buttons
                 else -> p1 or 0x0F
             }
         }
@@ -65,6 +69,29 @@ class Bus(
             in 0xFE00..0xFE9F -> writeOam(address - 0XFE00, v)
             else -> internalRam[address] = v
         }
+    }
+
+    fun setButtonPressed(button: JoypadButton) {
+        val mask = buttonMask(button)
+        joypadState = joypadState and mask.inv()  // set bit to 0 (active-low)
+        // Trigger joypad interrupt
+        setIF(iF or 0x10)
+    }
+
+    fun setButtonReleased(button: JoypadButton) {
+        val mask = buttonMask(button)
+        joypadState = joypadState or mask  // set bit to 1 (released)
+    }
+
+    private fun buttonMask(button: JoypadButton): Int = when (button) {
+        JoypadButton.RIGHT  -> 0x01
+        JoypadButton.LEFT   -> 0x02
+        JoypadButton.UP     -> 0x04
+        JoypadButton.DOWN   -> 0x08
+        JoypadButton.A      -> 0x10
+        JoypadButton.B      -> 0x20
+        JoypadButton.SELECT -> 0x40
+        JoypadButton.START  -> 0x80
     }
 
     private fun triggerDmaTransfer(sourceHighByte: Int) {
@@ -95,7 +122,6 @@ class Bus(
          * Without it, LCDC=0 (LCD off) and games that poll LY==144 loop forever.
          */
         private fun initPostBootRegisters(ram: IntArray) {
-            ram[0xFF00] = 0xFF  // Joypad: all buttons released
             ram[0xFF05] = 0x00  // TIMA
             ram[0xFF06] = 0x00  // TMA
             ram[0xFF07] = 0x00  // TAC
