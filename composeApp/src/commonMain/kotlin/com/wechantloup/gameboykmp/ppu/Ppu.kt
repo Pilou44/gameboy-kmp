@@ -237,7 +237,8 @@ class Ppu(
         // Bit 4: Tile data area — 1=0x8000 (unsigned), 0=0x8800 (signed, base at 0x9000)
         val unsignedTileData = lcdc and 0x10 != 0
 
-        for (screenX in (wx - 7) until 160) {
+        val startScreenX = maxOf(0, wx - 7)
+        for (screenX in startScreenX until 160) {
             val windowX = screenX - (wx - 7)
             val tileCol = windowX / 8
             val tilePixelX = windowX % 8
