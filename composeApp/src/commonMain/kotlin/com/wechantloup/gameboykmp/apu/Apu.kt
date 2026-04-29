@@ -26,9 +26,9 @@ class Apu(
 
         channelsCycleCount += cycles
 
-        if (channelsCycleCount < 95) return
+        if (channelsCycleCount < CYCLES_PER_SAMPLE) return
 
-        channelsCycleCount -= 95
+        channelsCycleCount -= CYCLES_PER_SAMPLE
 
         val activeChannels = channels.filter { it.isEnabled }
         if (activeChannels.isEmpty()) {
@@ -40,7 +40,7 @@ class Apu(
             samples.add(adjustedSample)
         }
 
-        if (samples.size == 735) {
+        if (samples.size == SAMPLES_PER_FRAME) {
             samplesChannel.trySend(samples.toFloatArray())
             samples.clear()
         }
@@ -101,5 +101,15 @@ class Apu(
     private fun tickEnvelope() {
         // CH1, CH2 and CH4
 //        TODO()
+    }
+
+    companion object {
+        // TODO: use fractional accumulator to avoid sample drift
+        // correct value is 4194304.0 / 44100.0 = 95.108...
+        private val CYCLES_PER_SAMPLE = 95
+
+        // TODO: adjust buffer size to account for fractional samples per frame
+        // correct value is 44100.0 / 59.7 = 738.7...
+        private const val  SAMPLES_PER_FRAME = 735
     }
 }
