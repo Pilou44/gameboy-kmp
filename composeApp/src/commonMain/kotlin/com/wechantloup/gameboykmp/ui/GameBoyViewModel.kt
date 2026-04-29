@@ -26,18 +26,28 @@ class GameBoyViewModel : ViewModel() {
 
     private var bus: Bus? = null
 
-    fun loadRom(romBytes: ByteArray) {
-        val cartridge = CartridgeFactory.create(romBytes)
-        bus = Bus(cartridge)
+    fun loadRom(romBytes: ByteArray, romName: String) {
+        val cartridge = CartridgeFactory.create(
+            rom = romBytes,
+            romName = romName,
+            scope = viewModelScope,
+        )
+        val bus = Bus(cartridge).also { bus = it }
 
-        val timer = Timer(requireNotNull(bus))
-        val ppu = Ppu(requireNotNull(bus))
-        val cpu = Cpu(requireNotNull(bus)).also { it.reset() }
+        viewModelScope.launch {
+            cartridge.isSaving.collect {
+                _stateFlow.value = stateFlow.value.copy(isSaving = it)
+            }
+        }
+
+        val timer = Timer(bus)
+        val ppu = Ppu(bus)
+        val cpu = Cpu(bus).also { it.reset() }
 
         // Observe PPU frames
         viewModelScope.launch {
             ppu.frameFlow.collect { frame ->
-                _stateFlow.value = GameBoyState(frameBuffer = frame)
+                _stateFlow.value = stateFlow.value.copy(frameBuffer = frame)
             }
         }
 

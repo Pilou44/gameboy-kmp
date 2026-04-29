@@ -1,12 +1,33 @@
 package com.wechantloup.gameboykmp.cartridge
 
-// TODO: Handle battery-backed RAM persistence (MBC1_RAM_BATTERY)
-class Mbc1Cartridge(private val rom: ByteArray) : Cartridge {
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+
+class Mbc1Cartridge(
+    private val rom: ByteArray,
+    private val romName: String,
+    private val scope: CoroutineScope,
+    private val withBattery: Boolean,
+) : Cartridge {
+    private val _isSaving = MutableStateFlow(false)
+    override val isSaving: StateFlow<Boolean> = _isSaving
+
     private var romBank = 1
     private var ramBank = 0
     private var ramEnabled = false
     private var bankingMode = 0  // 0=ROM banking, 1=RAM banking
     private val ram = IntArray(0x8000)  // 32KB max
+        .also { ram ->
+            if (withBattery) { SaveManager.load(romName)?.copyInto(ram) }
+        }
+
+    private var saveJob: Job? = null
 
     override fun readRom(address: Int): Int {
         return when (address) {
@@ -55,5 +76,22 @@ class Mbc1Cartridge(private val rom: ByteArray) : Cartridge {
     override fun writeRam(address: Int, value: Int) {
         if (!ramEnabled) return
         ram[ramBank * 0x2000 + address] = value
+        onRamWritten()  // persist on every write
+    }
+
+    private fun onRamWritten() {
+        if (!withBattery) return
+
+        _isSaving.value = true
+        saveJob?.cancel()
+        saveJob = scope.launch(Dispatchers.IO) {
+            delay(DEBOUNCE_DURATION_MS) // debounce: wait for writes to settle before persisting
+            SaveManager.save(romName, ram)
+            _isSaving.value = false
+        }
+    }
+
+    companion object {
+        private const val DEBOUNCE_DURATION_MS = 500L
     }
 }

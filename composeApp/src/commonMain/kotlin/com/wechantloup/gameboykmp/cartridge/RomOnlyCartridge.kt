@@ -1,6 +1,9 @@
 package com.wechantloup.gameboykmp.cartridge
 
+import kotlinx.coroutines.flow.MutableStateFlow
+
 class RomOnlyCartridge(private val rom: ByteArray) : Cartridge {
+    override val isSaving = MutableStateFlow(false)
 
     override fun readRom(address: Int): Int {
         return rom[address].toInt() and 0xFF

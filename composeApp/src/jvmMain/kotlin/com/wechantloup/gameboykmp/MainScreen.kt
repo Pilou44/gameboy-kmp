@@ -37,7 +37,10 @@ fun MainScreen() {
                 coroutineScope.launch {
                     val rom = pickRom()
                     rom?.let {
-                        viewModel.loadRom(it.readBytes())
+                        viewModel.loadRom(
+                            romBytes = it.readBytes(),
+                            romName = it.nameWithoutExtension,
+                        )
                     }
                 }
             },

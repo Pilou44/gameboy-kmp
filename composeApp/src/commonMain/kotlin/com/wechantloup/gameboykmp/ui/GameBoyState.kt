@@ -2,6 +2,7 @@ package com.wechantloup.gameboykmp.ui
 
 data class GameBoyState(
     val frameBuffer: IntArray? = null,
+    val isSaving: Boolean = false,
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
