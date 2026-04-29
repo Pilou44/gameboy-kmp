@@ -50,17 +50,96 @@ class Channel1(
         get() = enabled
 
     override fun step(cycles: Int) {
-        TODO("Not yet implemented")
+        checkInitialization()
+
+        if (!enabled) return
+
+        frequencyTimer -= cycles
+
+        if (frequencyTimer <= 0) {
+            dutyStep = (dutyStep + 1) % 8
+            frequencyTimer = (2048 - shadowFrequency) * 4
+        }
     }
 
     override fun tickLength() {
-        TODO("Not yet implemented")
+        if (lengthCounter == 0) return
+
+        lengthCounter--
+
+        var lengthEnable = false
+        if (lengthCounter == 0) {
+            lengthEnable = bus.read(NR14_ADDR) and 0x40 > 0
+        }
+        if (lengthEnable) {
+            enabled = false
+        }
+    }
+
+    fun tickEnvelope() {
+        if (envelopeTimer == 0) return
+
+        envelopeTimer--
+
+        if (envelopeTimer == 0) {
+            val nr12 = bus.read(NR12_ADDR)
+            val direction = nr12 and 0x08
+            envelopeTimer = nr12 and 0x07
+
+            if (direction > 0 && currentVolume < 15) {
+                currentVolume++
+            } else if (direction == 0 && currentVolume > 0) {
+                currentVolume--
+            }
+        }
     }
 
     override fun getSample(): Int {
         val dutyCycle = (bus.read(NR11_ADDR) and 0xC0) shr 6
-        return 0 // ToDO
+        val dutyPattern = when (dutyCycle) {
+            0 -> 0b00000001  // 12.5%
+            1 -> 0b10000001  // 25%
+            2 -> 0b10000111  // 50%
+            3 -> 0b11111110  // 75%
+            else -> throw IllegalStateException()
+        }
+        val on = (dutyPattern shr dutyStep) and 0x01 > 0
+        return if (on) currentVolume else 0
     }
+
+    private fun checkInitialization() {
+        val nr14 = bus.read(NR14_ADDR)
+        if (nr14 and 0x80 != 0) {
+            trigger()
+            // Remettre le bit 7 à 0 pour ne pas re-déclencher au prochain step
+            bus.write(NR14_ADDR, nr14 and 0x7F)
+        }
+    }
+
+    private fun trigger() {
+        enabled = true
+
+        loadFrequency()
+
+        val lengthLoad = bus.read(NR11_ADDR) and 0x3F
+        lengthCounter = 64 - lengthLoad
+
+        val nr12 = bus.read(NR12_ADDR)
+        currentVolume = (nr12 and 0xF0) shr 4
+        envelopeTimer = nr12 and 0x07
+
+        sweepTimer = (bus.read(NR10_ADDR) and 0x70) shr 4
+    }
+
+    private fun loadFrequency() {
+        val frequencyHigh = bus.read(NR14_ADDR) and 0x07
+        val frequencyLow = bus.read(NR13_ADDR) and 0xFF
+        val frequency = frequencyHigh shl 8 or frequencyLow
+        frequencyTimer = (2048 - frequency) * 4
+        shadowFrequency = frequency
+    }
+
+    // TODO: add reset() method to clean all internal state on ROM change
 
     companion object {
         private const val NR10_ADDR = 0xFF10
