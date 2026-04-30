@@ -11,6 +11,7 @@ import com.wechantloup.gameboykmp.cpu.Cpu
 import com.wechantloup.gameboykmp.ppu.Ppu
 import com.wechantloup.gameboykmp.timer.Timer
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,6 +25,7 @@ class GameBoyViewModel : ViewModel() {
 
     private val _stateFlow = MutableStateFlow(GameBoyState())
     val stateFlow: StateFlow<GameBoyState> = _stateFlow
+    val audioSamplesChannel = Channel<FloatArray>(8)
 
     private var bus: Bus? = null
 
@@ -45,6 +47,12 @@ class GameBoyViewModel : ViewModel() {
         val ppu = Ppu(bus)
         val apu = Apu(bus)
         val cpu = Cpu(bus).also { it.reset() }
+
+        viewModelScope.launch {
+            for (samples in apu.samplesChannel) {
+                audioSamplesChannel.trySend(samples)
+            }
+        }
 
         // Observe PPU frames
         viewModelScope.launch {
