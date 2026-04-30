@@ -15,6 +15,7 @@ class Apu(
     private val channels = listOf(
         Channel1(bus),
         Channel2(bus),
+        Channel3(bus),
     )
 
     private val samples = mutableListOf<Float>()
@@ -107,6 +108,7 @@ class Apu(
             when (channel) {
                 is Channel1 -> channel.tickEnvelope()
                 is Channel2 -> channel.tickEnvelope()
+                is Channel3 -> {} // Nothing to do
             }
         }
     }

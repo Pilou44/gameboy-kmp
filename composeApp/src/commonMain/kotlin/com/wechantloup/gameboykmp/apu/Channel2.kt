@@ -72,9 +72,9 @@ class Channel2(
         envelopeTimer--
 
         if (envelopeTimer == 0) {
-            val nr12 = bus.read(NR22_ADDR)
-            val direction = nr12 and 0x08
-            envelopeTimer = nr12 and 0x07
+            val nr22 = bus.read(NR22_ADDR)
+            val direction = nr22 and 0x08
+            envelopeTimer = nr22 and 0x07
 
             if (direction > 0 && currentVolume < 15) {
                 currentVolume++
@@ -98,11 +98,11 @@ class Channel2(
     }
 
     private fun checkInitialization() {
-        val nr14 = bus.read(NR24_ADDR)
-        if (nr14 and 0x80 != 0) {
+        val nr24 = bus.read(NR24_ADDR)
+        if (nr24 and 0x80 != 0) {
             trigger()
             // Remettre le bit 7 à 0 pour ne pas re-déclencher au prochain step
-            bus.write(NR24_ADDR, nr14 and 0x7F)
+            bus.write(NR24_ADDR, nr24 and 0x7F)
         }
     }
 
@@ -114,17 +114,17 @@ class Channel2(
         val lengthLoad = bus.read(NR21_ADDR) and 0x3F
         lengthCounter = 64 - lengthLoad
 
-        val nr12 = bus.read(NR22_ADDR)
-        currentVolume = (nr12 and 0xF0) shr 4
-        envelopeTimer = nr12 and 0x07
+        val nr22 = bus.read(NR22_ADDR)
+        currentVolume = (nr22 and 0xF0) shr 4
+        envelopeTimer = nr22 and 0x07
     }
 
     private fun loadFrequency() {
         val frequencyHigh = bus.read(NR24_ADDR) and 0x07
         val frequencyLow = bus.read(NR23_ADDR) and 0xFF
-        val frequency = frequencyHigh shl 8 or frequencyLow
-        frequencyTimer = (2048 - frequency) * 4
-        this@Channel2.frequency = frequency
+        val newFrequency = frequencyHigh shl 8 or frequencyLow
+        frequencyTimer = (2048 - newFrequency) * 4
+        frequency = newFrequency
     }
 
     // TODO: add reset() method to clean all internal state on ROM change
