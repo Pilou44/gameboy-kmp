@@ -122,6 +122,6 @@ class Apu(
 
         // TODO: adjust buffer size to account for fractional samples per frame
         // correct value is 44100.0 / 59.7 = 738.7...
-        private const val  SAMPLES_PER_FRAME = 735
+        const val SAMPLES_PER_FRAME = 735
     }
 }
