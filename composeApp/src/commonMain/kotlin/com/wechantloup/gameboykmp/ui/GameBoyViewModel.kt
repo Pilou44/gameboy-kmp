@@ -79,7 +79,7 @@ class GameBoyViewModel : ViewModel() {
                 val elapsed = newFrameNs - frameStartNs
                 val remaining = (FRAME_DURATION_NS - elapsed).coerceAtLeast(0L)
                 delay(remaining.toDuration(DurationUnit.NANOSECONDS))
-                frameStartNs = newFrameNs
+                frameStartNs = currentTimeNanos()
             }
         }
     }
