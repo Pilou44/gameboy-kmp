@@ -75,11 +75,11 @@ class GameBoyViewModel : ViewModel() {
                     frameCycles += cycles
                 }
 
-                val newFrameNs = currentTimeNanos()
-                val elapsed = newFrameNs - frameStartNs
-                val remaining = (FRAME_DURATION_NS - elapsed).coerceAtLeast(0L)
-                delay(remaining.toDuration(DurationUnit.NANOSECONDS))
-                frameStartNs = currentTimeNanos()
+                frameStartNs += FRAME_DURATION_NS
+                val remaining = frameStartNs - currentTimeNanos()
+                if (remaining > 0) {
+                    delay(remaining.toDuration(DurationUnit.NANOSECONDS))
+                }
             }
         }
     }
@@ -104,6 +104,6 @@ class GameBoyViewModel : ViewModel() {
     }
 
     companion object {
-        private const val FRAME_DURATION_NS = 16_740_000L
+        private const val FRAME_DURATION_NS = (1_000_000_000.0 / 59.7275).toLong()  // ≈ 16_742_706
     }
 }
