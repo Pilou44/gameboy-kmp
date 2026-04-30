@@ -94,6 +94,34 @@ class Channel1(
         }
     }
 
+    fun tickSweep() {
+        if (sweepTimer == 0) return
+
+        sweepTimer--
+
+        if (sweepTimer == 0) {
+            val nr10 = bus.read(NR10_ADDR)
+            sweepTimer = (nr10 and 0x70) shr 4
+
+            if (sweepTimer == 0) return
+
+            val negate = nr10 and 0x08
+            val shift = nr10 and 0x07
+
+            val newFreq = if (negate > 0) {
+                shadowFrequency - (shadowFrequency shr shift)
+            } else {
+                shadowFrequency + (shadowFrequency shr shift)
+            }
+
+            if (newFreq > 2047) {
+                enabled = false
+            } else if (shift > 0) {
+                shadowFrequency = newFreq
+            }
+        }
+    }
+
     override fun getSample(): Int {
         val dutyCycle = (bus.read(NR11_ADDR) and 0xC0) shr 6
         val dutyPattern = when (dutyCycle) {

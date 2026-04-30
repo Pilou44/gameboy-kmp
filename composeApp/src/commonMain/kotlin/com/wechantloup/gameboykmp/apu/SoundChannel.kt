@@ -1,6 +1,6 @@
 package com.wechantloup.gameboykmp.apu
 
-interface SoundChannel {
+sealed interface SoundChannel {
     val isEnabled: Boolean
     fun step(cycles: Int)
     fun tickLength()

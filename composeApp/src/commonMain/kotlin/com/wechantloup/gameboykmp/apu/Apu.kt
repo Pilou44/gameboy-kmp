@@ -85,22 +85,26 @@ class Apu(
 
     private fun tickLength() {
         // CH1, CH2, CH3 and CH4
-//        TODO()
+        channels.forEach { it.tickLength() }
     }
 
     private fun tickSweep() {
         // CH1 only
-        // CH1 - NR10 - 0xFF10
-        // Un seul octet, 3 champs :
-        // Bit 6-4 : sweep period  (0-7)
-        // Bit 3   : negate        (0 = fréquence monte, 1 = fréquence descend)
-        // Bit 2-0 : sweep shift   (0-7)
-//        TODO()
+        channels.forEach { channel ->
+            when (channel) {
+                is Channel1 -> channel.tickSweep()
+                else -> {} // Nothing to do
+            }
+        }
     }
 
     private fun tickEnvelope() {
         // CH1, CH2 and CH4
-//        TODO()
+        channels.forEach { channel ->
+            when (channel) {
+                is Channel1 -> channel.tickEnvelope()
+            }
+        }
     }
 
     companion object {
