@@ -55,6 +55,7 @@ class Bus(
         in 0x8000..0x9FFF -> readVram(address - 0x8000)
         in 0xA000..0xBFFF -> cartridge.readRam(address - 0xA000)
         in 0xFE00..0xFE9F -> readOam(address - 0XFE00)
+        in 0xFF10..0xFF3F -> readApuRegister(address)
         else -> internalRam[address]
     }
 
@@ -63,6 +64,7 @@ class Bus(
         when (address) {
             0xFF04 -> internalRam[0xFF04] = 0
             0xFF46 -> triggerDmaTransfer(v)  // OAM DMA
+            0xFF26 -> writeNR52(v)
             in 0x0000..0x7FFF -> cartridge.writeRom(address, v)
             in 0x8000..0x9FFF -> writeVram(address - 0x8000, v)
             in 0xA000..0xBFFF -> cartridge.writeRam(address - 0xA000, v)
@@ -83,6 +85,12 @@ class Bus(
         joypadState = joypadState or mask  // set bit to 1 (released)
     }
 
+    /** Called by channels to update their status bit in NR52 */
+    fun setChannelEnabled(channelBit: Int, enabled: Boolean) {
+        val current = internalRam[0xFF26]
+        internalRam[0xFF26] = if (enabled) current or channelBit else current and channelBit.inv()
+    }
+
     private fun buttonMask(button: JoypadButton): Int = when (button) {
         JoypadButton.RIGHT  -> 0x01
         JoypadButton.LEFT   -> 0x02
@@ -92,6 +100,54 @@ class Bus(
         JoypadButton.B      -> 0x20
         JoypadButton.SELECT -> 0x40
         JoypadButton.START  -> 0x80
+    }
+
+    private fun writeNR52(value: Int) {
+        val wasOn = internalRam[0xFF26] and 0x80 != 0
+        val isOn = value and 0x80 != 0
+
+        // Only bit 7 is writable — preserve bits 3-0 (channel status, updated by the channels themselves)
+        val currentStatus = internalRam[0xFF26] and 0x0F
+        internalRam[0xFF26] = (value and 0x80) or currentStatus
+
+        // APU power off: clear NR10–NR51
+        if (wasOn && !isOn) {
+            for (addr in 0xFF10..0xFF25) {
+                internalRam[addr] = 0
+            }
+        }
+    }
+
+    private fun readApuRegister(address: Int): Int {
+        val raw = internalRam[address]
+        return when (address) {
+            0xFF10 -> raw or 0x80  // NR10 : bit 7 always 1
+            0xFF11 -> raw or 0x3F  // NR11 : bits 5-0 write-only → read as 1
+            0xFF12 -> raw          // NR12 : fully readable
+            0xFF13 -> 0xFF         // NR13 : write-only
+            0xFF14 -> raw or 0xBF  // NR14 : bits 5-0 and 7 read as 1, except bit 6
+            0xFF15 -> 0xFF         // NR20 : unused, always 0xFF
+            0xFF16 -> raw or 0x3F  // NR21 : bits 5-0 write-only
+            0xFF17 -> raw          // NR22 : fully readable
+            0xFF18 -> 0xFF         // NR23 : write-only
+            0xFF19 -> raw or 0xBF  // NR24 : same mask as NR14
+            0xFF1A -> raw or 0x7F  // NR30 : bits 6-0 always 1
+            0xFF1B -> 0xFF         // NR31 : write-only
+            0xFF1C -> raw or 0x9F  // NR32 : bits 4-0 and 7 always 1
+            0xFF1D -> 0xFF         // NR33 : write-only
+            0xFF1E -> raw or 0xBF  // NR34 : same mask as NR14
+            0xFF1F -> 0xFF         // NR40 : unused, always 0xFF
+            0xFF20 -> raw or 0xFF  // NR41 : fully masked → always 0xFF
+            0xFF21 -> raw          // NR42 : fully readable
+            0xFF22 -> raw          // NR43 : fully readable
+            0xFF23 -> raw or 0xBF  // NR44 : same mask as NR14
+            0xFF24 -> raw          // NR50 : fully readable
+            0xFF25 -> raw          // NR51 : fully readable
+            0xFF26 -> raw or 0x70  // NR52 : bits 6-4 always 1
+            in 0xFF27..0xFF2F -> 0xFF  // unused registers → read as 0xFF
+            in 0xFF30..0xFF3F -> raw   // Wave RAM : fully readable
+            else -> raw
+        }
     }
 
     private fun triggerDmaTransfer(sourceHighByte: Int) {

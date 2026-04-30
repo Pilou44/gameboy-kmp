@@ -27,6 +27,11 @@ class Channel4(
      */
 
     private var enabled = false
+        set(value) {
+            field = value
+            bus.setChannelEnabled(0x08, value)
+        }
+
     private var frequencyTimer = 0  // frequency timer, decremented each cycle
     private var currentVolume = 0   // 0-15, modified by envelope
     private var lengthCounter = 0   // counts down to 0, then disables channel
@@ -62,14 +67,12 @@ class Channel4(
     }
 
     override fun tickLength() {
+        val lengthEnable = bus.read(NR44_ADDR) and 0x40 > 0
+        if (!lengthEnable) return
         if (lengthCounter == 0) return
 
         lengthCounter--
 
-        var lengthEnable = false
-        if (lengthCounter == 0) {
-            lengthEnable = bus.read(NR44_ADDR) and 0x40 > 0
-        }
         if (lengthEnable) {
             enabled = false
         }
@@ -112,20 +115,23 @@ class Channel4(
     }
 
     private fun trigger() {
-        println("trigger channel 4")
+//        println("trigger channel 4")
         enabled = true
 
         loadFrequency()
 
-        val lengthLoad = bus.read(NR41_ADDR) and 0x3F
-        lengthCounter = 64 - lengthLoad
+//        val lengthLoad = bus.read(NR41_ADDR) and 0x3F
+//        lengthCounter = 64 - lengthLoad
+        if (lengthCounter == 0) {
+            lengthCounter = 64  // valeur max, pas depuis NR11
+        }
 
         val nr42 = bus.read(NR42_ADDR)
         currentVolume = (nr42 and 0xF0) shr 4
         envelopeTimer = nr42 and 0x07
 
         lfsr = 0x7FFF
-        println("currentVolume = $currentVolume")
+//        println("currentVolume = $currentVolume")
     }
 
     private fun loadFrequency() {

@@ -32,6 +32,10 @@ class Channel3(
      */
 
     private var enabled = false
+        set(value) {
+            field = value
+            bus.setChannelEnabled(0x04, value)
+        }
     private var frequencyTimer = 0  // frequency timer, decremented each cycle
     private var frequency = 0
     private var currentVolume = 0   // 0-3, modified by envelope
@@ -57,14 +61,12 @@ class Channel3(
     }
 
     override fun tickLength() {
+        val lengthEnable = bus.read(NR34_ADDR) and 0x40 > 0
+        if (!lengthEnable) return
         if (lengthCounter == 0) return
 
         lengthCounter--
 
-        var lengthEnable = false
-        if (lengthCounter == 0) {
-            lengthEnable = bus.read(NR34_ADDR) and 0x40 > 0
-        }
         if (lengthEnable) {
             enabled = false
         }
@@ -100,17 +102,20 @@ class Channel3(
     }
 
     private fun trigger() {
-        println("trigger channel 3")
+//        println("trigger channel 3")
         enabled = true
 
         loadFrequency()
 
-        val lengthLoad = bus.read(NR31_ADDR) and 0xFF
-        lengthCounter = 256 - lengthLoad
+//        val lengthLoad = bus.read(NR31_ADDR) and 0xFF
+//        lengthCounter = 256 - lengthLoad
+        if (lengthCounter == 0) {
+            lengthCounter = 256  // valeur max, pas depuis NR11
+        }
 
         val nr12 = bus.read(NR32_ADDR)
         currentVolume = (nr12 and 0x60) shr 5
-        println("currentVolume = $currentVolume")
+//        println("currentVolume = $currentVolume")
     }
 
     private fun loadFrequency() {

@@ -78,13 +78,13 @@ private suspend fun startAudio(audioSamplesChannel: Channel<FloatArray>) {
     line.start()
 
     val byteArray = ByteArray(Apu.SAMPLES_PER_FRAME * 2)
-    val debugFile = File("samples_debug.txt")
-    var frameCount = 0
+//    val debugFile = File("samples_debug.txt")
+//    var frameCount = 0
     audioSamplesChannel.consumeEach { samples ->
-        if (frameCount < 100) {
-            samples.forEach { debugFile.appendText("$it\n") }
-            frameCount++
-        }
+//        if (frameCount < 100) {
+//            samples.forEach { debugFile.appendText("$it\n") }
+//            frameCount++
+//        }
         samples.forEachIndexed { index, value ->
             val intValue = (value * 32767).toInt().coerceIn(-32768, 32767)
             byteArray[index * 2] = (intValue and 0xFF).toByte()        // byte bas
