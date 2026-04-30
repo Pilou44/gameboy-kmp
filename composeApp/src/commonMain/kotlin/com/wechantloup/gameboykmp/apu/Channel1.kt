@@ -139,11 +139,22 @@ class Channel1(
         return if (on) currentVolume else 0
     }
 
+    override fun reset() {
+        enabled = false
+        frequencyTimer = 0
+        dutyStep = 0
+        currentVolume = 0
+        sweepTimer = 0
+        shadowFrequency = 0
+        lengthCounter = 0
+        envelopeTimer = 0
+    }
+
     private fun checkInitialization() {
         val nr14 = bus.read(NR14_ADDR)
         if (nr14 and 0x80 != 0) {
             if (dacEnabled) trigger()
-            // Remettre le bit 7 à 0 pour ne pas re-déclencher au prochain step
+            // Clear bit 7 to avoid re-triggering on the next step
             bus.write(NR14_ADDR, nr14 and 0x7F)
         }
     }
@@ -157,7 +168,7 @@ class Channel1(
 //        val lengthLoad = bus.read(NR11_ADDR) and 0x3F
 //        lengthCounter = 64 - lengthLoad
         if (lengthCounter == 0) {
-            lengthCounter = 64  // valeur max, pas depuis NR11
+            lengthCounter = 64
         }
 
         val nr12 = bus.read(NR12_ADDR)

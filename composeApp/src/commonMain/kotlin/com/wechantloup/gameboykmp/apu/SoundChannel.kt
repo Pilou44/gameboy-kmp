@@ -1,9 +1,15 @@
 package com.wechantloup.gameboykmp.apu
 
-sealed interface SoundChannel {
+interface SoundChannel {
     val isEnabled: Boolean
     val dacEnabled: Boolean
     fun step(cycles: Int)
     fun tickLength()
-    fun getSample(): Int // 0-15
+    fun getSample(): Int
+
+    /**
+     * Resets all internal channel state.
+     * Called when the APU is powered off (NR52 bit 7 = 0).
+     */
+    fun reset()
 }

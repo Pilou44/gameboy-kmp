@@ -32,13 +32,21 @@ class Bus(
     // Bit 4 : Joypad   - Joypad button pressed (high-to-low transition)
     // Bits 5-7 : unused, always 0
     val ie: Int get() = read(0xFFFF) // Enabled interrupts
-    val iF: Int get() = read(0xFF0F) //Requested interrupts
+    val iF: Int get() = read(0xFF0F) // Requested interrupts
 
     private val internalRam = IntArray(0x10000).also { initPostBootRegisters(it) }
     private val vram = IntArray(0x2000)  // 8KB
-    private val oam = IntArray(0xA0) // 160 octets = 40 sprites × 4 octets
+    private val oam = IntArray(0xA0) // 160 bytes = 40 sprites × 4 bytes
     @Volatile
     private var joypadState = 0xFF  // all buttons released
+
+    /**
+     * Callback invoked when the APU is powered off (NR52 bit 7: 1 -> 0).
+     * The APU should register here to reset its channels' internal state.
+     */
+    var onApuPowerOff: (() -> Unit)? = null
+
+    val apuPoweredOn: Boolean get() = internalRam[0xFF26] and 0x80 != 0
 
     fun read(address: Int): Int = when (address) {
         0xFF00 -> {
@@ -63,14 +71,25 @@ class Bus(
         val v = value and 0xFF
         when (address) {
             0xFF04 -> internalRam[0xFF04] = 0
-            0xFF46 -> triggerDmaTransfer(v)  // OAM DMA
+            0xFF46 -> triggerDmaTransfer(v)
             0xFF26 -> writeNR52(v)
+            // When APU is off, writes to NR10-NR25 are ignored (wave RAM 0xFF30-0xFF3F is always writable)
+            in 0xFF10..0xFF25 -> if (apuPoweredOn) internalRam[address] = v
             in 0x0000..0x7FFF -> cartridge.writeRom(address, v)
             in 0x8000..0x9FFF -> writeVram(address - 0x8000, v)
             in 0xA000..0xBFFF -> cartridge.writeRam(address - 0xA000, v)
             in 0xFE00..0xFE9F -> writeOam(address - 0XFE00, v)
             else -> internalRam[address] = v
         }
+    }
+
+    /**
+     * Called by channels to update their status bit in NR52 (bits 3-0).
+     * Bypasses the normal write path to avoid triggering power-off logic.
+     */
+    fun setChannelEnabled(channelBit: Int, enabled: Boolean) {
+        val current = internalRam[0xFF26]
+        internalRam[0xFF26] = if (enabled) current or channelBit else current and channelBit.inv()
     }
 
     fun setButtonPressed(button: JoypadButton) {
@@ -85,12 +104,6 @@ class Bus(
         joypadState = joypadState or mask  // set bit to 1 (released)
     }
 
-    /** Called by channels to update their status bit in NR52 */
-    fun setChannelEnabled(channelBit: Int, enabled: Boolean) {
-        val current = internalRam[0xFF26]
-        internalRam[0xFF26] = if (enabled) current or channelBit else current and channelBit.inv()
-    }
-
     private fun buttonMask(button: JoypadButton): Int = when (button) {
         JoypadButton.RIGHT  -> 0x01
         JoypadButton.LEFT   -> 0x02
@@ -102,18 +115,46 @@ class Bus(
         JoypadButton.START  -> 0x80
     }
 
+    /**
+     * NR52 (0xFF26) write handler.
+     *
+     * Only bit 7 (APU power) is writable by the CPU.
+     * Bits 6-4 are always 1 (handled by readApuRegister mask).
+     * Bits 3-0 reflect channel enable status and are read-only from the CPU's perspective;
+     * they are updated directly via setChannelEnabled().
+     *
+     * Power off (bit 7: 1 -> 0):
+     *   - Notifies APU to reset all channel internal state
+     *   - Clears NR10-NR51 registers to 0
+     *   - Clears NR52 entirely (including channel status bits 3-0)
+     *
+     * Power on (bit 7: 0 -> 1):
+     *   - Sets bit 7 only; channel status bits remain 0
+     *
+     * Already on:
+     *   - Only bit 7 is updated; channel status bits 3-0 are preserved
+     */
     private fun writeNR52(value: Int) {
         val wasOn = internalRam[0xFF26] and 0x80 != 0
         val isOn = value and 0x80 != 0
 
-        // Only bit 7 is writable — preserve bits 3-0 (channel status, updated by the channels themselves)
-        val currentStatus = internalRam[0xFF26] and 0x0F
-        internalRam[0xFF26] = (value and 0x80) or currentStatus
-
-        // APU power off: clear NR10–NR51
-        if (wasOn && !isOn) {
-            for (addr in 0xFF10..0xFF25) {
-                internalRam[addr] = 0
+        when {
+            wasOn && !isOn -> {
+                // Power off: notify APU, then clear all audio registers and channel status
+                onApuPowerOff?.invoke()
+                for (addr in 0xFF10..0xFF25) {
+                    internalRam[addr] = 0
+                }
+                internalRam[0xFF26] = 0  // bit 7 = 0, status bits = 0
+            }
+            !wasOn && isOn -> {
+                // Power on: set bit 7 only, channel status bits stay 0
+                internalRam[0xFF26] = 0x80
+            }
+            else -> {
+                // No power state change: preserve channel status bits 3-0
+                val currentStatus = internalRam[0xFF26] and 0x0F
+                internalRam[0xFF26] = (value and 0x80) or currentStatus
             }
         }
     }

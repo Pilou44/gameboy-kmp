@@ -40,7 +40,7 @@ class Channel3(
     private var frequency = 0
     private var currentVolume = 0   // 0-3, modified by envelope
     private var lengthCounter = 0   // counts down to 0, then disables channel
-    private var wavePosition = 0        // 0-31, current position in duty cycle wave
+    private var wavePosition = 0    // 0-31, current position in wave table
 
     override val dacEnabled: Boolean
         get() = (bus.read(NR30_ADDR) and 0x80 != 0)
@@ -92,11 +92,20 @@ class Channel3(
         }
     }
 
+    override fun reset() {
+        enabled = false
+        frequencyTimer = 0
+        frequency = 0
+        currentVolume = 0
+        lengthCounter = 0
+        wavePosition = 0
+    }
+
     private fun checkInitialization() {
         val nr34 = bus.read(NR34_ADDR)
         if (nr34 and 0x80 != 0) {
             if (dacEnabled) trigger()
-            // Remettre le bit 7 à 0 pour ne pas re-déclencher au prochain step
+            // Clear bit 7 to avoid re-triggering on the next step
             bus.write(NR34_ADDR, nr34 and 0x7F)
         }
     }
@@ -110,7 +119,7 @@ class Channel3(
 //        val lengthLoad = bus.read(NR31_ADDR) and 0xFF
 //        lengthCounter = 256 - lengthLoad
         if (lengthCounter == 0) {
-            lengthCounter = 256  // valeur max, pas depuis NR11
+            lengthCounter = 256
         }
 
         val nr12 = bus.read(NR32_ADDR)
