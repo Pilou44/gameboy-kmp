@@ -4,7 +4,7 @@ import com.wechantloup.gameboykmp.bus.Bus
 import kotlinx.coroutines.channels.Channel
 
 class Apu(
-    private val bus: Bus,
+    bus: Bus,
 ) {
     val samplesChannel = Channel<FloatArray>(8) // 8 frames
 
@@ -12,7 +12,10 @@ class Apu(
     private var frameSequencerCycleCount = 0
 
     private var channelsCycleCount = 0
-    private val channels = listOf<SoundChannel>(Channel1(bus))
+    private val channels = listOf(
+        Channel1(bus),
+        Channel2(bus),
+    )
 
     private val samples = mutableListOf<Float>()
 
@@ -103,6 +106,7 @@ class Apu(
         channels.forEach { channel ->
             when (channel) {
                 is Channel1 -> channel.tickEnvelope()
+                is Channel2 -> channel.tickEnvelope()
             }
         }
     }
@@ -110,7 +114,7 @@ class Apu(
     companion object {
         // TODO: use fractional accumulator to avoid sample drift
         // correct value is 4194304.0 / 44100.0 = 95.108...
-        private val CYCLES_PER_SAMPLE = 95
+        private const val CYCLES_PER_SAMPLE = 95
 
         // TODO: adjust buffer size to account for fractional samples per frame
         // correct value is 44100.0 / 59.7 = 738.7...
