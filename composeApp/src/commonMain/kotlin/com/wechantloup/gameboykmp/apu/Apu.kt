@@ -39,9 +39,34 @@ class Apu(
         if (activeChannels.isEmpty()) {
             samples.add(0f) // silence
         } else {
-            val sum = activeChannels.sumOf { it.getSample() }
-            val max = activeChannels.size * 15
-            val adjustedSample = (sum - max / 2f) / (max / 2f)
+//            val sum = activeChannels.sumOf { it.getSample() }
+//            val max = activeChannels.size * 15
+//            val adjustedSample = (sum - max / 2f) / (max / 2f)
+
+//            val sum = activeChannels.sumOf { (it.getSample() / 7.5) - 1.0 }
+//            val adjustedSample = (sum / activeChannels.size).toFloat()
+
+            // All 4 channels always contribute, active or not
+//            val sum = channels.sumOf { ch ->
+//                val dacInput = if (ch.isEnabled) ch.getSample() else 0
+//                (dacInput / 7.5) - 1.0  // DAC conversion
+//            }
+//            val adjustedSample = (sum / 4).toFloat()  // normalize to -1.0/+1.0
+
+            val sum = channels.sumOf { ch ->
+                if (ch.isEnabled && ch.dacEnabled) (ch.getSample() / 7.5) - 1.0
+                else 0.0
+            }
+            val adjustedSample = (sum / 4).toFloat()
+
+//            if (samples.size == 0) { // juste le premier sample de chaque frame
+//                println("CH1 enabled=${channels[0].isEnabled} sample=${channels[0].getSample()}")
+//                println("CH2 enabled=${channels[1].isEnabled} sample=${channels[1].getSample()}")
+//                println("CH3 enabled=${channels[2].isEnabled} sample=${channels[2].getSample()}")
+//                println("CH4 enabled=${channels[3].isEnabled} sample=${channels[3].getSample()}")
+//                println("adjustedSample=$adjustedSample")
+//            }
+
             samples.add(adjustedSample)
         }
 

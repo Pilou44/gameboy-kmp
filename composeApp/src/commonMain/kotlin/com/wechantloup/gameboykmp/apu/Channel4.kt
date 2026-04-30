@@ -35,6 +35,8 @@ class Channel4(
 
     override val isEnabled: Boolean
         get() = enabled
+    override val dacEnabled: Boolean
+        get() = (bus.read(NR42_ADDR) and 0xF8) != 0
 
     override fun step(cycles: Int) {
         checkInitialization()
@@ -103,13 +105,14 @@ class Channel4(
     private fun checkInitialization() {
         val nr44 = bus.read(NR44_ADDR)
         if (nr44 and 0x80 != 0) {
-            trigger()
+            if (dacEnabled) trigger()
             // Remettre le bit 7 à 0 pour ne pas re-déclencher au prochain step
             bus.write(NR44_ADDR, nr44 and 0x7F)
         }
     }
 
     private fun trigger() {
+        println("trigger channel 4")
         enabled = true
 
         loadFrequency()
@@ -122,6 +125,7 @@ class Channel4(
         envelopeTimer = nr42 and 0x07
 
         lfsr = 0x7FFF
+        println("currentVolume = $currentVolume")
     }
 
     private fun loadFrequency() {
