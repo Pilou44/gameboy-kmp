@@ -33,7 +33,7 @@ class Channel3(
 
     private var enabled = false
     private var frequencyTimer = 0  // frequency timer, decremented each cycle
-    private var frequency = 0 // frequency copy, modified by sweep
+    private var frequency = 0
     private var currentVolume = 0   // 0-3, modified by envelope
     private var lengthCounter = 0   // counts down to 0, then disables channel
     private var wavePosition = 0        // 0-31, current position in duty cycle wave

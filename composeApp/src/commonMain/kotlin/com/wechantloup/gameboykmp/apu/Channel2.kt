@@ -32,7 +32,7 @@ class Channel2(
     private var frequencyTimer = 0  // frequency timer, decremented each cycle
     private var dutyStep = 0        // 0-7, current position in duty cycle wave
     private var currentVolume = 0   // 0-15, modified by envelope
-    private var frequency = 0 // frequency copy, modified by sweep
+    private var frequency = 0
     private var lengthCounter = 0   // counts down to 0, then disables channel
     private var envelopeTimer = 0   // envelope timer counter
 
