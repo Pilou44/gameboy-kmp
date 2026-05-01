@@ -46,6 +46,12 @@ class Bus(
      */
     var onApuPowerOff: (() -> Unit)? = null
 
+    var onNR11Written: ((value: Int) -> Unit)? = null
+    var onNR21Written: ((value: Int) -> Unit)? = null
+    var onNR31Written: ((value: Int) -> Unit)? = null
+    var onNR41Written: ((value: Int) -> Unit)? = null
+    var onDivBit4FallingEdge: (() -> Unit)? = null
+
     val apuPoweredOn: Boolean get() = internalRam[0xFF26] and 0x80 != 0
 
     fun read(address: Int): Int = when (address) {
@@ -70,11 +76,28 @@ class Bus(
     fun write(address: Int, value: Int) {
         val v = value and 0xFF
         when (address) {
-            0xFF04 -> internalRam[0xFF04] = 0
+            0xFF04 -> {
+                val wasSet = internalRam[0xFF04] and 0x10 != 0
+                internalRam[0xFF04] = 0
+                if (wasSet) onDivBit4FallingEdge?.invoke()
+            }
+
             0xFF46 -> triggerDmaTransfer(v)
             0xFF26 -> writeNR52(v)
+            0xFF11 -> {
+                println("Bus: NR11 written 0x${v.toString(16)}, callback=${onNR11Written.hashCode()}")
+                onNR11Written?.invoke(v)
+            }
             // When APU is off, writes to NR10-NR25 are ignored (wave RAM 0xFF30-0xFF3F is always writable)
-            in 0xFF10..0xFF25 -> if (apuPoweredOn) internalRam[address] = v
+            in 0xFF10..0xFF25 -> if (apuPoweredOn) {
+                internalRam[address] = v
+                when (address) {
+                    0xFF11 -> onNR11Written?.invoke(v)
+                    0xFF16 -> onNR21Written?.invoke(v)
+                    0xFF1B -> onNR31Written?.invoke(v)
+                    0xFF20 -> onNR41Written?.invoke(v)
+                }
+            }
             in 0x0000..0x7FFF -> cartridge.writeRom(address, v)
             in 0x8000..0x9FFF -> writeVram(address - 0x8000, v)
             in 0xA000..0xBFFF -> cartridge.writeRam(address - 0xA000, v)
@@ -178,7 +201,8 @@ class Bus(
             0xFF1D -> 0xFF         // NR33 : write-only
             0xFF1E -> raw or 0xBF  // NR34 : same mask as NR14
             0xFF1F -> 0xFF         // NR40 : unused, always 0xFF
-            0xFF20 -> raw or 0xFF  // NR41 : fully masked → always 0xFF
+//            0xFF20 -> raw or 0xFF  // NR41 : fully masked → always 0xFF
+            0xFF20 -> 0xFF  // NR41 : write-only, reads as 0xFF
             0xFF21 -> raw          // NR42 : fully readable
             0xFF22 -> raw          // NR43 : fully readable
             0xFF23 -> raw or 0xBF  // NR44 : same mask as NR14

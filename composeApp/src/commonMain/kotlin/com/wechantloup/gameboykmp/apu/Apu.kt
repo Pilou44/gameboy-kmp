@@ -23,7 +23,20 @@ class Apu(
 
     init {
         bus.onApuPowerOff = { powerOff() }
+        bus.onDivBit4FallingEdge = { clockFrameSequencer() }
     }
+
+    private fun clockFrameSequencer() {
+        when (frameSequencer) {
+            0 -> tickLength()
+            2 -> { tickLength(); tickSweep() }
+            4 -> tickLength()
+            6 -> { tickLength(); tickSweep() }
+            7 -> tickEnvelope()
+        }
+        frameSequencer = (frameSequencer + 1) % 8
+    }
+
 
     fun step(cycles: Int) {
         frameSequencerStep(cycles)
@@ -72,6 +85,7 @@ class Apu(
         if (frameSequencerCycleCount < 8192) return
 
         frameSequencerCycleCount -= 8192
+        println("frameSequencer step: $frameSequencer")
 
         when (frameSequencer) {
             0 -> {

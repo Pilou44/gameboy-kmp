@@ -37,6 +37,14 @@ class Channel1(
      * Frequency is 11 bits total (NR13 + bits 2-0 of NR14).
      */
 
+    init {
+        println("Channel1 created, bus=${bus.hashCode()}")
+        bus.onNR11Written = { value ->
+            println("CH1 onNR11Written: value=0x${value.toString(16)} → lengthCounter=${64 - (value and 0x3F)}")
+            lengthCounter = 64 - (value and 0x3F)
+        }
+    }
+
     private var enabled = false
         set(value) {
             field = value
@@ -70,12 +78,13 @@ class Channel1(
 
     override fun tickLength() {
         val lengthEnable = bus.read(NR14_ADDR) and 0x40 > 0
+        println("CH1 tickLength: lengthEnable=$lengthEnable lengthCounter=$lengthCounter enabled=$enabled")
         if (!lengthEnable) return
         if (lengthCounter == 0) return
 
         lengthCounter--
 
-        if (lengthEnable) {
+        if (lengthCounter == 0) {
             enabled = false
         }
     }

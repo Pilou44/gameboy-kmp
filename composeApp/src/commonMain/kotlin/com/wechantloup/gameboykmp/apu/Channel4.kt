@@ -26,6 +26,12 @@ class Channel4(
      * Bit 6: length enable (1 = disable channel when length expires)
      */
 
+    init {
+        bus.onNR41Written = { value ->
+            lengthCounter = 64 - (value and 0x3F)
+        }
+    }
+
     private var enabled = false
         set(value) {
             field = value
@@ -73,7 +79,7 @@ class Channel4(
 
         lengthCounter--
 
-        if (lengthEnable) {
+        if (lengthCounter == 0) {
             enabled = false
         }
     }

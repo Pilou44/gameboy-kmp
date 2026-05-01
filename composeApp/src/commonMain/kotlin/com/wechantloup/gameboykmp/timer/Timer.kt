@@ -35,7 +35,12 @@ class Timer(private val bus: Bus) {
         cycleCount += cycles
 
         if (cycleCount % 256 < cycles) {
+            val before = bus.read(DIV_ADDR)
             bus.incDiv()
+            val after = bus.read(DIV_ADDR)
+            if (before and 0x10 != 0 && after and 0x10 == 0) {
+                bus.onDivBit4FallingEdge?.invoke()
+            }
         }
 
         if (timerActivated) {

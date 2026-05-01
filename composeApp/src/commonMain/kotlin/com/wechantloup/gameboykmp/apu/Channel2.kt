@@ -28,6 +28,12 @@ class Channel2(
      * Frequency is 11 bits total (NR23 + bits 2-0 of NR24).
      */
 
+    init {
+        bus.onNR21Written = { value ->
+            lengthCounter = 64 - (value and 0x3F)
+        }
+    }
+
     private var enabled = false
         set(value) {
             field = value
@@ -65,7 +71,7 @@ class Channel2(
 
         lengthCounter--
 
-        if (lengthEnable) {
+        if (lengthCounter == 0) {
             enabled = false
         }
     }

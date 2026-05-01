@@ -25,6 +25,7 @@ class GameBoyTestHarness {
      */
     fun step(n: Int = 1) {
         repeat(n) {
+//            println(cpu.registers.pc)
             val cycles = cpu.step()
             ppu.step(cycles)
             apu.step(cycles)
@@ -32,8 +33,23 @@ class GameBoyTestHarness {
         }
     }
 
+//    fun stepCycles(targetCycles: Int) {
+//        var elapsed = 0
+//        while (elapsed < targetCycles) {
+////            println("PC = 0x${cpu.registers.pc.toString(16)}")
+//            val cycles = cpu.step()
+//            ppu.step(cycles)
+//            apu.step(cycles)
+//            timer.step(cycles)
+//            elapsed += cycles
+//        }
+//    }
+
+    private var cycleDebt = 0
+
     fun stepCycles(targetCycles: Int) {
-        var elapsed = 0
+        var elapsed = -cycleDebt
+        cycleDebt = 0
         while (elapsed < targetCycles) {
             val cycles = cpu.step()
             ppu.step(cycles)
@@ -41,6 +57,13 @@ class GameBoyTestHarness {
             timer.step(cycles)
             elapsed += cycles
         }
+        cycleDebt = elapsed - targetCycles
+    }
+
+    fun parkCpu() {
+        // Infinite loop at current PC: JR -2 (0x18, 0xFE)
+        val pc = cpu.registers.pc
+        rom(pc, 0x18, 0xFE)
     }
 }
 

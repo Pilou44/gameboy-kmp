@@ -31,6 +31,12 @@ class Channel3(
      * High nibble of each byte is played first.
      */
 
+    init {
+        bus.onNR31Written = { value ->
+            lengthCounter = 256 - (value and 0xFF)
+        }
+    }
+
     private var enabled = false
         set(value) {
             field = value
@@ -67,7 +73,7 @@ class Channel3(
 
         lengthCounter--
 
-        if (lengthEnable) {
+        if (lengthCounter == 0) {
             enabled = false
         }
     }
