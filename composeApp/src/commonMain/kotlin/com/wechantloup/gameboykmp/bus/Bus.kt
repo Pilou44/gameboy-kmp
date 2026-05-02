@@ -85,7 +85,7 @@ class Bus(
             0xFF46 -> triggerDmaTransfer(v)
             0xFF26 -> writeNR52(v)
             0xFF11 -> {
-                println("Bus: NR11 written 0x${v.toString(16)}, callback=${onNR11Written.hashCode()}")
+//                println("Bus: NR11 written 0x${v.toString(16)}, callback=${onNR11Written.hashCode()}")
                 onNR11Written?.invoke(v)
             }
             // When APU is off, writes to NR10-NR25 are ignored (wave RAM 0xFF30-0xFF3F is always writable)

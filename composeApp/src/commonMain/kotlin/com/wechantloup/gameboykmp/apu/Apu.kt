@@ -85,7 +85,7 @@ class Apu(
         if (frameSequencerCycleCount < 8192) return
 
         frameSequencerCycleCount -= 8192
-        println("frameSequencer step: $frameSequencer")
+//        println("frameSequencer step: $frameSequencer")
 
         when (frameSequencer) {
             0 -> {
