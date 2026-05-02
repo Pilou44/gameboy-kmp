@@ -18,6 +18,26 @@ class Mbc1Cartridge(
     private val _isSaving = MutableStateFlow(false)
     override val isSaving: StateFlow<Boolean> = _isSaving
 
+    private val romBankCount: Int = run {
+        val fromHeader = when (rom[0x0148].toInt() and 0xFF) {
+            0x00 -> 2
+            0x01 -> 4
+            0x02 -> 8
+            0x03 -> 16
+            0x04 -> 32
+            0x05 -> 64
+            0x06 -> 128
+            0x07 -> 256
+            0x08 -> 512
+            else -> throw IllegalStateException("Unknown ROM size byte at 0x0148")
+        }
+        val fromSize = rom.size / 0x4000
+        require(fromHeader == fromSize) {
+            "ROM size mismatch: header says $fromHeader banks but file has $fromSize banks"
+        }
+        fromHeader
+    }
+
     private var romBank = 1
     private var ramBank = 0
     private var ramEnabled = false
@@ -35,13 +55,19 @@ class Mbc1Cartridge(
                 // In RAM banking mode (mode 1), ramBank bits 0-1 become bits 5-6 of the ROM bank number
                 // allowing access to banks 0x00, 0x20, 0x40, 0x60 in the lower ROM area
                 val bank = if (bankingMode == 1) (ramBank shl 5) else 0
-                rom[bank * 0x4000 + address].toInt() and 0xFF
+                // romBankCount is always a power of 2 (2, 4, 8, 16...), so (romBankCount - 1) is a perfect bit mask.
+                // e.g. 64 banks → 64 - 1 = 63 = 0b00111111, masking any bank number to the valid range.
+                val maskedBank = bank and (romBankCount - 1)
+                rom[maskedBank * 0x4000 + address].toInt() and 0xFF
             }
             in 0x4000..0x7FFF -> {
                 // In ROM banking mode (mode 0), ramBank bits 0-1 become bits 5-6 of the ROM bank number,
                 // allowing access to all 128 banks (7 bits total: 5 from romBank + 2 from ramBank)
                 val bank = if (bankingMode == 0) romBank or (ramBank shl 5) else romBank
-                rom[bank * 0x4000 + (address - 0x4000)].toInt() and 0xFF
+                // romBankCount is always a power of 2 (2, 4, 8, 16...), so (romBankCount - 1) is a perfect bit mask.
+                // e.g. 64 banks → 64 - 1 = 63 = 0b00111111, masking any bank number to the valid range.
+                val maskedBank = bank and (romBankCount - 1)
+                rom[maskedBank * 0x4000 + (address - 0x4000)].toInt() and 0xFF
             }
             else -> throw IllegalArgumentException("Bad address")
         }
