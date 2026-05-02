@@ -3,6 +3,7 @@ package com.wechantloup.gameboykmp.apu
 interface SoundChannel {
     val isEnabled: Boolean
     val dacEnabled: Boolean
+    fun trigger()
     fun step(cycles: Int)
     fun tickLength()
     fun getSample(): Int

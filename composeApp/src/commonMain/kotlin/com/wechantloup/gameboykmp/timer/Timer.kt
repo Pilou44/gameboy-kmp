@@ -6,9 +6,6 @@ class Timer(private val bus: Bus) {
 
     private var cycleCount = 0
 
-    private val div: Int
-        get() = bus.read(DIV_ADDR)
-
     private var timaCycleCount = 0
 
     private var tima: Int
@@ -35,12 +32,7 @@ class Timer(private val bus: Bus) {
         cycleCount += cycles
 
         if (cycleCount % 256 < cycles) {
-            val before = bus.read(DIV_ADDR)
             bus.incDiv()
-            val after = bus.read(DIV_ADDR)
-            if (before and 0x10 != 0 && after and 0x10 == 0) {
-                bus.onDivBit4FallingEdge?.invoke()
-            }
         }
 
         if (timerActivated) {
@@ -59,7 +51,6 @@ class Timer(private val bus: Bus) {
     }
 
     companion object {
-        private const val DIV_ADDR = 0xFF04
         private const val TIMA_ADDR = 0xFF05
         private const val TMA_ADDR = 0xFF06
         private const val TAC_ADDR = 0xFF07

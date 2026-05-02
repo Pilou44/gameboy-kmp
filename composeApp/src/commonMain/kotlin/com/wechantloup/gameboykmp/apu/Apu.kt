@@ -23,20 +23,11 @@ class Apu(
 
     init {
         bus.onApuPowerOff = { powerOff() }
-        bus.onDivBit4FallingEdge = { clockFrameSequencer() }
+        bus.onChannel1Trigger = { channels[0].trigger() }
+        bus.onChannel2Trigger = { channels[1].trigger() }
+        bus.onChannel3Trigger = { channels[2].trigger() }
+        bus.onChannel4Trigger = { channels[3].trigger() }
     }
-
-    private fun clockFrameSequencer() {
-        when (frameSequencer) {
-            0 -> tickLength()
-            2 -> { tickLength(); tickSweep() }
-            4 -> tickLength()
-            6 -> { tickLength(); tickSweep() }
-            7 -> tickEnvelope()
-        }
-        frameSequencer = (frameSequencer + 1) % 8
-    }
-
 
     fun step(cycles: Int) {
         frameSequencerStep(cycles)

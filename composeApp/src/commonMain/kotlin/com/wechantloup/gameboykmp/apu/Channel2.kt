@@ -28,12 +28,6 @@ class Channel2(
      * Frequency is 11 bits total (NR23 + bits 2-0 of NR24).
      */
 
-    init {
-        bus.onNR21Written = { value ->
-            lengthCounter = 64 - (value and 0x3F)
-        }
-    }
-
     private var enabled = false
         set(value) {
             field = value
@@ -52,8 +46,6 @@ class Channel2(
         get() = (bus.read(NR22_ADDR) and 0xF8) != 0
 
     override fun step(cycles: Int) {
-        checkInitialization()
-
         if (!enabled) return
 
         frequencyTimer -= cycles
@@ -117,31 +109,18 @@ class Channel2(
         envelopeTimer = 0
     }
 
-    private fun checkInitialization() {
-        val nr24 = bus.read(NR24_ADDR)
-        if (nr24 and 0x80 != 0) {
-            if (dacEnabled) trigger()
-            // Clear bit 7 to avoid re-triggering on the next step
-            bus.write(NR24_ADDR, nr24 and 0x7F)
-        }
-    }
+    override fun trigger() {
+        if (!dacEnabled) return
 
-    private fun trigger() {
-//        println("trigger channel 2")
         enabled = true
-
         loadFrequency()
 
-//        val lengthLoad = bus.read(NR21_ADDR) and 0x3F
-//        lengthCounter = 64 - lengthLoad
-        if (lengthCounter == 0) {
-            lengthCounter = 64
-        }
+        val lengthLoad = bus.read(NR21_ADDR) and 0x3F
+        lengthCounter = 64 - lengthLoad
 
         val nr22 = bus.read(NR22_ADDR)
         currentVolume = (nr22 and 0xF0) shr 4
         envelopeTimer = nr22 and 0x07
-//        println("currentVolume = $currentVolume")
     }
 
     private fun loadFrequency() {
@@ -151,8 +130,6 @@ class Channel2(
         frequencyTimer = (2048 - newFrequency) * 4
         frequency = newFrequency
     }
-
-    // TODO: add reset() method to clean all internal state on ROM change
 
     companion object {
         private const val NR21_ADDR = 0xFF16

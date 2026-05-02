@@ -37,14 +37,6 @@ class Channel1(
      * Frequency is 11 bits total (NR13 + bits 2-0 of NR14).
      */
 
-    init {
-//        println("Channel1 created, bus=${bus.hashCode()}")
-        bus.onNR11Written = { value ->
-//            println("CH1 onNR11Written: value=0x${value.toString(16)} → lengthCounter=${64 - (value and 0x3F)}")
-            lengthCounter = 64 - (value and 0x3F)
-        }
-    }
-
     private var enabled = false
         set(value) {
             field = value
@@ -64,8 +56,6 @@ class Channel1(
         get() = (bus.read(NR12_ADDR) and 0xF8) != 0
 
     override fun step(cycles: Int) {
-        checkInitialization()
-
         if (!enabled) return
 
         frequencyTimer -= cycles
@@ -78,7 +68,6 @@ class Channel1(
 
     override fun tickLength() {
         val lengthEnable = bus.read(NR14_ADDR) and 0x40 > 0
-//        println("CH1 tickLength: lengthEnable=$lengthEnable lengthCounter=$lengthCounter enabled=$enabled")
         if (!lengthEnable) return
         if (lengthCounter == 0) return
 
@@ -159,33 +148,20 @@ class Channel1(
         envelopeTimer = 0
     }
 
-    private fun checkInitialization() {
-        val nr14 = bus.read(NR14_ADDR)
-        if (nr14 and 0x80 != 0) {
-            if (dacEnabled) trigger()
-            // Clear bit 7 to avoid re-triggering on the next step
-            bus.write(NR14_ADDR, nr14 and 0x7F)
-        }
-    }
+    override fun trigger() {
+        if (!dacEnabled) return  // DAC off: trigger is ignored
 
-    private fun trigger() {
-//        println("trigger channel 1")
         enabled = true
-
         loadFrequency()
 
-//        val lengthLoad = bus.read(NR11_ADDR) and 0x3F
-//        lengthCounter = 64 - lengthLoad
-        if (lengthCounter == 0) {
-            lengthCounter = 64
-        }
+        val lengthLoad = bus.read(NR11_ADDR) and 0x3F
+        lengthCounter = 64 - lengthLoad
 
         val nr12 = bus.read(NR12_ADDR)
         currentVolume = (nr12 and 0xF0) shr 4
         envelopeTimer = nr12 and 0x07
 
         sweepTimer = (bus.read(NR10_ADDR) and 0x70) shr 4
-//        println("currentVolume = $currentVolume")
     }
 
     private fun loadFrequency() {
@@ -195,8 +171,6 @@ class Channel1(
         frequencyTimer = (2048 - frequency) * 4
         shadowFrequency = frequency
     }
-
-    // TODO: add reset() method to clean all internal state on ROM change
 
     companion object {
         private const val NR10_ADDR = 0xFF10

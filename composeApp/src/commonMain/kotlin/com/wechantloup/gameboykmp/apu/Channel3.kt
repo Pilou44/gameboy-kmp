@@ -31,12 +31,6 @@ class Channel3(
      * High nibble of each byte is played first.
      */
 
-    init {
-        bus.onNR31Written = { value ->
-            lengthCounter = 256 - (value and 0xFF)
-        }
-    }
-
     private var enabled = false
         set(value) {
             field = value
@@ -54,8 +48,6 @@ class Channel3(
         get() = enabled
 
     override fun step(cycles: Int) {
-        checkInitialization()
-
         if (!enabled) return
 
         frequencyTimer -= cycles
@@ -107,30 +99,17 @@ class Channel3(
         wavePosition = 0
     }
 
-    private fun checkInitialization() {
-        val nr34 = bus.read(NR34_ADDR)
-        if (nr34 and 0x80 != 0) {
-            if (dacEnabled) trigger()
-            // Clear bit 7 to avoid re-triggering on the next step
-            bus.write(NR34_ADDR, nr34 and 0x7F)
-        }
-    }
+    override fun trigger() {
+        if (!dacEnabled) return
 
-    private fun trigger() {
-//        println("trigger channel 3")
         enabled = true
-
         loadFrequency()
 
-//        val lengthLoad = bus.read(NR31_ADDR) and 0xFF
-//        lengthCounter = 256 - lengthLoad
-        if (lengthCounter == 0) {
-            lengthCounter = 256
-        }
+        val lengthLoad = bus.read(NR31_ADDR) and 0xFF
+        lengthCounter = 256 - lengthLoad
 
-        val nr12 = bus.read(NR32_ADDR)
-        currentVolume = (nr12 and 0x60) shr 5
-//        println("currentVolume = $currentVolume")
+        val nr32 = bus.read(NR32_ADDR)
+        currentVolume = (nr32 and 0x60) shr 5
     }
 
     private fun loadFrequency() {
@@ -140,8 +119,6 @@ class Channel3(
         frequencyTimer = (2048 - newFrequency) * 2
         frequency = newFrequency
     }
-
-    // TODO: add reset() method to clean all internal state on ROM change
 
     companion object {
         private const val NR30_ADDR = 0xFF1A

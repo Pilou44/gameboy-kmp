@@ -26,12 +26,6 @@ class Channel4(
      * Bit 6: length enable (1 = disable channel when length expires)
      */
 
-    init {
-        bus.onNR41Written = { value ->
-            lengthCounter = 64 - (value and 0x3F)
-        }
-    }
-
     private var enabled = false
         set(value) {
             field = value
@@ -50,8 +44,6 @@ class Channel4(
         get() = (bus.read(NR42_ADDR) and 0xF8) != 0
 
     override fun step(cycles: Int) {
-        checkInitialization()
-
         if (!enabled) return
 
         frequencyTimer -= cycles
@@ -120,33 +112,20 @@ class Channel4(
         envelopeTimer = 0
     }
 
-    private fun checkInitialization() {
-        val nr44 = bus.read(NR44_ADDR)
-        if (nr44 and 0x80 != 0) {
-            if (dacEnabled) trigger()
-            // Clear bit 7 to avoid re-triggering on the next step
-            bus.write(NR44_ADDR, nr44 and 0x7F)
-        }
-    }
+    override fun trigger() {
+        if (!dacEnabled) return
 
-    private fun trigger() {
-//        println("trigger channel 4")
         enabled = true
-
         loadFrequency()
 
-//        val lengthLoad = bus.read(NR41_ADDR) and 0x3F
-//        lengthCounter = 64 - lengthLoad
-        if (lengthCounter == 0) {
-            lengthCounter = 64
-        }
+        val lengthLoad = bus.read(NR41_ADDR) and 0x3F
+        lengthCounter = 64 - lengthLoad
 
         val nr42 = bus.read(NR42_ADDR)
         currentVolume = (nr42 and 0xF0) shr 4
         envelopeTimer = nr42 and 0x07
 
         lfsr = 0x7FFF
-//        println("currentVolume = $currentVolume")
     }
 
     private fun loadFrequency() {
@@ -167,8 +146,6 @@ class Channel4(
         }
         frequencyTimer = divisor shl clockShift
     }
-
-    // TODO: add reset() method to clean all internal state on ROM change
 
     companion object {
         private const val NR41_ADDR = 0xFF20

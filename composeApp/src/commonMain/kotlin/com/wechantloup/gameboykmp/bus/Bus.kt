@@ -46,11 +46,10 @@ class Bus(
      */
     var onApuPowerOff: (() -> Unit)? = null
 
-    var onNR11Written: ((value: Int) -> Unit)? = null
-    var onNR21Written: ((value: Int) -> Unit)? = null
-    var onNR31Written: ((value: Int) -> Unit)? = null
-    var onNR41Written: ((value: Int) -> Unit)? = null
-    var onDivBit4FallingEdge: (() -> Unit)? = null
+    var onChannel1Trigger: (() -> Unit)? = null
+    var onChannel2Trigger: (() -> Unit)? = null
+    var onChannel3Trigger: (() -> Unit)? = null
+    var onChannel4Trigger: (() -> Unit)? = null
 
     val apuPoweredOn: Boolean get() = internalRam[0xFF26] and 0x80 != 0
 
@@ -76,26 +75,19 @@ class Bus(
     fun write(address: Int, value: Int) {
         val v = value and 0xFF
         when (address) {
-            0xFF04 -> {
-                val wasSet = internalRam[0xFF04] and 0x10 != 0
-                internalRam[0xFF04] = 0
-                if (wasSet) onDivBit4FallingEdge?.invoke()
-            }
-
+            0xFF04 -> internalRam[0xFF04] = 0
             0xFF46 -> triggerDmaTransfer(v)
             0xFF26 -> writeNR52(v)
-            0xFF11 -> {
-//                println("Bus: NR11 written 0x${v.toString(16)}, callback=${onNR11Written.hashCode()}")
-                onNR11Written?.invoke(v)
-            }
             // When APU is off, writes to NR10-NR25 are ignored (wave RAM 0xFF30-0xFF3F is always writable)
+            // TODO: NR41 (0xFF20) length counter should be writable even when APU is powered off (DMG quirk)
             in 0xFF10..0xFF25 -> if (apuPoweredOn) {
                 internalRam[address] = v
                 when (address) {
-                    0xFF11 -> onNR11Written?.invoke(v)
-                    0xFF16 -> onNR21Written?.invoke(v)
-                    0xFF1B -> onNR31Written?.invoke(v)
-                    0xFF20 -> onNR41Written?.invoke(v)
+                    // TODO: bit 7 (trigger) is write-only on real hardware and should not be stored
+                    0xFF14 -> if (v and 0x80 != 0) onChannel1Trigger?.invoke()
+                    0xFF19 -> if (v and 0x80 != 0) onChannel2Trigger?.invoke()
+                    0xFF1E -> if (v and 0x80 != 0) onChannel3Trigger?.invoke()
+                    0xFF23 -> if (v and 0x80 != 0) onChannel4Trigger?.invoke()
                 }
             }
             in 0x0000..0x7FFF -> cartridge.writeRom(address, v)
@@ -189,22 +181,26 @@ class Bus(
             0xFF11 -> raw or 0x3F  // NR11 : bits 5-0 write-only → read as 1
             0xFF12 -> raw          // NR12 : fully readable
             0xFF13 -> 0xFF         // NR13 : write-only
+            // TODO: bit 7 reads as 1 due to or 0xBF mask, but it should reflect nothing — trigger bit is write-only
             0xFF14 -> raw or 0xBF  // NR14 : bits 5-0 and 7 read as 1, except bit 6
             0xFF15 -> 0xFF         // NR20 : unused, always 0xFF
             0xFF16 -> raw or 0x3F  // NR21 : bits 5-0 write-only
             0xFF17 -> raw          // NR22 : fully readable
             0xFF18 -> 0xFF         // NR23 : write-only
+            // TODO: bit 7 reads as 1 due to or 0xBF mask, but it should reflect nothing — trigger bit is write-only
             0xFF19 -> raw or 0xBF  // NR24 : same mask as NR14
             0xFF1A -> raw or 0x7F  // NR30 : bits 6-0 always 1
             0xFF1B -> 0xFF         // NR31 : write-only
             0xFF1C -> raw or 0x9F  // NR32 : bits 4-0 and 7 always 1
             0xFF1D -> 0xFF         // NR33 : write-only
+            // TODO: bit 7 reads as 1 due to or 0xBF mask, but it should reflect nothing — trigger bit is write-only
             0xFF1E -> raw or 0xBF  // NR34 : same mask as NR14
             0xFF1F -> 0xFF         // NR40 : unused, always 0xFF
 //            0xFF20 -> raw or 0xFF  // NR41 : fully masked → always 0xFF
             0xFF20 -> 0xFF  // NR41 : write-only, reads as 0xFF
             0xFF21 -> raw          // NR42 : fully readable
             0xFF22 -> raw          // NR43 : fully readable
+            // TODO: bit 7 reads as 1 due to or 0xBF mask, but it should reflect nothing — trigger bit is write-only
             0xFF23 -> raw or 0xBF  // NR44 : same mask as NR14
             0xFF24 -> raw          // NR50 : fully readable
             0xFF25 -> raw          // NR51 : fully readable
