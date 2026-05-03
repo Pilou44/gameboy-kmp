@@ -45,7 +45,7 @@ E1 E1 E1 0C04
 00 08 0D  
 FECD042E  
 
-## Meme timing NOK
+## Mem timing NOK
 01: 01  
 02: 01  
 03: 01  
