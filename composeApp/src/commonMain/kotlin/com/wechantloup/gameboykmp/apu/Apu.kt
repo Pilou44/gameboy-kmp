@@ -13,15 +13,16 @@ class Apu(
 
     private var channelsCycleCount = 0
     private val channels = listOf(
-        Channel1(bus),
-        Channel2(bus),
-        Channel3(bus),
-        Channel4(bus),
+        Channel1(bus, { frameSequencer }),
+        Channel2(bus, { frameSequencer }),
+        Channel3(bus, { frameSequencer }),
+        Channel4(bus, { frameSequencer }),
     )
 
     private val samples = mutableListOf<Float>()
 
     init {
+        bus.onApuDivReset = { frameSequencerCycleCount = 0 }
         bus.onApuPowerOff = { powerOff() }
         bus.onChannel1Trigger = { channels[0].trigger() }
         bus.onChannel2Trigger = { channels[1].trigger() }
@@ -35,6 +36,10 @@ class Apu(
         bus.onChannel2DacWrite = { v -> channels[1].onDacWrite(v) }
         bus.onChannel3DacWrite = { v -> channels[2].onDacWrite(v) }
         bus.onChannel4DacWrite = { v -> channels[3].onDacWrite(v) }
+        bus.onChannel1ControlWrite = { v -> channels[0].onControlWrite(v) }
+        bus.onChannel2ControlWrite = { v -> channels[1].onControlWrite(v) }
+        bus.onChannel3ControlWrite = { v -> channels[2].onControlWrite(v) }
+        bus.onChannel4ControlWrite = { v -> channels[3].onControlWrite(v) }
     }
 
     fun step(cycles: Int) {

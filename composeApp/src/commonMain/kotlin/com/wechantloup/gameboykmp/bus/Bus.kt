@@ -58,7 +58,12 @@ class Bus(
     var onChannel2DacWrite: ((Int) -> Unit)? = null
     var onChannel3DacWrite: ((Int) -> Unit)? = null
     var onChannel4DacWrite: ((Int) -> Unit)? = null
+    var onChannel1ControlWrite: ((Int) -> Unit)? = null
+    var onChannel2ControlWrite: ((Int) -> Unit)? = null
+    var onChannel3ControlWrite: ((Int) -> Unit)? = null
+    var onChannel4ControlWrite: ((Int) -> Unit)? = null
     var onDivReset: (() -> Unit)? = null
+    var onApuDivReset: (() -> Unit)? = null
 
     val apuPoweredOn: Boolean get() = internalRam[0xFF26] and 0x80 != 0
 
@@ -87,6 +92,7 @@ class Bus(
             0xFF04 -> {
                 internalRam[0xFF04] = 0
                 onDivReset?.invoke()
+                onApuDivReset?.invoke()
             }
             0xFF46 -> triggerDmaTransfer(v)
             0xFF26 -> writeNR52(v)
@@ -96,10 +102,22 @@ class Bus(
                 internalRam[address] = v
                 when (address) {
                     // TODO: bit 7 (trigger) is write-only on real hardware and should not be stored
-                    0xFF14 -> if (v and 0x80 != 0) onChannel1Trigger?.invoke()
-                    0xFF19 -> if (v and 0x80 != 0) onChannel2Trigger?.invoke()
-                    0xFF1E -> if (v and 0x80 != 0) onChannel3Trigger?.invoke()
-                    0xFF23 -> if (v and 0x80 != 0) onChannel4Trigger?.invoke()
+                    0xFF14 -> {
+                        onChannel1ControlWrite?.invoke(v)
+                        if (v and 0x80 != 0) onChannel1Trigger?.invoke()
+                    }
+                    0xFF19 -> {
+                        onChannel2ControlWrite?.invoke(v)
+                        if (v and 0x80 != 0) onChannel2Trigger?.invoke()
+                    }
+                    0xFF1E -> {
+                        onChannel3ControlWrite?.invoke(v)
+                        if (v and 0x80 != 0) onChannel3Trigger?.invoke()
+                    }
+                    0xFF23 -> {
+                        onChannel4ControlWrite?.invoke(v)
+                        if (v and 0x80 != 0) onChannel4Trigger?.invoke()
+                    }
                     0xFF11 -> {
                         internalRam[address] = v
                         onChannel1LengthWrite?.invoke(v)

@@ -53,7 +53,7 @@ FECD042E
 ## DMG sound NOK
 01: OK  
 02: OK  
-03: 03  
+03: OK  
 04: 02  
 05: 02  
 06: 01  

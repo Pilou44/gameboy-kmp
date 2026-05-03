@@ -9,6 +9,7 @@ interface SoundChannel {
     fun tickLength()
     fun getSample(): Int
     fun onDacWrite(value: Int)
+    fun onControlWrite(value: Int)
 
     /**
      * Resets all internal channel state.

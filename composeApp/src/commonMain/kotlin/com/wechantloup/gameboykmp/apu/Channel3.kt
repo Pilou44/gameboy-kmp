@@ -4,6 +4,7 @@ import com.wechantloup.gameboykmp.bus.Bus
 
 class Channel3(
     private val bus: Bus,
+    private val getFrameSequencerStep: () -> Int,
 ): SoundChannel {
 
     /**
@@ -41,6 +42,7 @@ class Channel3(
     private var currentVolume = 0   // 0-3, modified by envelope
     private var lengthCounter = 0   // counts down to 0, then disables channel
     private var wavePosition = 0    // 0-31, current position in wave table
+    private var lengthEnabled = false  // tracks current lengthEnable state
 
     override val dacEnabled: Boolean
         get() = (bus.read(NR30_ADDR) and 0x80 != 0)
@@ -59,8 +61,7 @@ class Channel3(
     }
 
     override fun tickLength() {
-        val lengthEnable = bus.read(NR34_ADDR) and 0x40 > 0
-        if (!lengthEnable) return
+        if (!lengthEnabled) return
         if (lengthCounter == 0) return
 
         lengthCounter--
@@ -97,6 +98,7 @@ class Channel3(
         currentVolume = 0
         lengthCounter = 0
         wavePosition = 0
+        lengthEnabled = false
     }
 
     override fun loadLengthCounter(value: Int) {
@@ -105,12 +107,19 @@ class Channel3(
     }
 
     override fun trigger() {
+        if (lengthCounter == 0) {
+            lengthCounter = 256
+            // Extra clock if length already enabled and frame sequencer at odd step
+            if (lengthEnabled && getFrameSequencerStep() % 2 == 1) {
+                lengthCounter--
+                if (lengthCounter == 0) enabled = false
+            }
+        }
+
         if (!dacEnabled) return
 
         enabled = true
         loadFrequency()
-
-        if (lengthCounter == 0) lengthCounter = 256
 
         val nr32 = bus.read(NR32_ADDR)
         currentVolume = (nr32 and 0x60) shr 5
@@ -119,6 +128,22 @@ class Channel3(
     override fun onDacWrite(value: Int) {
         // DAC disabled when bit 7 is 0
         if (value and 0x80 == 0) enabled = false
+    }
+
+    override fun onControlWrite(value: Int) {
+        val newLengthEnable = value and 0x40 != 0
+
+        if (!lengthEnabled && newLengthEnable) {
+            if (getFrameSequencerStep() % 2 == 1) {
+                // Direct extra clock, bypassing the lengthEnabled guard
+                if (lengthCounter > 0) {
+                    lengthCounter--
+                    if (lengthCounter == 0) enabled = false
+                }
+            }
+        }
+
+        lengthEnabled = newLengthEnable
     }
 
     private fun loadFrequency() {
