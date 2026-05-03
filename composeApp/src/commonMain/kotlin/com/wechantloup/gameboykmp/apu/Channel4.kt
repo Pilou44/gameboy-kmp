@@ -132,6 +132,11 @@ class Channel4(
         lfsr = 0x7FFF
     }
 
+    override fun onDacWrite(value: Int) {
+        // DAC disabled when bits 7-3 are all 0
+        if (value and 0xF8 == 0) enabled = false
+    }
+
     private fun loadFrequency() {
         val nr43 = bus.read(NR43_ADDR)
 

@@ -100,7 +100,7 @@ class Channel3(
     }
 
     override fun loadLengthCounter(value: Int) {
-        val lengthLoad = value and 0x3F
+        val lengthLoad = value and 0xFF  // NR31 is 8-bit (0-255)
         lengthCounter = 256 - lengthLoad
     }
 
@@ -114,6 +114,11 @@ class Channel3(
 
         val nr32 = bus.read(NR32_ADDR)
         currentVolume = (nr32 and 0x60) shr 5
+    }
+
+    override fun onDacWrite(value: Int) {
+        // DAC disabled when bit 7 is 0
+        if (value and 0x80 == 0) enabled = false
     }
 
     private fun loadFrequency() {

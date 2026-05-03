@@ -8,6 +8,7 @@ interface SoundChannel {
     fun step(cycles: Int)
     fun tickLength()
     fun getSample(): Int
+    fun onDacWrite(value: Int)
 
     /**
      * Resets all internal channel state.

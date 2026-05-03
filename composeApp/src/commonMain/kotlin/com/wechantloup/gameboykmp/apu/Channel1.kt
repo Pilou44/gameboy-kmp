@@ -168,6 +168,11 @@ class Channel1(
         sweepTimer = (bus.read(NR10_ADDR) and 0x70) shr 4
     }
 
+    override fun onDacWrite(value: Int) {
+        // DAC disabled when bits 7-3 are all 0
+        if (value and 0xF8 == 0) enabled = false
+    }
+
     private fun loadFrequency() {
         // Use raw read: bus.read() applies CPU-view masks that corrupt write-only fields
         val frequencyHigh = bus.readRaw(NR14_ADDR) and 0x07

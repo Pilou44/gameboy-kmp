@@ -4,7 +4,7 @@ import com.wechantloup.gameboykmp.bus.Bus
 import kotlinx.coroutines.channels.Channel
 
 class Apu(
-    private val bus: Bus,
+    bus: Bus,
 ) {
     val samplesChannel = Channel<FloatArray>(8) // 8 frames
 
@@ -31,6 +31,10 @@ class Apu(
         bus.onChannel2LengthWrite = { v -> channels[1].loadLengthCounter(v) }
         bus.onChannel3LengthWrite = { v -> channels[2].loadLengthCounter(v) }
         bus.onChannel4LengthWrite = { v -> channels[3].loadLengthCounter(v) }
+        bus.onChannel1DacWrite = { v -> channels[0].onDacWrite(v) }
+        bus.onChannel2DacWrite = { v -> channels[1].onDacWrite(v) }
+        bus.onChannel3DacWrite = { v -> channels[2].onDacWrite(v) }
+        bus.onChannel4DacWrite = { v -> channels[3].onDacWrite(v) }
     }
 
     fun step(cycles: Int) {

@@ -54,6 +54,10 @@ class Bus(
     var onChannel2LengthWrite: ((Int) -> Unit)? = null
     var onChannel3LengthWrite: ((Int) -> Unit)? = null
     var onChannel4LengthWrite: ((Int) -> Unit)? = null
+    var onChannel1DacWrite: ((Int) -> Unit)? = null
+    var onChannel2DacWrite: ((Int) -> Unit)? = null
+    var onChannel3DacWrite: ((Int) -> Unit)? = null
+    var onChannel4DacWrite: ((Int) -> Unit)? = null
     var onDivReset: (() -> Unit)? = null
 
     val apuPoweredOn: Boolean get() = internalRam[0xFF26] and 0x80 != 0
@@ -112,6 +116,10 @@ class Bus(
                         internalRam[address] = v
                         onChannel4LengthWrite?.invoke(v)
                     }
+                    0xFF12 -> onChannel1DacWrite?.invoke(v)
+                    0xFF17 -> onChannel2DacWrite?.invoke(v)
+                    0xFF1A -> onChannel3DacWrite?.invoke(v)
+                    0xFF21 -> onChannel4DacWrite?.invoke(v)
                 }
             }
             in 0x0000..0x7FFF -> cartridge.writeRom(address, v)

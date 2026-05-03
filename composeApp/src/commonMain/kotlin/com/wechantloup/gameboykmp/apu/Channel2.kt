@@ -127,6 +127,11 @@ class Channel2(
         envelopeTimer = nr22 and 0x07
     }
 
+    override fun onDacWrite(value: Int) {
+        // DAC disabled when bits 7-3 are all 0
+        if (value and 0xF8 == 0) enabled = false
+    }
+
     private fun loadFrequency() {
         val frequencyHigh = bus.readRaw(NR24_ADDR) and 0x07
         val frequencyLow = bus.readRaw(NR23_ADDR) and 0xFF
