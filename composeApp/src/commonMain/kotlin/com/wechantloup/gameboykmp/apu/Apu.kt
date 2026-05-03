@@ -27,6 +27,10 @@ class Apu(
         bus.onChannel2Trigger = { channels[1].trigger() }
         bus.onChannel3Trigger = { channels[2].trigger() }
         bus.onChannel4Trigger = { channels[3].trigger() }
+        bus.onChannel1LengthWrite = { v -> channels[0].loadLengthCounter(v) }
+        bus.onChannel2LengthWrite = { v -> channels[1].loadLengthCounter(v) }
+        bus.onChannel3LengthWrite = { v -> channels[2].loadLengthCounter(v) }
+        bus.onChannel4LengthWrite = { v -> channels[3].loadLengthCounter(v) }
     }
 
     fun step(cycles: Int) {

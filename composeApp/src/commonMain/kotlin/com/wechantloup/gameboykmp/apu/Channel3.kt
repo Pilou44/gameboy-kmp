@@ -99,14 +99,18 @@ class Channel3(
         wavePosition = 0
     }
 
+    override fun loadLengthCounter(value: Int) {
+        val lengthLoad = value and 0x3F
+        lengthCounter = 256 - lengthLoad
+    }
+
     override fun trigger() {
         if (!dacEnabled) return
 
         enabled = true
         loadFrequency()
 
-        val lengthLoad = bus.readRaw(NR31_ADDR) and 0xFF
-        lengthCounter = 256 - lengthLoad
+        if (lengthCounter == 0) lengthCounter = 256
 
         val nr32 = bus.read(NR32_ADDR)
         currentVolume = (nr32 and 0x60) shr 5

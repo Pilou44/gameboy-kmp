@@ -50,6 +50,10 @@ class Bus(
     var onChannel2Trigger: (() -> Unit)? = null
     var onChannel3Trigger: (() -> Unit)? = null
     var onChannel4Trigger: (() -> Unit)? = null
+    var onChannel1LengthWrite: ((Int) -> Unit)? = null
+    var onChannel2LengthWrite: ((Int) -> Unit)? = null
+    var onChannel3LengthWrite: ((Int) -> Unit)? = null
+    var onChannel4LengthWrite: ((Int) -> Unit)? = null
     var onDivReset: (() -> Unit)? = null
 
     val apuPoweredOn: Boolean get() = internalRam[0xFF26] and 0x80 != 0
@@ -92,6 +96,22 @@ class Bus(
                     0xFF19 -> if (v and 0x80 != 0) onChannel2Trigger?.invoke()
                     0xFF1E -> if (v and 0x80 != 0) onChannel3Trigger?.invoke()
                     0xFF23 -> if (v and 0x80 != 0) onChannel4Trigger?.invoke()
+                    0xFF11 -> {
+                        internalRam[address] = v
+                        onChannel1LengthWrite?.invoke(v)
+                    }
+                    0xFF16 -> {
+                        internalRam[address] = v
+                        onChannel2LengthWrite?.invoke(v)
+                    }
+                    0xFF1B -> {
+                        internalRam[address] = v
+                        onChannel3LengthWrite?.invoke(v)
+                    }
+                    0xFF20 -> {
+                        internalRam[address] = v
+                        onChannel4LengthWrite?.invoke(v)
+                    }
                 }
             }
             in 0x0000..0x7FFF -> cartridge.writeRom(address, v)

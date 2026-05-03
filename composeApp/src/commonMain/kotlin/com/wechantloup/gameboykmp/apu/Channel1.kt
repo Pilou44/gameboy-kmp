@@ -148,15 +148,18 @@ class Channel1(
         envelopeTimer = 0
     }
 
+    override fun loadLengthCounter(value: Int) {
+        val lengthLoad = value and 0x3F
+        lengthCounter = 64 - lengthLoad
+    }
+
     override fun trigger() {
         if (!dacEnabled) return  // DAC off: trigger is ignored
 
         enabled = true
         loadFrequency()
 
-        // Use raw read: NR11 bits 5-0 are write-only and read as 1 via bus.read()
-        val lengthLoad = bus.readRaw(NR11_ADDR) and 0x3F
-        lengthCounter = 64 - lengthLoad
+        if (lengthCounter == 0) lengthCounter = 64
 
         val nr12 = bus.read(NR12_ADDR)
         currentVolume = (nr12 and 0xF0) shr 4
