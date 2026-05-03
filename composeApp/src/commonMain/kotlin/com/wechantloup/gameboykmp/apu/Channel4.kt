@@ -118,7 +118,7 @@ class Channel4(
         enabled = true
         loadFrequency()
 
-        val lengthLoad = bus.read(NR41_ADDR) and 0x3F
+        val lengthLoad = bus.readRaw(NR41_ADDR) and 0x3F
         lengthCounter = 64 - lengthLoad
 
         val nr42 = bus.read(NR42_ADDR)

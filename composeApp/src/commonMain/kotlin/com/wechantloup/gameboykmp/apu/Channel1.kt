@@ -154,7 +154,8 @@ class Channel1(
         enabled = true
         loadFrequency()
 
-        val lengthLoad = bus.read(NR11_ADDR) and 0x3F
+        // Use raw read: NR11 bits 5-0 are write-only and read as 1 via bus.read()
+        val lengthLoad = bus.readRaw(NR11_ADDR) and 0x3F
         lengthCounter = 64 - lengthLoad
 
         val nr12 = bus.read(NR12_ADDR)
@@ -165,8 +166,9 @@ class Channel1(
     }
 
     private fun loadFrequency() {
-        val frequencyHigh = bus.read(NR14_ADDR) and 0x07
-        val frequencyLow = bus.read(NR13_ADDR) and 0xFF
+        // Use raw read: bus.read() applies CPU-view masks that corrupt write-only fields
+        val frequencyHigh = bus.readRaw(NR14_ADDR) and 0x07
+        val frequencyLow = bus.readRaw(NR13_ADDR) and 0xFF
         val frequency = frequencyHigh shl 8 or frequencyLow
         frequencyTimer = (2048 - frequency) * 4
         shadowFrequency = frequency

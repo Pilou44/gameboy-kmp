@@ -99,6 +99,12 @@ class Bus(
     }
 
     /**
+     * Direct register read bypassing APU CPU-view masks.
+     * For internal APU use only — returns the raw stored value.
+     */
+    fun readRaw(address: Int): Int = internalRam[address]
+
+    /**
      * Called by channels to update their status bit in NR52 (bits 3-0).
      * Bypasses the normal write path to avoid triggering power-off logic.
      */

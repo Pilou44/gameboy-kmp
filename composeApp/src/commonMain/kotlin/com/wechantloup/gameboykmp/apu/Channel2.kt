@@ -115,7 +115,7 @@ class Channel2(
         enabled = true
         loadFrequency()
 
-        val lengthLoad = bus.read(NR21_ADDR) and 0x3F
+        val lengthLoad = bus.readRaw(NR21_ADDR) and 0x3F
         lengthCounter = 64 - lengthLoad
 
         val nr22 = bus.read(NR22_ADDR)
@@ -124,8 +124,8 @@ class Channel2(
     }
 
     private fun loadFrequency() {
-        val frequencyHigh = bus.read(NR24_ADDR) and 0x07
-        val frequencyLow = bus.read(NR23_ADDR) and 0xFF
+        val frequencyHigh = bus.readRaw(NR24_ADDR) and 0x07
+        val frequencyLow = bus.readRaw(NR23_ADDR) and 0xFF
         val newFrequency = frequencyHigh shl 8 or frequencyLow
         frequencyTimer = (2048 - newFrequency) * 4
         frequency = newFrequency
