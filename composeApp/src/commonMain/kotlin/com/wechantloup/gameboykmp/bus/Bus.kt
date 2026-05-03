@@ -50,6 +50,7 @@ class Bus(
     var onChannel2Trigger: (() -> Unit)? = null
     var onChannel3Trigger: (() -> Unit)? = null
     var onChannel4Trigger: (() -> Unit)? = null
+    var onDivReset: (() -> Unit)? = null
 
     val apuPoweredOn: Boolean get() = internalRam[0xFF26] and 0x80 != 0
 
@@ -75,7 +76,10 @@ class Bus(
     fun write(address: Int, value: Int) {
         val v = value and 0xFF
         when (address) {
-            0xFF04 -> internalRam[0xFF04] = 0
+            0xFF04 -> {
+                internalRam[0xFF04] = 0
+                onDivReset?.invoke()
+            }
             0xFF46 -> triggerDmaTransfer(v)
             0xFF26 -> writeNR52(v)
             // When APU is off, writes to NR10-NR25 are ignored (wave RAM 0xFF30-0xFF3F is always writable)

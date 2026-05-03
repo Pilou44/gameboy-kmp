@@ -36,7 +36,7 @@ E1 E0 E1 0C04
 E1 E1 E1 0C04  
 3DB103C3
 
-## Instr timming NOK
+## Instr timming OK
 
 ## Interrupt time NOK
 01 00 FC  

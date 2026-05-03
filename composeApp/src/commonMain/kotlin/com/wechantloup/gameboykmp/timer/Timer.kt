@@ -8,6 +8,13 @@ class Timer(private val bus: Bus) {
 
     private var timaCycleCount = 0
 
+    init {
+        bus.onDivReset = {
+            cycleCount = 0
+            timaCycleCount = 0
+        }
+    }
+
     private var tima: Int
         get() = bus.read(TIMA_ADDR)
         set(value) = bus.write(TIMA_ADDR, value)
@@ -37,7 +44,7 @@ class Timer(private val bus: Bus) {
 
         if (timerActivated) {
             timaCycleCount += cycles
-            if (timaCycleCount >= timerPeriod) {
+            while (timaCycleCount >= timerPeriod) {
                 timaCycleCount -= timerPeriod
                 val nextTimaValue = tima + 1
                 tima = if (nextTimaValue > 0xFF) {
