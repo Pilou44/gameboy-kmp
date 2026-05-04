@@ -1,5 +1,6 @@
 package com.wechantloup.gameboykmp
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,7 +44,7 @@ fun MainScreen() {
     val coroutineScope = rememberCoroutineScope()
     val uiState by viewModel.stateFlow.collectAsState()
 
-    if (uiState.frameBuffer == null) {
+    Column {
         Button(
             onClick = {
                 coroutineScope.launch {
@@ -59,8 +60,10 @@ fun MainScreen() {
         ) {
             Text("Load ROM")
         }
-    } else {
-        GameBoyScreen(frameBuffer = uiState.frameBuffer!!)
+
+        uiState.frameBuffer?.let {
+            GameBoyScreen(frameBuffer = it)
+        }
     }
 }
 

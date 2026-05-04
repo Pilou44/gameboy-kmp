@@ -11,6 +11,7 @@ import com.wechantloup.gameboykmp.cpu.Cpu
 import com.wechantloup.gameboykmp.ppu.Ppu
 import com.wechantloup.gameboykmp.timer.Timer
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +24,7 @@ import kotlin.time.toDuration
 
 class GameBoyViewModel : ViewModel() {
 
+    private var emulationJob: Job? = null
     private val _stateFlow = MutableStateFlow(GameBoyState())
     val stateFlow: StateFlow<GameBoyState> = _stateFlow
     val audioSamplesChannel = Channel<FloatArray>(8)
@@ -30,6 +32,8 @@ class GameBoyViewModel : ViewModel() {
     private var bus: Bus? = null
 
     fun loadRom(romBytes: ByteArray, romName: String) {
+        emulationJob?.cancel()
+
         val cartridge = CartridgeFactory.create(
             rom = romBytes,
             romName = romName,
@@ -63,7 +67,7 @@ class GameBoyViewModel : ViewModel() {
 
         var frameStartNs = currentTimeNanos()
         // Emulation loop
-        viewModelScope.launch(Dispatchers.Default) {
+        emulationJob = viewModelScope.launch(Dispatchers.Default) {
             while (true) {
                 // Run for 1 frame (70224 cycles)
                 var frameCycles = 0
