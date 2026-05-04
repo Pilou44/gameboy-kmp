@@ -4,6 +4,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -17,11 +20,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.wechantloup.gameboykmp.apu.Apu
+import com.wechantloup.gameboykmp.ui.DmgShell
 import com.wechantloup.gameboykmp.ui.GameBoyScreen
 import com.wechantloup.gameboykmp.ui.GameBoyViewModel
 import com.wechantloup.gameboykmp.ui.Palette
@@ -111,12 +116,25 @@ fun MainScreen() {
             }
         }
 
-        uiState.frameBuffer?.let {
-            GameBoyScreen(
-                frameBuffer = it,
-                palette = selectedPalette,
+        Box(modifier = Modifier
+            .fillMaxWidth()
+            .wrapContentSize(
+                align = Alignment.TopCenter,
+                unbounded = true,
+                ),
+        ) {
+            DmgShell(
                 scale = scale,
-            )
+                screenBorderColor = selectedPalette.colors.first()
+            ) {
+                uiState.frameBuffer?.let {
+                    GameBoyScreen(
+                        frameBuffer = it,
+                        palette = selectedPalette,
+                        scale = scale,
+                    )
+                }
+            }
         }
     }
 }
