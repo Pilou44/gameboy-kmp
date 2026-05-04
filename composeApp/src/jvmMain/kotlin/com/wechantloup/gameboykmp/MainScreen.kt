@@ -1,19 +1,30 @@
 package com.wechantloup.gameboykmp
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.wechantloup.gameboykmp.apu.Apu
 import com.wechantloup.gameboykmp.ui.GameBoyScreen
 import com.wechantloup.gameboykmp.ui.GameBoyViewModel
+import com.wechantloup.gameboykmp.ui.Palette
 import javax.sound.sampled.AudioFormat
 import javax.sound.sampled.AudioSystem
 import javax.swing.JFileChooser
@@ -44,25 +55,68 @@ fun MainScreen() {
     val coroutineScope = rememberCoroutineScope()
     val uiState by viewModel.stateFlow.collectAsState()
 
+    var selectedPalette by remember { mutableStateOf<Palette>(Palette.Dmg) }
+    var scale by remember { mutableIntStateOf(3) }
+
     Column {
-        Button(
-            onClick = {
-                coroutineScope.launch {
-                    val rom = pickRom()
-                    rom?.let {
-                        viewModel.loadRom(
-                            romBytes = it.readBytes(),
-                            romName = it.nameWithoutExtension,
+        Row {
+            Button(
+                onClick = {
+                    coroutineScope.launch {
+                        val rom = pickRom()
+                        rom?.let {
+                            viewModel.loadRom(
+                                romBytes = it.readBytes(),
+                                romName = it.nameWithoutExtension,
+                            )
+                        }
+                    }
+                },
+            ) {
+                Text("Load ROM")
+            }
+
+            var paletteExpanded by remember { mutableStateOf(false) }
+
+            Box {
+                Text(selectedPalette.name, modifier = Modifier.clickable { paletteExpanded = true })
+                DropdownMenu(expanded = paletteExpanded, onDismissRequest = { paletteExpanded = false }) {
+                    Palette.all.forEach { palette ->
+                        DropdownMenuItem(
+                            text = { Text(palette.name) },
+                            onClick = {
+                                selectedPalette = palette
+                                paletteExpanded = false
+                            }
                         )
                     }
                 }
-            },
-        ) {
-            Text("Load ROM")
+            }
+
+            var scaleExpanded by remember { mutableStateOf(false) }
+
+            Box {
+                Text("Scale: $scale", modifier = Modifier.clickable { scaleExpanded = true })
+                DropdownMenu(expanded = scaleExpanded, onDismissRequest = { scaleExpanded = false }) {
+                    for (availableScale in 1..6) {
+                        DropdownMenuItem(
+                            text = { Text("$availableScale") },
+                            onClick = {
+                                scale = availableScale
+                                scaleExpanded = false
+                            }
+                        )
+                    }
+                }
+            }
         }
 
         uiState.frameBuffer?.let {
-            GameBoyScreen(frameBuffer = it)
+            GameBoyScreen(
+                frameBuffer = it,
+                palette = selectedPalette,
+                scale = scale,
+            )
         }
     }
 }

@@ -8,10 +8,10 @@ class Ppu(
     private val bus: Bus,
 ) {
     // Initialize with DMG white (lightest green) so the screen is visible immediately
-    private val _frameFlow = MutableStateFlow(IntArray(160 * 144) { grayToColor(0) })
+    private val _frameFlow = MutableStateFlow(IntArray(160 * 144))
     val frameFlow: StateFlow<IntArray> = _frameFlow
 
-    val frameBuffer = IntArray(160 * 144) { grayToColor(0) }
+    val frameBuffer = IntArray(160 * 144)
     val bgColorIndexBuffer = IntArray(160 * 144)
 
     private var ly = 0
@@ -124,7 +124,7 @@ class Ppu(
 
         if (lcdc and 0x80 == 0) {
             // LCD off: fill scanline with white
-            for (x in 0 until 160) frameBuffer[ly * 160 + x] = grayToColor(0)
+            for (x in 0 until 160) frameBuffer[ly * 160 + x] = 0
             return
         }
         if (lcdc and 0x01 != 0) renderBackground(lcdc)
@@ -214,7 +214,7 @@ class Ppu(
                 val gray = (bgp shr (colorIndex * 2)) and 0x03
 
                 if (!bgPriority || bgColorIndexBuffer[ly * 160 + screenX] == 0) {
-                    frameBuffer[ly * 160 + screenX] = grayToColor(gray)
+                    frameBuffer[ly * 160 + screenX] = gray
                 }
             }
         }
@@ -261,7 +261,7 @@ class Ppu(
             val colorIndex = (hiBit shl 1) or loBit
 
             val gray = (bgp shr (colorIndex * 2)) and 0x03
-            frameBuffer[ly * 160 + screenX] = grayToColor(gray)
+            frameBuffer[ly * 160 + screenX] = gray
             bgColorIndexBuffer[ly * 160 + screenX] = colorIndex
         }
 
@@ -306,20 +306,8 @@ class Ppu(
             val colorIndex = (hiBit shl 1) or loBit
 
             val gray = (bgp shr (colorIndex * 2)) and 0x03
-            frameBuffer[ly * 160 + screenX] = grayToColor(gray)
+            frameBuffer[ly * 160 + screenX] = gray
             bgColorIndexBuffer[ly * 160 + screenX] = colorIndex
         }
-    }
-
-    private fun grayToColor(gray: Int): Int = when (gray) {
-//        0 -> 0xFF9BBC0F.toInt()
-//        1 -> 0xFF8BAC0F.toInt()
-//        2 -> 0xFF306230.toInt()
-//        3 -> 0xFF0F380F.toInt()
-        0 -> 0xFF9BBC0F.toInt()
-        1 -> 0xFF7B8F00.toInt()
-        2 -> 0xFF3E5C00.toInt()
-        3 -> 0xFF1F3A00.toInt()
-        else -> 0xFF000000.toInt()
     }
 }

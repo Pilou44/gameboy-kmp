@@ -12,23 +12,28 @@ import androidx.compose.ui.unit.dp
 private const val SCALE = 3
 
 @Composable
-fun GameBoyScreen(frameBuffer: IntArray) {
+fun GameBoyScreen(
+    frameBuffer: IntArray,
+    palette: Palette = Palette.Dmg,
+    scale: Int = SCALE,
+) {
     Canvas(
         modifier = Modifier.size(
-            width = (160 * SCALE).dp,
-            height = (144 * SCALE).dp
+            width = (160 * scale).dp,
+            height = (144 * scale).dp
         )
     ) {
         for (y in 0 until 144) {
             for (x in 0 until 160) {
-                val argb = frameBuffer[y * 160 + x]
+                val paletteColor = frameBuffer[y * 160 + x]
+                val argb = palette.colors[paletteColor]
                 drawRect(
                     color = Color(argb),
                     topLeft = Offset(
-                        x = (x * SCALE).toFloat(),
-                        y = (y * SCALE).toFloat()
+                        x = (x * scale).toFloat(),
+                        y = (y * scale).toFloat()
                     ),
-                    size = Size(SCALE.toFloat(), SCALE.toFloat())
+                    size = Size(scale.toFloat(), scale.toFloat())
                 )
             }
         }
