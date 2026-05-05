@@ -3,13 +3,17 @@ package com.wechantloup.gameboykmp.ui
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
@@ -25,12 +29,18 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import gameboykmp.composeapp.generated.resources.Res
+import gameboykmp.composeapp.generated.resources.gill_sans
+import gameboykmp.composeapp.generated.resources.nintend_bold
+import org.jetbrains.compose.resources.Font
 
 @Composable
 fun DmgShell(
@@ -186,6 +196,49 @@ fun DmgShell(
                         shape = grayZoneShape,
                         strokeWidth = scale * 2f,
                         inverted = true,
+                    )
+                }
+            }
+
+            // Directly in the shell body Box, after the gray zone Box
+            CompositionLocalProvider(
+                LocalDensity provides Density(
+                    density = LocalDensity.current.density,
+                    fontScale = 1f,
+                )
+            ) {
+                val nintendoFamily = FontFamily(
+                    Font(Res.font.nintend_bold)
+                )
+
+                val gameBoyFamily = FontFamily(
+                    Font(Res.font.gill_sans)
+                )
+                Row(
+                    verticalAlignment = Alignment.Bottom,
+                    modifier = Modifier
+                        .width(grayZoneWidth)
+                        .offset(
+                            x= (shellWidth - grayZoneWidth) / 2,
+                            y = scaleDp * 255f,
+                        ),
+                ) {
+                    Text(
+                        text = "Nintendo",
+                        fontFamily = nintendoFamily,
+                        fontSize = (scale * 8f).sp,
+                        color = Color(0xFF04006B),
+                        modifier = Modifier.offset(
+                            y = -scaleDp * 6.1f,
+                        )
+                    )
+                    Text(
+                        text = "GAME BOY",
+                        fontFamily = gameBoyFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontStyle = FontStyle.Italic,
+                        fontSize = (scale * 12f).sp,
+                        color = Color(0xFF04006B),
                     )
                 }
             }
