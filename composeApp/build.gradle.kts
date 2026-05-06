@@ -50,6 +50,8 @@ kotlin {
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutinesSwing)
+            implementation(libs.jinput)
+            runtimeOnly("net.java.jinput:jinput:${libs.versions.jinput.get()}:natives-all")
         }
     }
 }
