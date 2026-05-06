@@ -9,13 +9,23 @@ plugins {
     alias(libs.plugins.composeHotReload)
 }
 
+// Détection de l'OS au moment du build pour les natives LWJGL
+val lwjglVersion = "3.3.4"
+val osName = System.getProperty("os.name").lowercase()
+val osArch = System.getProperty("os.arch").lowercase()
+val lwjglNatives = when {
+    osName.contains("win")  -> "natives-windows"
+    osName.contains("mac")  -> if (osArch == "aarch64") "natives-macos-arm64" else "natives-macos"
+    else                    -> "natives-linux"
+}
+
 kotlin {
     androidTarget {
         compilerOptions {
             jvmTarget.set(JvmTarget.JVM_11)
         }
     }
-    
+
     listOf(
         iosArm64(),
         iosSimulatorArm64()
@@ -25,9 +35,9 @@ kotlin {
             isStatic = true
         }
     }
-    
+
     jvm()
-    
+
     sourceSets {
         androidMain.dependencies {
             implementation(libs.compose.uiToolingPreview)
@@ -50,8 +60,12 @@ kotlin {
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutinesSwing)
-            implementation(libs.jinput)
-            runtimeOnly("net.java.jinput:jinput:${libs.versions.jinput.get()}:natives-all")
+
+            // LWJGL — support gamepad via GLFW
+            implementation("org.lwjgl:lwjgl:$lwjglVersion")
+            implementation("org.lwjgl:lwjgl-glfw:$lwjglVersion")
+            runtimeOnly("org.lwjgl:lwjgl:$lwjglVersion:$lwjglNatives")
+            runtimeOnly("org.lwjgl:lwjgl-glfw:$lwjglVersion:$lwjglNatives")
         }
     }
 }
