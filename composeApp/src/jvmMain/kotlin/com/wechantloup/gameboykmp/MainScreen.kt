@@ -1,6 +1,5 @@
 package com.wechantloup.gameboykmp
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,6 +7,7 @@ import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -21,6 +21,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -95,7 +96,9 @@ private fun Commands(
     modifier: Modifier = Modifier,
 ) {
     val coroutineScope = rememberCoroutineScope()
-    Column(modifier = modifier) {
+    Column(
+        modifier = modifier.focusProperties { canFocus = false },
+    ) {
         Button(
             onClick = {
                 coroutineScope.launch {
@@ -115,10 +118,9 @@ private fun Commands(
         var paletteExpanded by remember { mutableStateOf(false) }
 
         Box {
-            Text(
-                text = selectedPalette.value.name,
-                modifier = Modifier.clickable { paletteExpanded = true },
-            )
+            OutlinedButton(onClick = { paletteExpanded = true }) {
+                Text(selectedPalette.value.name)
+            }
             DropdownMenu(expanded = paletteExpanded, onDismissRequest = { paletteExpanded = false }) {
                 Palette.all.forEach { palette ->
                     DropdownMenuItem(
@@ -135,10 +137,9 @@ private fun Commands(
         var scaleExpanded by remember { mutableStateOf(false) }
 
         Box {
-            Text(
-                text = "Scale: ${scale.value}",
-                modifier = Modifier.clickable { scaleExpanded = true },
-            )
+            OutlinedButton(onClick = { scaleExpanded = true }) {
+                Text("Scale: ${scale.value}")
+            }
             DropdownMenu(expanded = scaleExpanded, onDismissRequest = { scaleExpanded = false }) {
                 for (availableScale in 1..6) {
                     DropdownMenuItem(
