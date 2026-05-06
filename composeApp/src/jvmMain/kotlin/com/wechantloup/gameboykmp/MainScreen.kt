@@ -4,8 +4,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -13,6 +11,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -57,81 +56,97 @@ fun MainScreen() {
         }
     }
 
-    val coroutineScope = rememberCoroutineScope()
     val uiState by viewModel.stateFlow.collectAsState()
 
-    var selectedPalette by remember { mutableStateOf<Palette>(Palette.Dmg) }
-    var scale by remember { mutableIntStateOf(3) }
+    val selectedPalette = remember { mutableStateOf<Palette>(Palette.Dmg) }
+    val scale = remember { mutableIntStateOf(3) }
 
-    Column {
-        Row {
-            Button(
-                onClick = {
-                    coroutineScope.launch {
-                        val rom = pickRom()
-                        rom?.let {
-                            viewModel.loadRom(
-                                romBytes = it.readBytes(),
-                                romName = it.nameWithoutExtension,
-                            )
-                        }
-                    }
-                },
-            ) {
-                Text("Load ROM")
-            }
-
-            var paletteExpanded by remember { mutableStateOf(false) }
-
-            Box {
-                Text(selectedPalette.name, modifier = Modifier.clickable { paletteExpanded = true })
-                DropdownMenu(expanded = paletteExpanded, onDismissRequest = { paletteExpanded = false }) {
-                    Palette.all.forEach { palette ->
-                        DropdownMenuItem(
-                            text = { Text(palette.name) },
-                            onClick = {
-                                selectedPalette = palette
-                                paletteExpanded = false
-                            }
-                        )
-                    }
-                }
-            }
-
-            var scaleExpanded by remember { mutableStateOf(false) }
-
-            Box {
-                Text("Scale: $scale", modifier = Modifier.clickable { scaleExpanded = true })
-                DropdownMenu(expanded = scaleExpanded, onDismissRequest = { scaleExpanded = false }) {
-                    for (availableScale in 1..6) {
-                        DropdownMenuItem(
-                            text = { Text("$availableScale") },
-                            onClick = {
-                                scale = availableScale
-                                scaleExpanded = false
-                            }
-                        )
-                    }
-                }
-            }
-        }
-
+    Row {
         Box(modifier = Modifier
-            .fillMaxWidth()
+            .weight(1f)
             .wrapContentSize(
                 align = Alignment.TopCenter,
                 unbounded = true,
                 ),
         ) {
             DmgShell(
-                scale = scale,
-                screenBorderColor = selectedPalette.colors.first()
+                scale = scale.value,
+                screenBorderColor = selectedPalette.value.colors.first()
             ) {
                 uiState.frameBuffer?.let {
                     GameBoyScreen(
                         frameBuffer = it,
-                        palette = selectedPalette,
-                        scale = scale,
+                        palette = selectedPalette.value,
+                        scale = scale.value,
+                    )
+                }
+            }
+        }
+
+        Commands(selectedPalette, scale, viewModel::loadRom)
+    }
+}
+
+@Composable
+private fun Commands(
+    selectedPalette: MutableState<Palette>,
+    scale: MutableState<Int>,
+    loadRom: (romBytes: ByteArray, romName: String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val coroutineScope = rememberCoroutineScope()
+    Column(modifier = modifier) {
+        Button(
+            onClick = {
+                coroutineScope.launch {
+                    val rom = pickRom()
+                    rom?.let {
+                        loadRom(
+                            it.readBytes(),
+                            it.nameWithoutExtension,
+                        )
+                    }
+                }
+            },
+        ) {
+            Text("Load ROM")
+        }
+
+        var paletteExpanded by remember { mutableStateOf(false) }
+
+        Box {
+            Text(
+                text = selectedPalette.value.name,
+                modifier = Modifier.clickable { paletteExpanded = true },
+            )
+            DropdownMenu(expanded = paletteExpanded, onDismissRequest = { paletteExpanded = false }) {
+                Palette.all.forEach { palette ->
+                    DropdownMenuItem(
+                        text = { Text(palette.name) },
+                        onClick = {
+                            selectedPalette.value = palette
+                            paletteExpanded = false
+                        }
+                    )
+                }
+            }
+        }
+
+        var scaleExpanded by remember { mutableStateOf(false) }
+
+        Box {
+            Text(
+                text = "Scale: ${scale.value}",
+                modifier = Modifier.clickable { scaleExpanded = true },
+            )
+            DropdownMenu(expanded = scaleExpanded, onDismissRequest = { scaleExpanded = false }) {
+                for (availableScale in 1..6) {
+                    DropdownMenuItem(
+                        text = { Text("$availableScale") },
+                        onClick = {
+                            scale.value = availableScale
+                            scaleExpanded = false
+                        }
                     )
                 }
             }
@@ -153,13 +168,7 @@ private suspend fun startAudio(audioSamplesChannel: Channel<FloatArray>) {
     line.start()
 
     val byteArray = ByteArray(Apu.SAMPLES_PER_FRAME * 2)
-//    val debugFile = File("samples_debug.txt")
-//    var frameCount = 0
     audioSamplesChannel.consumeEach { samples ->
-//        if (frameCount < 100) {
-//            samples.forEach { debugFile.appendText("$it\n") }
-//            frameCount++
-//        }
         samples.forEachIndexed { index, value ->
             val intValue = (value * 32767).toInt().coerceIn(-32768, 32767)
             byteArray[index * 2] = (intValue and 0xFF).toByte()        // byte bas
