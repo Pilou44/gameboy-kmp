@@ -2,7 +2,11 @@ package com.wechantloup.gameboykmp
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -23,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.wechantloup.gameboykmp.apu.Apu
@@ -97,7 +102,9 @@ private fun Commands(
 ) {
     val coroutineScope = rememberCoroutineScope()
     Column(
-        modifier = modifier.focusProperties { canFocus = false },
+        modifier = modifier
+            .focusProperties { canFocus = false }
+            .width(IntrinsicSize.Max),
     ) {
         Button(
             onClick = {
@@ -111,6 +118,7 @@ private fun Commands(
                     }
                 }
             },
+            modifier = Modifier.fillMaxWidth(),
         ) {
             Text("Load ROM")
         }
@@ -118,7 +126,12 @@ private fun Commands(
         var paletteExpanded by remember { mutableStateOf(false) }
 
         Box {
-            OutlinedButton(onClick = { paletteExpanded = true }) {
+            OutlinedButton(
+                onClick = { paletteExpanded = true },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(min = 150.dp),
+            ) {
                 Text(selectedPalette.value.name)
             }
             DropdownMenu(expanded = paletteExpanded, onDismissRequest = { paletteExpanded = false }) {
@@ -137,7 +150,10 @@ private fun Commands(
         var scaleExpanded by remember { mutableStateOf(false) }
 
         Box {
-            OutlinedButton(onClick = { scaleExpanded = true }) {
+            OutlinedButton(
+                onClick = { scaleExpanded = true },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
                 Text("Scale: ${scale.value}")
             }
             DropdownMenu(expanded = scaleExpanded, onDismissRequest = { scaleExpanded = false }) {
