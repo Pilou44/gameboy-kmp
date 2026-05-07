@@ -14,7 +14,6 @@ import kotlinx.coroutines.flow.StateFlow
 // Kept as class for testability (use of mock)
 class JoypadController {
 
-
     private val _commandsMap = MutableStateFlow(CommandsMap())
     val commandsMapFlow: StateFlow<CommandsMap> = _commandsMap
     private val commandsMap: CommandsMap get() = _commandsMap.value
@@ -48,5 +47,9 @@ class JoypadController {
         commands.entries.removeIf { it.value == button }
         commands[key] = button
         _commandsMap.value = current.copy(keyboardCommands =  commands)
+    }
+
+    fun putCommands(commandsMap: CommandsMap) {
+        _commandsMap.value = commandsMap
     }
 }

@@ -21,7 +21,7 @@ import java.awt.event.KeyEvent
 @Composable
 internal fun SetCommandsTable(
     commandsState: StateFlow<CommandsMap>,
-    registerKeyboard: (JoypadButton) -> Unit, // ToDo
+    registerKeyboard: (JoypadButton) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val commands by commandsState.collectAsState()
