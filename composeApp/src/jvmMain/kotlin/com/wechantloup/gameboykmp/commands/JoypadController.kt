@@ -4,25 +4,33 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import com.wechantloup.gameboykmp.joypad.JoypadButton
 import com.wechantloup.gameboykmp.joypad.JoypadEvent
+import com.wechantloup.gameboykmp.logger.Logger
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
 
 // Could be an object to remove JoypadControllerHolder.
 // Kept as class for testability (use of mock)
 class JoypadController {
 
-    val commandsMap = CommandsMap()
+
+    private val _commandsMap = MutableStateFlow(CommandsMap())
+    val commandsMapFlow: StateFlow<CommandsMap> = _commandsMap
+    private val commandsMap: CommandsMap get() = _commandsMap.value
 
     private val _buttonEvents = MutableSharedFlow<JoypadEvent>(extraBufferCapacity = 16)
     val buttonEvents: SharedFlow<JoypadEvent> = _buttonEvents // Why flow and not channel
 
     fun handleKeyEvent(key: Key, type: KeyEventType): Boolean {
+        Logger.debug("JoypadController","handleKeyEvent")
         val button = commandsMap.keyboardCommands[key] ?: return false
         val event = when (type) {
             KeyEventType.KeyDown -> JoypadEvent.Pressed(button)
             KeyEventType.KeyUp   -> JoypadEvent.Released(button)
             else                 -> return false
         }
+        Logger.debug("JoypadController","emit")
         _buttonEvents.tryEmit(event)
         return true
     }
@@ -34,7 +42,10 @@ class JoypadController {
     }
 
     fun remapKeyboard(key: Key, button: JoypadButton) {
-        commandsMap.keyboardCommands.entries.removeIf { it.value == button }
-        commandsMap.keyboardCommands[key] = button
+        val current = _commandsMap.value
+        val commands = current.keyboardCommands.toMutableMap()
+        commands.entries.removeIf { it.value == button }
+        commands[key] = button
+        _commandsMap.value = current.copy(keyboardCommands =  commands)
     }
 }

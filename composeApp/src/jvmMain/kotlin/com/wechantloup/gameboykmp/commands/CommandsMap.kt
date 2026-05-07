@@ -4,6 +4,6 @@ import androidx.compose.ui.input.key.Key
 import com.wechantloup.gameboykmp.joypad.JoypadButton
 
 data class CommandsMap(
-    val keyboardCommands: MutableMap<Key, JoypadButton> = mutableMapOf(),
-    val joypadCommands: MutableMap<Int, JoypadButton> = mutableMapOf()
+    val keyboardCommands: Map<Key, JoypadButton> = hashMapOf(),
+    val joypadCommands: Map<Int, JoypadButton> = hashMapOf()
 )

@@ -43,7 +43,7 @@ class MainViewModel(
             onDismiss = ::closeDialog,
             body = {
                 SetCommandsTable(
-                    commands = joypadController.commandsMap,
+                    commandsState = joypadController.commandsMapFlow,
                     registerKeyboard = ::registerKeyboard,
                 )
             },

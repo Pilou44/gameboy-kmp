@@ -71,7 +71,7 @@ fun pollGamepad(gamepadState: MutableState<GamepadState?>) {
         .firstOrNull { glfwJoystickPresent(it) }
 
     if (slot == null) {
-        Logger.debug("GamePad","No gamepad found")
+//        Logger.debug("GamePad","No gamepad found")
         return
     }
 

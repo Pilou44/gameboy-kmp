@@ -8,16 +8,21 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import com.wechantloup.gameboykmp.commands.CommandsMap
 import com.wechantloup.gameboykmp.joypad.JoypadButton
+import kotlinx.coroutines.flow.StateFlow
 
 @Composable
 internal fun SetCommandsTable(
-    commands: CommandsMap,
+    commandsState: StateFlow<CommandsMap>,
     registerKeyboard: (JoypadButton) -> Unit, // ToDo
     modifier: Modifier = Modifier,
 ) {
+    val commands by commandsState.collectAsState()
+
     Row(
         modifier = modifier.height(IntrinsicSize.Max),
     ) {
@@ -37,7 +42,7 @@ internal fun SetCommandsTable(
                 val key = commands.keyboardCommands.filterValues { it == padEntry }.toList().firstOrNull()
                 Text(
                     text = "$key",
-                    modifier = Modifier.clickable() { registerKeyboard(padEntry) }
+                    modifier = Modifier.clickable { registerKeyboard(padEntry) }
                 )
             }
         }
