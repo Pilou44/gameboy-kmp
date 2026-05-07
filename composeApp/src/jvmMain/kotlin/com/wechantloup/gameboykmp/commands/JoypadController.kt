@@ -49,6 +49,15 @@ class JoypadController {
         _commandsMap.value = current.copy(keyboardCommands =  commands)
     }
 
+    fun remapGamepad(buttonIndex: Int, button: JoypadButton) {
+        Logger.warning("JoypadController","remapGamepad buttonIndex=$buttonIndex")
+        val current = _commandsMap.value
+        val commands = current.joypadCommands.toMutableMap()
+        commands.entries.removeIf { it.value == button }
+        commands[buttonIndex] = button
+        _commandsMap.value = current.copy(joypadCommands =  commands)
+    }
+
     fun putCommands(commandsMap: CommandsMap) {
         _commandsMap.value = commandsMap
     }

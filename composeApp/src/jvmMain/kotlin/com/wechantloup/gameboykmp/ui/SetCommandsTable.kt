@@ -22,6 +22,7 @@ import java.awt.event.KeyEvent
 internal fun SetCommandsTable(
     commandsState: StateFlow<CommandsMap>,
     registerKeyboard: (JoypadButton) -> Unit,
+    registerGamepad: (JoypadButton) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val commands by commandsState.collectAsState()
@@ -48,7 +49,7 @@ internal fun SetCommandsTable(
                 val keyCode = key?.let { KeyEvent.getKeyText(key.first.nativeKeyCode) }
                 Text(
                     text = "$keyCode",
-                    modifier = Modifier.clickable { registerKeyboard(padEntry) }
+                    modifier = Modifier.clickable { registerKeyboard(padEntry) },
                 )
             }
         }
@@ -58,7 +59,10 @@ internal fun SetCommandsTable(
             Text(text = "Joypad button")
             JoypadButton.entries.forEach { padEntry ->
                 val key = commands.joypadCommands.filterValues { it == padEntry }.toList().firstOrNull()
-                Text(text = "$key")
+                Text(
+                    text = "$key",
+                    modifier = Modifier.clickable { registerGamepad(padEntry) },
+                )
             }
         }
     }

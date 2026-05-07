@@ -30,6 +30,7 @@ class MainViewModel(
     val stateFlow: StateFlow<MainState> = _stateFlow
 
     private var waitForKeyboardEvent: JoypadButton? = null
+    private var waitForGamepadEvent: JoypadButton? = null
 
     init {
         val commandsMap = settingsRepository.commandsMap ?: getDefaultCommands()
@@ -43,17 +44,25 @@ class MainViewModel(
     }
 
     fun onKeyEvent(event: KeyEvent): Boolean {
-        val waitEvent = waitForKeyboardEvent ?: return false
+        val waitKeyboardEvent = waitForKeyboardEvent ?: return false
 
         Logger.warning("MainViewModel","onKeyEvent event=$event")
         when (event.type) {
             KeyEventType.KeyDown -> {
-                joypadController.remapKeyboard(event.key, waitEvent)
+                joypadController.remapKeyboard(event.key, waitKeyboardEvent)
                 waitForKeyboardEvent = null
             }
             else -> {}
         }
         return true
+    }
+
+    fun onGamepadEvent(buttonIndex: Int, pressed: Boolean) {
+        if (!pressed) return
+        val waitGamepadEvent = waitForGamepadEvent ?: return
+
+        joypadController.remapGamepad(buttonIndex, waitGamepadEvent)
+        waitForGamepadEvent = null
     }
 
     fun catchAllInputs(): Boolean {
@@ -67,6 +76,7 @@ class MainViewModel(
                 SetCommandsTable(
                     commandsState = joypadController.commandsMapFlow,
                     registerKeyboard = ::registerKeyboard,
+                    registerGamepad = ::registerGamepad,
                 )
             },
             confirmButtonTextRes = Res.string.ok_btn_label,
@@ -80,6 +90,10 @@ class MainViewModel(
 
     private fun registerKeyboard(joypadButton: JoypadButton) {
         waitForKeyboardEvent = joypadButton
+    }
+
+    private fun registerGamepad(joypadButton: JoypadButton) {
+        waitForGamepadEvent = joypadButton
     }
 
     private fun closeDialog() {
