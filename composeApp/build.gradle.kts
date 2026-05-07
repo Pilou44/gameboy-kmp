@@ -10,7 +10,7 @@ plugins {
 }
 
 // Détection de l'OS au moment du build pour les natives LWJGL
-val lwjglVersion = "3.3.4"
+val lwjglVersion = "3.4.1"
 val osName = System.getProperty("os.name").lowercase()
 val osArch = System.getProperty("os.arch").lowercase()
 val lwjglNatives = when {
@@ -64,10 +64,10 @@ kotlin {
             implementation(libs.kotlinx.coroutinesSwing)
 
             // LWJGL — support gamepad via GLFW
-            implementation("org.lwjgl:lwjgl:$lwjglVersion")
-            implementation("org.lwjgl:lwjgl-glfw:$lwjglVersion")
-            runtimeOnly("org.lwjgl:lwjgl:$lwjglVersion:$lwjglNatives")
-            runtimeOnly("org.lwjgl:lwjgl-glfw:$lwjglVersion:$lwjglNatives")
+            implementation(libs.lwjgl)
+            implementation(libs.lwjgl.glfw)
+            runtimeOnly("org.lwjgl:lwjgl:${libs.versions.lwjgl.get()}:$lwjglNatives")
+            runtimeOnly("org.lwjgl:lwjgl-glfw:${libs.versions.lwjgl.get()}:$lwjglNatives")
         }
     }
 }
