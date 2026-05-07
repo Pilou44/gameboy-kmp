@@ -8,6 +8,7 @@ import com.wechantloup.gameboykmp.apu.Apu
 import com.wechantloup.gameboykmp.bus.Bus
 import com.wechantloup.gameboykmp.cartridge.CartridgeFactory
 import com.wechantloup.gameboykmp.cpu.Cpu
+import com.wechantloup.gameboykmp.joypad.JoypadEvent
 import com.wechantloup.gameboykmp.ppu.Ppu
 import com.wechantloup.gameboykmp.timer.Timer
 import kotlinx.coroutines.Dispatchers
@@ -15,6 +16,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlin.reflect.KClass
@@ -22,7 +24,9 @@ import kotlin.time.Clock
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
 
-class GameBoyViewModel : ViewModel() {
+class GameBoyViewModel(
+    buttonEvents: SharedFlow<JoypadEvent>,
+) : ViewModel() {
 
     private var emulationJob: Job? = null
     private val _stateFlow = MutableStateFlow(GameBoyState())
@@ -30,6 +34,17 @@ class GameBoyViewModel : ViewModel() {
     val audioSamplesChannel = Channel<FloatArray>(8)
 
     private var bus: Bus? = null
+
+    init {
+        viewModelScope.launch {
+            buttonEvents.collect { event ->
+                when (event) {
+                    is JoypadEvent.Pressed  -> bus?.setButtonPressed(event.button)
+                    is JoypadEvent.Released -> bus?.setButtonReleased(event.button)
+                }
+            }
+        }
+    }
 
     fun loadRom(romBytes: ByteArray, romName: String) {
         emulationJob?.cancel()
@@ -88,22 +103,17 @@ class GameBoyViewModel : ViewModel() {
         }
     }
 
-    fun onIntent(intent: GameBoyIntent) {
-        when(intent) {
-            is GameBoyIntent.ButtonPressed -> bus?.setButtonPressed(intent.button)
-            is GameBoyIntent.ButtonReleased -> bus?.setButtonReleased(intent.button)
-        }
-    }
-
     private fun currentTimeNanos(): Long {
         val now = Clock.System.now()
         return now.epochSeconds * 1_000_000_000L + now.nanosecondsOfSecond
     }
 
-    class Factory : ViewModelProvider.Factory {
+    class Factory(
+        private  val buttonEvents: SharedFlow<JoypadEvent>,
+    ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: KClass<T>, extras: CreationExtras): T {
             @Suppress("UNCHECKED_CAST")
-            return GameBoyViewModel() as T
+            return GameBoyViewModel(buttonEvents) as T
         }
     }
 

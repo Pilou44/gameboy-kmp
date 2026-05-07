@@ -1,0 +1,69 @@
+package com.wechantloup.gameboykmp.ui
+
+import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.input.key.key
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.CreationExtras
+import com.wechantloup.gameboykmp.commands.JoypadController
+import com.wechantloup.gameboykmp.commands.JoypadControllerHolder
+import com.wechantloup.gameboykmp.joypad.JoypadButton
+import com.wechantloup.gameboykmp.ui.dialog.ClosedDialogState
+import com.wechantloup.gameboykmp.ui.dialog.OpenedDialogState
+import gameboykmp.composeapp.generated.resources.Res
+import gameboykmp.composeapp.generated.resources.ok_btn_label
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlin.reflect.KClass
+
+class MainViewModel(
+    private val joypadController: JoypadController,
+): ViewModel() {
+    private val _stateFlow = MutableStateFlow(MainState())
+    val stateFlow: StateFlow<MainState> = _stateFlow
+
+    private var waitForKeyboardEvent: JoypadButton? = null
+
+    fun onIntent(intent: MainIntent) {
+        when (intent) {
+            MainIntent.ShowCommandsTable -> showCommandsDialog()
+        }
+    }
+
+    fun onKeyEvent(event: KeyEvent): Boolean {
+        val waitEvent = waitForKeyboardEvent ?: return false
+
+        joypadController.remapKeyboard(event.key, waitEvent)
+        waitForKeyboardEvent = null
+        return true
+    }
+
+    private fun showCommandsDialog() {
+        val newState = OpenedDialogState(
+            onDismiss = ::closeDialog,
+            body = {
+                SetCommandsTable(
+                    commands = joypadController.commandsMap,
+                    registerKeyboard = ::registerKeyboard,
+                )
+            },
+            confirmButtonTextRes = Res.string.ok_btn_label
+        )
+        _stateFlow.value = stateFlow.value.copy(dialog = newState)
+    }
+
+    private fun registerKeyboard(joypadButton: JoypadButton) {
+        waitForKeyboardEvent = joypadButton
+    }
+
+    private fun closeDialog() {
+        _stateFlow.value = stateFlow.value.copy(dialog = ClosedDialogState)
+    }
+
+    class Factory : ViewModelProvider.Factory {
+        override fun <T : ViewModel> create(modelClass: KClass<T>, extras: CreationExtras): T {
+            @Suppress("UNCHECKED_CAST")
+            return MainViewModel(JoypadControllerHolder.instance) as T
+        }
+    }
+}

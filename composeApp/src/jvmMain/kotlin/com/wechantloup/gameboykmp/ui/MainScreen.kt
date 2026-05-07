@@ -1,10 +1,12 @@
-package com.wechantloup.gameboykmp
+package com.wechantloup.gameboykmp.ui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentSize
@@ -12,6 +14,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -31,10 +34,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.wechantloup.gameboykmp.apu.Apu
-import com.wechantloup.gameboykmp.ui.DmgShell
-import com.wechantloup.gameboykmp.ui.GameBoyScreen
-import com.wechantloup.gameboykmp.ui.GameBoyViewModel
-import com.wechantloup.gameboykmp.ui.Palette
+import com.wechantloup.gameboykmp.commands.JoypadControllerHolder
+import com.wechantloup.gameboykmp.ui.dialog.Dialog
+import com.wechantloup.gameboykmp.ui.dialog.OpenedDialogState
 import javax.sound.sampled.AudioFormat
 import javax.sound.sampled.AudioSystem
 import javax.swing.JFileChooser
@@ -51,45 +53,66 @@ import java.io.File
 @Preview
 fun MainScreen() {
     val owner = checkNotNull(LocalViewModelStoreOwner.current)
-    val viewModel = viewModel<GameBoyViewModel>(
+    val gameBoyViewModel = viewModel<GameBoyViewModel>(
         viewModelStoreOwner = owner,
-        factory = GameBoyViewModel.Factory()
+        factory = GameBoyViewModel.Factory(JoypadControllerHolder.instance.buttonEvents),
+    )
+    val mainViewModel = viewModel<MainViewModel>(
+        viewModelStoreOwner = owner,
+        factory = MainViewModel.Factory()
     )
 
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
-            startAudio(viewModel.audioSamplesChannel)
+            startAudio(gameBoyViewModel.audioSamplesChannel)
         }
     }
 
-    val uiState by viewModel.stateFlow.collectAsState()
+    val gameBoyState by gameBoyViewModel.stateFlow.collectAsState()
+    val mainState by mainViewModel.stateFlow.collectAsState()
 
     val selectedPalette = remember { mutableStateOf<Palette>(Palette.Dmg) }
     val scale = remember { mutableIntStateOf(3) }
 
-    Row {
-        Box(modifier = Modifier
-            .weight(1f)
-            .wrapContentSize(
-                align = Alignment.TopCenter,
-                unbounded = true,
-                ),
+    Scaffold { paddingValues ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues),
         ) {
-            DmgShell(
-                scale = scale.value,
-                screenBorderColor = selectedPalette.value.colors.first()
-            ) {
-                uiState.frameBuffer?.let {
-                    GameBoyScreen(
-                        frameBuffer = it,
-                        palette = selectedPalette.value,
+            Row {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .wrapContentSize(
+                            align = Alignment.TopCenter,
+                            unbounded = true,
+                        ),
+                ) {
+                    DmgShell(
                         scale = scale.value,
-                    )
+                        screenBorderColor = selectedPalette.value.colors.first()
+                    ) {
+                        gameBoyState.frameBuffer?.let {
+                            GameBoyScreen(
+                                frameBuffer = it,
+                                palette = selectedPalette.value,
+                                scale = scale.value,
+                            )
+                        }
+                    }
                 }
+
+                val showCommands = {
+                    mainViewModel.onIntent(MainIntent.ShowCommandsTable)
+                }
+                Commands(selectedPalette, scale, gameBoyViewModel::loadRom, showCommands)
+            }
+
+            if (mainState.dialog is OpenedDialogState) {
+                Dialog(mainState.dialog as OpenedDialogState)
             }
         }
-
-        Commands(selectedPalette, scale, viewModel::loadRom)
     }
 }
 
@@ -98,6 +121,7 @@ private fun Commands(
     selectedPalette: MutableState<Palette>,
     scale: MutableState<Int>,
     loadRom: (romBytes: ByteArray, romName: String) -> Unit,
+    showCommands: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -167,6 +191,13 @@ private fun Commands(
                     )
                 }
             }
+        }
+
+        Button(
+            onClick = showCommands,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("Set controls")
         }
     }
 }

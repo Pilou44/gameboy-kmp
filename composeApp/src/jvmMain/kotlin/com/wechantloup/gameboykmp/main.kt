@@ -6,17 +6,17 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.wechantloup.gameboykmp.commands.JoypadControllerHolder
 import com.wechantloup.gameboykmp.joypad.JoypadButton
 import com.wechantloup.gameboykmp.logger.Logger
-import com.wechantloup.gameboykmp.ui.GameBoyIntent
-import com.wechantloup.gameboykmp.ui.GameBoyViewModel
+import com.wechantloup.gameboykmp.ui.MainScreen
+import com.wechantloup.gameboykmp.ui.MainViewModel
 import kotlinx.coroutines.delay
 import org.lwjgl.glfw.GLFW.GLFW_GAMEPAD_AXIS_LEFT_X
 import org.lwjgl.glfw.GLFW.GLFW_GAMEPAD_AXIS_LEFT_Y
@@ -32,43 +32,36 @@ import org.lwjgl.glfw.GLFW.glfwInit
 import org.lwjgl.glfw.GLFW.glfwJoystickPresent
 import org.lwjgl.system.Configuration
 
-fun main() {
+fun main() = application {
     Configuration.GLFW_CHECK_THREAD0.set(false)
-    application {
-        glfwInit()
-        var viewModel: GameBoyViewModel? = null
-//        val manager = remember { GamepadManager() }
-        val gamepadState = remember { mutableStateOf<GamepadState?>(null) }
-        Window(
-            onCloseRequest = ::exitApplication,
-            onKeyEvent = { keyEvent ->
-                val button = keyEvent.key.toJoypadButton() ?: return@Window false
-                val intent = when (keyEvent.type) {
-                    KeyEventType.KeyUp -> GameBoyIntent.ButtonReleased(button)
-                    KeyEventType.KeyDown -> GameBoyIntent.ButtonPressed(button)
-                    else -> return@Window false
-                }
-                viewModel?.onIntent(intent)
-                true
-            },
-            title = "GameBoyKMP",
-        ) {
-            LaunchedEffect(Unit) {
-                while (true) {
+    glfwInit()
+    val gamepadState = remember { mutableStateOf<GamepadState?>(null) }
+    val joypadController = JoypadControllerHolder.instance
+    var mainViewModel: MainViewModel? = null
+    Window(
+        onCloseRequest = ::exitApplication,
+        onKeyEvent = { keyEvent ->
+            val remapped = mainViewModel?.onKeyEvent(keyEvent) ?: false
+            if (!remapped) joypadController.handleKeyEvent(keyEvent.key, keyEvent.type)
+            true
+        },
+        title = "GameBoyKMP",
+    ) {
+        val owner = checkNotNull(LocalViewModelStoreOwner.current)
+        mainViewModel = viewModel<MainViewModel>(
+            viewModelStoreOwner = owner,
+            factory = MainViewModel.Factory()
+        )
+        LaunchedEffect(Unit) {
+            while (true) {
 //                    glfwPollEvents() ToDo may be useful on Linux
-                    pollGamepad(gamepadState)
-                    delay(16) // ToDO ~60fps
-                }
+                pollGamepad(gamepadState)
+                delay(16) // ToDO ~60fps
             }
+        }
 
-            val owner = checkNotNull(LocalViewModelStoreOwner.current)
-            viewModel = viewModel<GameBoyViewModel>(
-                viewModelStoreOwner = owner,
-                factory = GameBoyViewModel.Factory()
-            )
-            MaterialTheme {
-                MainScreen()
-            }
+        MaterialTheme {
+            MainScreen()
         }
     }
 }
