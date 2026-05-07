@@ -1,8 +1,8 @@
 package com.wechantloup.gameboykmp.repository
 
 import com.russhwolf.settings.Settings
-import com.wechantloup.gameboykmp.utils.deserialize
-import com.wechantloup.gameboykmp.utils.serialize
+import com.wechantloup.gameboykmp.serializer.deserialize
+import com.wechantloup.gameboykmp.serializer.serialize
 
 open class SettingsRepository(
     val settings: Settings,

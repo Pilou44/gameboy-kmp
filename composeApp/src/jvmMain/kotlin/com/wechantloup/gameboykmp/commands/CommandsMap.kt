@@ -2,7 +2,7 @@ package com.wechantloup.gameboykmp.commands
 
 import androidx.compose.ui.input.key.Key
 import com.wechantloup.gameboykmp.joypad.JoypadButton
-import com.wechantloup.gameboykmp.utils.KeySerializer
+import com.wechantloup.gameboykmp.serializer.KeySerializer
 import kotlinx.serialization.Serializable
 
 @Serializable

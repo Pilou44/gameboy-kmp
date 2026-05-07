@@ -1,4 +1,4 @@
-package com.wechantloup.gameboykmp.utils
+package com.wechantloup.gameboykmp.serializer
 
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json

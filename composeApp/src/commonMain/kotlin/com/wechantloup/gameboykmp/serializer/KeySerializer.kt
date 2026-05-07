@@ -1,4 +1,4 @@
-package com.wechantloup.gameboykmp.utils
+package com.wechantloup.gameboykmp.serializer
 
 import androidx.compose.ui.input.key.Key
 import kotlinx.serialization.KSerializer
