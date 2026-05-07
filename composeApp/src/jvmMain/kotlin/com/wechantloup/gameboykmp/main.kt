@@ -41,9 +41,11 @@ fun main() = application {
     Window(
         onCloseRequest = ::exitApplication,
         onKeyEvent = { keyEvent ->
-            val remapped = mainViewModel?.onKeyEvent(keyEvent) ?: false
-            if (!remapped) joypadController.handleKeyEvent(keyEvent.key, keyEvent.type)
-            true
+            if (mainViewModel?.catchAllInputs() == true) {
+                mainViewModel?.onKeyEvent(keyEvent) == true
+            } else {
+                joypadController.handleKeyEvent(keyEvent.key, keyEvent.type)
+            }
         },
         title = "GameBoyKMP",
     ) {

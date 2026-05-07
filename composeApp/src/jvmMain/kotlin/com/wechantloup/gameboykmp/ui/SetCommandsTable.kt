@@ -11,9 +11,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.input.key.nativeKeyCode
 import com.wechantloup.gameboykmp.commands.CommandsMap
 import com.wechantloup.gameboykmp.joypad.JoypadButton
 import kotlinx.coroutines.flow.StateFlow
+import java.awt.event.KeyEvent
 
 @Composable
 internal fun SetCommandsTable(
@@ -24,7 +27,9 @@ internal fun SetCommandsTable(
     val commands by commandsState.collectAsState()
 
     Row(
-        modifier = modifier.height(IntrinsicSize.Max),
+        modifier = modifier
+            .height(IntrinsicSize.Max)
+            .focusProperties { canFocus = false },
     ) {
         Column(
             modifier = Modifier.fillMaxHeight(),
@@ -40,8 +45,9 @@ internal fun SetCommandsTable(
             Text(text = "Keyboard key")
             JoypadButton.entries.forEach { padEntry ->
                 val key = commands.keyboardCommands.filterValues { it == padEntry }.toList().firstOrNull()
+                val keyCode = key?.let { KeyEvent.getKeyText(key.first.nativeKeyCode) }
                 Text(
-                    text = "$key",
+                    text = "$keyCode",
                     modifier = Modifier.clickable { registerKeyboard(padEntry) }
                 )
             }

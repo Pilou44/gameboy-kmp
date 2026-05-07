@@ -1,13 +1,16 @@
 package com.wechantloup.gameboykmp.ui
 
 import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.CreationExtras
 import com.wechantloup.gameboykmp.commands.JoypadController
 import com.wechantloup.gameboykmp.commands.JoypadControllerHolder
 import com.wechantloup.gameboykmp.joypad.JoypadButton
+import com.wechantloup.gameboykmp.logger.Logger
 import com.wechantloup.gameboykmp.ui.dialog.ClosedDialogState
 import com.wechantloup.gameboykmp.ui.dialog.OpenedDialogState
 import gameboykmp.composeapp.generated.resources.Res
@@ -33,9 +36,19 @@ class MainViewModel(
     fun onKeyEvent(event: KeyEvent): Boolean {
         val waitEvent = waitForKeyboardEvent ?: return false
 
-        joypadController.remapKeyboard(event.key, waitEvent)
-        waitForKeyboardEvent = null
+        Logger.warning("MainViewModel","onKeyEvent event=$event")
+        when (event.type) {
+            KeyEventType.KeyDown -> {
+                joypadController.remapKeyboard(event.key, waitEvent)
+                waitForKeyboardEvent = null
+            }
+            else -> {}
+        }
         return true
+    }
+
+    fun catchAllInputs(): Boolean {
+        return stateFlow.value.dialog is OpenedDialogState
     }
 
     private fun showCommandsDialog() {

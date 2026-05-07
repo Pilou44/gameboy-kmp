@@ -42,6 +42,7 @@ class JoypadController {
     }
 
     fun remapKeyboard(key: Key, button: JoypadButton) {
+        Logger.warning("JoypadController","remapKeyboard key=$key")
         val current = _commandsMap.value
         val commands = current.keyboardCommands.toMutableMap()
         commands.entries.removeIf { it.value == button }
