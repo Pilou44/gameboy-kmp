@@ -70,8 +70,9 @@ class MainViewModel(
                 )
             },
             confirmButtonTextRes = Res.string.ok_btn_label,
-            onCancelButtonClicked = {
+            onConfirmButtonClicked = {
                 settingsRepository.commandsMap = joypadController.commandsMapFlow.value
+                closeDialog()
             }
         )
         _stateFlow.value = stateFlow.value.copy(dialog = newState)
