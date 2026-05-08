@@ -1,18 +1,20 @@
 package com.wechantloup.gameboykmp.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -26,10 +28,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -81,32 +84,56 @@ fun MainScreen() {
                 .padding(paddingValues),
         ) {
             Row {
-                Box(
+                Layout(
+                    content = {
+                        DmgShell(
+                            scale = scale.value,
+                            screenBorderColor = selectedPalette.value.colors.first(),
+                        ) {
+                            gameBoyState.frameBuffer?.let {
+                                GameBoyScreen(
+                                    frameBuffer = it,
+                                    palette = selectedPalette.value,
+                                    scale = scale.value,
+                                )
+                            }
+                        }
+                    },
                     modifier = Modifier
                         .weight(1f)
-                        .wrapContentSize(
-                            align = Alignment.TopCenter,
-                            unbounded = true,
-                        ),
-                ) {
-                    DmgShell(
-                        scale = scale.value,
-                        screenBorderColor = selectedPalette.value.colors.first()
-                    ) {
-                        gameBoyState.frameBuffer?.let {
-                            GameBoyScreen(
-                                frameBuffer = it,
-                                palette = selectedPalette.value,
-                                scale = scale.value,
-                            )
-                        }
+                        .fillMaxHeight(),
+                ) { measurables, constraints ->
+                    val shellPlaceable = measurables.first().measure(Constraints())
+
+                    // In DmgShell, `scale` is a direct pixel multiplier (used via scale.toDp()),
+                    // so all shell dimensions are already in pixels — no density conversion needed.
+                    // The Game Boy screen center sits at scale×145 px from the shell top.
+                    val screenCenterPx = scale.value * 145
+
+                    // Shift the shell up if the screen center would fall below the window center.
+                    // coerceAtMost(0): never push the shell down, only up or stay.
+                    val yOffset = (constraints.maxHeight / 2 - screenCenterPx).coerceAtMost(0)
+
+                    // Center the shell horizontally.
+                    val xOffset = (constraints.maxWidth - shellPlaceable.width) / 2
+
+                    layout(constraints.maxWidth, constraints.maxHeight) {
+                        shellPlaceable.place(xOffset, yOffset)
                     }
                 }
 
                 val showCommands = {
                     mainViewModel.onIntent(MainIntent.ShowCommandsTable)
                 }
-                Commands(selectedPalette, scale, gameBoyViewModel::loadRom, showCommands)
+                Commands(
+                    selectedPalette = selectedPalette,
+                    scale = scale,
+                    loadRom = gameBoyViewModel::loadRom,
+                    showCommands = showCommands,
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .background(MaterialTheme.colorScheme.background),
+                )
             }
 
             if (mainState.dialog is OpenedDialogState) {

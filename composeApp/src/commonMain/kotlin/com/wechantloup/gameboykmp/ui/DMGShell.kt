@@ -51,8 +51,8 @@ fun DmgShell(
     val density = LocalDensity.current
     val scaleDp = with(density) { scale.toDp() }
 
-    val screenWidth = scaleDp * 160
-    val screenHeight = scaleDp * 144
+    val screenWidth = scaleDp * GAME_BOY_SCREEN_WIDTH_PX
+    val screenHeight = scaleDp * GAME_BOY_SCREEN_HEIGHT_PX
 
     val shellWidth = scaleDp * 318
     val shellHeight = scaleDp * 528
