@@ -3,6 +3,8 @@ package com.wechantloup.gameboykmp
 import androidx.compose.material.MaterialTheme
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.input.key.key
@@ -13,6 +15,7 @@ import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.wechantloup.gameboykmp.commands.JoypadController
 import com.wechantloup.gameboykmp.commands.JoypadControllerHolder
+import com.wechantloup.gameboykmp.ui.GameBoyViewModel
 import com.wechantloup.gameboykmp.ui.MainScreen
 import com.wechantloup.gameboykmp.ui.MainViewModel
 import kotlinx.coroutines.delay
@@ -41,6 +44,7 @@ fun main() = application {
     val joypadController = JoypadControllerHolder.instance
 
     var mainViewModel: MainViewModel? = null
+    var gameBoyViewModel: GameBoyViewModel ?= null
 
     Window(
         onCloseRequest = ::exitApplication,
@@ -58,13 +62,15 @@ fun main() = application {
             viewModelStoreOwner = owner,
             factory = MainViewModel.Factory()
         )
+        gameBoyViewModel = viewModel<GameBoyViewModel>(
+            viewModelStoreOwner = owner,
+            factory = GameBoyViewModel.Factory(joypadController.buttonEvents)
+        )
 
-        LaunchedEffect(Unit) {
-            while (true) {
+        val gbState by gameBoyViewModel.stateFlow.collectAsState()
+        LaunchedEffect(gbState.frameCount) {
 //                    glfwPollEvents() ToDo may be useful on Linux
-                pollGamepad(gamepadState, mainViewModel, joypadController)
-                delay(16) // ToDO ~60fps
-            }
+            pollGamepad(gamepadState, mainViewModel, joypadController)
         }
 
         MaterialTheme {

@@ -14,6 +14,7 @@ import com.wechantloup.gameboykmp.timer.Timer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -75,8 +76,11 @@ class GameBoyViewModel(
 
         // Observe PPU frames
         viewModelScope.launch {
-            ppu.frameFlow.collect { frame ->
-                _stateFlow.value = stateFlow.value.copy(frameBuffer = frame)
+            ppu.frameChannel.consumeEach { frame ->
+                _stateFlow.value = stateFlow.value.copy(
+                    frameBuffer = frame,
+                    frameCount = stateFlow.value.frameCount + 1,
+                )
             }
         }
 

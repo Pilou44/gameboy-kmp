@@ -1,15 +1,12 @@
 package com.wechantloup.gameboykmp.ppu
 
 import com.wechantloup.gameboykmp.bus.Bus
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.channels.Channel
 
 class Ppu(
     private val bus: Bus,
 ) {
-    // Initialize with DMG white (lightest green) so the screen is visible immediately
-    private val _frameFlow = MutableStateFlow(IntArray(160 * 144))
-    val frameFlow: StateFlow<IntArray> = _frameFlow
+    val frameChannel = Channel<IntArray>(Channel.CONFLATED)
 
     val frameBuffer = IntArray(160 * 144)
     val bgColorIndexBuffer = IntArray(160 * 144)
@@ -60,7 +57,7 @@ class Ppu(
                     windowLine = 0
                     updateStat(1)
                     bus.setIF(bus.iF or 0x01)  // V-Blank interrupt
-                    _frameFlow.value = frameBuffer.copyOf()
+                    frameChannel.trySend(frameBuffer.copyOf())
                 } else {
                     mode = 2
                     updateStat(2)

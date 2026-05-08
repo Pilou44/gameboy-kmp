@@ -12,7 +12,6 @@ import com.wechantloup.gameboykmp.commands.CommandsMap
 import com.wechantloup.gameboykmp.commands.JoypadController
 import com.wechantloup.gameboykmp.commands.JoypadControllerHolder
 import com.wechantloup.gameboykmp.joypad.JoypadButton
-import com.wechantloup.gameboykmp.logger.Logger
 import com.wechantloup.gameboykmp.repositories.JvmSettingsRepository
 import com.wechantloup.gameboykmp.ui.dialog.ClosedDialogState
 import com.wechantloup.gameboykmp.ui.dialog.OpenedDialogState
@@ -46,7 +45,6 @@ class MainViewModel(
     fun onKeyEvent(event: KeyEvent): Boolean {
         val waitKeyboardEvent = waitForKeyboardEvent ?: return false
 
-        Logger.warning("MainViewModel","onKeyEvent event=$event")
         when (event.type) {
             KeyEventType.KeyDown -> {
                 joypadController.remapKeyboard(event.key, waitKeyboardEvent)
