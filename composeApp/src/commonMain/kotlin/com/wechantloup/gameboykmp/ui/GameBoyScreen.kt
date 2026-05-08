@@ -7,8 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalDensity
 
 private const val SCALE = 3
 
@@ -22,10 +21,11 @@ fun GameBoyScreen(
     scale: Int = SCALE,
     modifier: Modifier = Modifier
 ) {
+    val density = LocalDensity.current
     Canvas(
         modifier = modifier.size(
-            width = (GAME_BOY_SCREEN_WIDTH_PX * scale).dp,
-            height = (GAME_BOY_SCREEN_HEIGHT_PX * scale).dp
+            width = with(density) { (GAME_BOY_SCREEN_WIDTH_PX * scale).toDp() },
+            height = with(density) { (GAME_BOY_SCREEN_HEIGHT_PX * scale).toDp() }
         )
     ) {
         for (y in 0 until GAME_BOY_SCREEN_HEIGHT_PX) {
