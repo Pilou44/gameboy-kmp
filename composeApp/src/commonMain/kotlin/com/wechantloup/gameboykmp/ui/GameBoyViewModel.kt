@@ -17,7 +17,6 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlin.reflect.KClass
@@ -26,7 +25,7 @@ import kotlin.time.DurationUnit
 import kotlin.time.toDuration
 
 class GameBoyViewModel(
-    buttonEvents: SharedFlow<JoypadEvent>,
+    buttonChannel: Channel<JoypadEvent>,
 ) : ViewModel() {
 
     private var emulationJob: Job? = null
@@ -38,7 +37,7 @@ class GameBoyViewModel(
 
     init {
         viewModelScope.launch {
-            buttonEvents.collect { event ->
+            buttonChannel.consumeEach { event ->
                 when (event) {
                     is JoypadEvent.Pressed  -> bus?.setButtonPressed(event.button)
                     is JoypadEvent.Released -> bus?.setButtonReleased(event.button)
@@ -113,11 +112,11 @@ class GameBoyViewModel(
     }
 
     class Factory(
-        private  val buttonEvents: SharedFlow<JoypadEvent>,
+        private  val buttonChannel: Channel<JoypadEvent>,
     ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: KClass<T>, extras: CreationExtras): T {
             @Suppress("UNCHECKED_CAST")
-            return GameBoyViewModel(buttonEvents) as T
+            return GameBoyViewModel(buttonChannel) as T
         }
     }
 

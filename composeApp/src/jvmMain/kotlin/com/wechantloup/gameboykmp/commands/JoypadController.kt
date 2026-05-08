@@ -4,9 +4,8 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import com.wechantloup.gameboykmp.joypad.JoypadButton
 import com.wechantloup.gameboykmp.joypad.JoypadEvent
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 
 // Could be an object to remove JoypadControllerHolder.
@@ -17,8 +16,7 @@ class JoypadController {
     val commandsMapFlow: StateFlow<CommandsMap> = _commandsMap
     private val commandsMap: CommandsMap get() = _commandsMap.value
 
-    private val _buttonEvents = MutableSharedFlow<JoypadEvent>(extraBufferCapacity = 16)
-    val buttonEvents: SharedFlow<JoypadEvent> = _buttonEvents // Why flow and not channel
+    val buttonChannel = Channel<JoypadEvent>(Channel.UNLIMITED)
 
     fun handleKeyEvent(key: Key, type: KeyEventType): Boolean {
         val button = commandsMap.keyboardCommands[key] ?: return false
@@ -27,14 +25,14 @@ class JoypadController {
             KeyEventType.KeyUp   -> JoypadEvent.Released(button)
             else                 -> return false
         }
-        _buttonEvents.tryEmit(event)
+        buttonChannel.trySend(event)
         return true
     }
 
     fun handleGamepadEvent(buttonIndex: Int, pressed: Boolean) {
         val button = commandsMap.joypadCommands[buttonIndex] ?: return
         val event = if (pressed) JoypadEvent.Pressed(button) else JoypadEvent.Released(button)
-        _buttonEvents.tryEmit(event)
+        buttonChannel.trySend(event)
     }
 
     fun remapKeyboard(key: Key, button: JoypadButton) {

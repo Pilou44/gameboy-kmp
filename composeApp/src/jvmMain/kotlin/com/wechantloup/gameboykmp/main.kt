@@ -64,7 +64,7 @@ fun main() = application {
         )
         gameBoyViewModel = viewModel<GameBoyViewModel>(
             viewModelStoreOwner = owner,
-            factory = GameBoyViewModel.Factory(joypadController.buttonEvents)
+            factory = GameBoyViewModel.Factory(joypadController.buttonChannel)
         )
 
         val gbState by gameBoyViewModel.stateFlow.collectAsState()

@@ -58,7 +58,7 @@ fun MainScreen() {
     val owner = checkNotNull(LocalViewModelStoreOwner.current)
     val gameBoyViewModel = viewModel<GameBoyViewModel>(
         viewModelStoreOwner = owner,
-        factory = GameBoyViewModel.Factory(JoypadControllerHolder.instance.buttonEvents),
+        factory = GameBoyViewModel.Factory(JoypadControllerHolder.instance.buttonChannel),
     )
     val mainViewModel = viewModel<MainViewModel>(
         viewModelStoreOwner = owner,
