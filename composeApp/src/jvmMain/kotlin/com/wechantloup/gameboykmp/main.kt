@@ -18,7 +18,6 @@ import com.wechantloup.gameboykmp.commands.JoypadControllerHolder
 import com.wechantloup.gameboykmp.ui.GameBoyViewModel
 import com.wechantloup.gameboykmp.ui.MainScreen
 import com.wechantloup.gameboykmp.ui.MainViewModel
-import kotlinx.coroutines.delay
 import org.lwjgl.glfw.GLFW.GLFW_GAMEPAD_AXIS_LEFT_X
 import org.lwjgl.glfw.GLFW.GLFW_GAMEPAD_AXIS_LEFT_Y
 import org.lwjgl.glfw.GLFW.GLFW_GAMEPAD_BUTTON_A

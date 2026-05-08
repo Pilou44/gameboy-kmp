@@ -55,6 +55,7 @@ kotlin {
             implementation(libs.kotlinx.coroutinesCore)
             implementation(libs.russholf.multiplatform.settings)
             implementation(libs.kotlinx.serialization.json)
+            implementation("io.github.vinceglb:filekit-dialogs-compose:0.14.1")
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
