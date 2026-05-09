@@ -5,11 +5,14 @@ import android.content.res.Configuration.ORIENTATION_PORTRAIT
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -31,11 +34,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.wechantloup.gameboykmp.apu.Apu
 import com.wechantloup.gameboykmp.joypad.JoypadEvent
+import com.wechantloup.gameboykmp.ui.ABButtons
 import com.wechantloup.gameboykmp.ui.DMG_SHELL_COLOR
 import com.wechantloup.gameboykmp.ui.DPad
 import com.wechantloup.gameboykmp.ui.GAME_BOY_SCREEN_HEIGHT_PX
@@ -44,6 +50,7 @@ import com.wechantloup.gameboykmp.ui.GameBoyScreen
 import com.wechantloup.gameboykmp.ui.GameBoyState
 import com.wechantloup.gameboykmp.ui.GameBoyViewModel
 import com.wechantloup.gameboykmp.ui.Palette
+import com.wechantloup.gameboykmp.ui.StartSelectButton
 import io.github.vinceglb.filekit.FileKit
 import io.github.vinceglb.filekit.PlatformFile
 import io.github.vinceglb.filekit.dialogs.openFilePicker
@@ -125,6 +132,7 @@ private fun PortraitEmulator(
         },
         containerColor = Color(DMG_SHELL_COLOR),
     ) { paddingValues ->
+        val density = LocalDensity.current
         var screenSize by remember { mutableStateOf(IntSize.Zero) }
         val scale by remember {
             derivedStateOf {
@@ -140,14 +148,22 @@ private fun PortraitEmulator(
                 .onSizeChanged { screenSize = it }
                 .fillMaxSize(),
         ) {
-            gameBoyState.frameBuffer?.let {
-                GameBoyScreen(
-                    frameBuffer = it,
-                    palette = selectedPalette.value,
-                    scale = scale,
-                )
+            val screenBoxHeight = with (density) { (screenSize.height / 2).toDp() }
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(screenBoxHeight),
+            ) {
+                gameBoyState.frameBuffer?.let {
+                    GameBoyScreen(
+                        frameBuffer = it,
+                        palette = selectedPalette.value,
+                        scale = scale,
+                    )
+                }
             }
-            Controls()
+            Controls(modifier = Modifier.weight(1f))
         }
     }
 }
@@ -155,18 +171,43 @@ private fun PortraitEmulator(
 @Composable
 private fun Controls(modifier: Modifier = Modifier) {
     Column(modifier = modifier) {
-        Row {
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .padding(top = 32.dp)
+                .fillMaxHeight(),
+        ) {
             Box(
-                contentAlignment = Alignment.Center,
+                contentAlignment = Alignment.TopCenter,
                 modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight(),
+                    .weight(1f),
             ) {
                 DPad()
             }
-            Box(modifier = Modifier.weight(1f)) {
-
+            Box(
+                contentAlignment = Alignment.TopCenter,
+                modifier = Modifier
+                    .weight(1f),
+            ) {
+                ABButtons()
             }
+        }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(32.dp, Alignment.CenterHorizontally),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            StartSelectButton(
+                label      = "SELECT",
+//                fontFamily = nintendoFont,
+                onPressed  = { /* JoypadEvent */ },
+                onReleased = { /* JoypadEvent */ },
+            )
+            StartSelectButton(
+                label      = "START",
+//                fontFamily = nintendoFont,
+                onPressed  = { /* JoypadEvent */ },
+                onReleased = { /* JoypadEvent */ },
+            )
         }
     }
 }
