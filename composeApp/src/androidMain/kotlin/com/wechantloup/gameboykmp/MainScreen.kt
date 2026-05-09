@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.wechantloup.gameboykmp.apu.Apu
+import com.wechantloup.gameboykmp.joypad.JoypadButton
 import com.wechantloup.gameboykmp.joypad.JoypadEvent
 import com.wechantloup.gameboykmp.ui.ABButtons
 import com.wechantloup.gameboykmp.ui.DMG_SHELL_COLOR
@@ -65,11 +66,11 @@ import kotlin.math.min
 
 @Composable
 fun MainScreen() {
-    val mockButtonChannel = Channel<JoypadEvent>()
+    val buttonChannel = remember { Channel<JoypadEvent>() }
     val owner = checkNotNull(LocalViewModelStoreOwner.current)
     val gameBoyViewModel = viewModel<GameBoyViewModel>(
         viewModelStoreOwner = owner,
-        factory = GameBoyViewModel.Factory(mockButtonChannel),
+        factory = GameBoyViewModel.Factory(buttonChannel),
     )
 
     val gameBoyState by gameBoyViewModel.stateFlow.collectAsState()
@@ -88,11 +89,13 @@ fun MainScreen() {
         ORIENTATION_LANDSCAPE -> {}
         ORIENTATION_PORTRAIT -> PortraitEmulator(
             gameBoyState = gameBoyState,
+            buttonChannel = buttonChannel,
             selectedPalette = selectedPalette,
             loadRom = gameBoyViewModel::loadRom,
         )
         else -> PortraitEmulator(
             gameBoyState = gameBoyState,
+            buttonChannel = buttonChannel,
             selectedPalette = selectedPalette,
             loadRom = gameBoyViewModel::loadRom,
         )
@@ -103,6 +106,7 @@ fun MainScreen() {
 @Composable
 private fun PortraitEmulator(
     gameBoyState: GameBoyState,
+    buttonChannel: Channel<JoypadEvent>,
     selectedPalette: MutableState<Palette>,
     loadRom: (ByteArray, String) -> Unit,
 ) {
@@ -163,13 +167,27 @@ private fun PortraitEmulator(
                     )
                 }
             }
-            Controls(modifier = Modifier.weight(1f))
+            Controls(
+                buttonChannel = buttonChannel,
+                modifier = Modifier.weight(1f),
+            )
         }
     }
 }
 
 @Composable
-private fun Controls(modifier: Modifier = Modifier) {
+private fun Controls(
+    buttonChannel: Channel<JoypadEvent>,
+    modifier: Modifier = Modifier,
+) {
+    val onButtonPressed: (JoypadButton) -> Unit = {
+        val event = JoypadEvent.Pressed(it)
+        buttonChannel.trySend(event)
+    }
+    val onButtonReleased: (JoypadButton) -> Unit = {
+        val event = JoypadEvent.Released(it)
+        buttonChannel.trySend(event)
+    }
     Column(modifier = modifier) {
         Row(
             modifier = Modifier
@@ -182,14 +200,24 @@ private fun Controls(modifier: Modifier = Modifier) {
                 modifier = Modifier
                     .weight(1f),
             ) {
-                DPad()
+                DPad(
+                    onDirectionPressed = { direction ->
+                        onButtonPressed(direction)
+                    },
+                    onDirectionReleased = { direction ->
+                        onButtonReleased(direction)
+                    }
+                )
             }
             Box(
                 contentAlignment = Alignment.TopCenter,
                 modifier = Modifier
                     .weight(1f),
             ) {
-                ABButtons()
+                ABButtons(
+                    onButtonPressed = { onButtonPressed(it) },
+                    onButtonReleased = { onButtonReleased(it) },
+                )
             }
         }
         Row(
@@ -199,14 +227,14 @@ private fun Controls(modifier: Modifier = Modifier) {
             StartSelectButton(
                 label      = "SELECT",
 //                fontFamily = nintendoFont,
-                onPressed  = { /* JoypadEvent */ },
-                onReleased = { /* JoypadEvent */ },
+                onPressed  = { onButtonPressed(JoypadButton.SELECT) },
+                onReleased = { onButtonReleased(JoypadButton.SELECT) },
             )
             StartSelectButton(
                 label      = "START",
 //                fontFamily = nintendoFont,
-                onPressed  = { /* JoypadEvent */ },
-                onReleased = { /* JoypadEvent */ },
+                onPressed  = { onButtonPressed(JoypadButton.START) },
+                onReleased = { onButtonReleased(JoypadButton.START) },
             )
         }
     }

@@ -30,12 +30,11 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wechantloup.gameboykmp.joypad.JoypadButton
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
-
-enum class ABButton { A, B }
 
 // ─── Colors (original Game Boy DMG palette) ───────────────────────────────────
 private val BtnBase      = Color(0xFF8C1C3C)
@@ -73,12 +72,12 @@ fun ABButtons(
     buttonRadius: Dp = 26.dp,
     spacing: Dp = 18.dp,            // edge-to-edge gap between A and B
     fontFamily: FontFamily = FontFamily.Default,
-    onButtonPressed: (ABButton) -> Unit = {},
-    onButtonReleased: (ABButton) -> Unit = {},
+    onButtonPressed: (JoypadButton) -> Unit = {},
+    onButtonReleased: (JoypadButton) -> Unit = {},
 ) {
     val density      = LocalDensity.current
     val textMeasurer = rememberTextMeasurer()
-    var pressedButton by remember { mutableStateOf<ABButton?>(null) }
+    var pressedButton by remember { mutableStateOf<JoypadButton?>(null) }
 
     // All geometry in pixels
     val radiusPx  = with(density) { buttonRadius.toPx() }
@@ -135,7 +134,7 @@ fun ABButtons(
             label        = "B",
             center       = bCenter,
             radius       = radiusPx,
-            pressed      = pressedButton == ABButton.B,
+            pressed      = pressedButton == JoypadButton.B,
             textMeasurer = textMeasurer,
             fontFamily   = fontFamily,
             fontSize     = fontSize,
@@ -144,7 +143,7 @@ fun ABButtons(
             label        = "A",
             center       = aCenter,
             radius       = radiusPx,
-            pressed      = pressedButton == ABButton.A,
+            pressed      = pressedButton == JoypadButton.A,
             textMeasurer = textMeasurer,
             fontFamily   = fontFamily,
             fontSize     = fontSize,
@@ -159,15 +158,15 @@ private fun hitTest(
     aCenter: Offset,
     bCenter: Offset,
     radius: Float,
-): ABButton? {
+): JoypadButton? {
     fun dist(p: Offset, c: Offset): Float {
         val ex = p.x - c.x
         val ey = p.y - c.y
         return sqrt(ex * ex + ey * ey)
     }
     return when {
-        dist(position, aCenter) <= radius -> ABButton.A
-        dist(position, bCenter) <= radius -> ABButton.B
+        dist(position, aCenter) <= radius -> JoypadButton.A
+        dist(position, bCenter) <= radius -> JoypadButton.B
         else                              -> null
     }
 }

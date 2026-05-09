@@ -22,8 +22,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import com.wechantloup.gameboykmp.joypad.JoypadButton
 
-enum class DPadDirection { UP, DOWN, LEFT, RIGHT }
+//enum class DPadDirection { UP, DOWN, LEFT, RIGHT }
 
 private val ColorBase      = Color(0xFF1C1C1E)
 private val ColorPressed   = Color(0xFF0F0F10)
@@ -35,10 +36,10 @@ private val ColorArrow     = Color(0xFF5A5A5E)
 fun DPad(
     modifier: Modifier = Modifier,
     size: Dp = 120.dp,
-    onDirectionPressed: (DPadDirection) -> Unit = {},
-    onDirectionReleased: (DPadDirection) -> Unit = {},
+    onDirectionPressed: (JoypadButton) -> Unit = {},
+    onDirectionReleased: (JoypadButton) -> Unit = {},
 ) {
-    var pressedDirection by remember { mutableStateOf<DPadDirection?>(null) }
+    var pressedDirection by remember { mutableStateOf<JoypadButton?>(null) }
 
     Canvas(
         modifier = modifier
@@ -75,7 +76,7 @@ fun DPad(
 
 // ─── Hit-testing ────────────────────────────────────────────────────────────
 
-private fun hitTest(position: Offset, size: IntSize): DPadDirection? {
+private fun hitTest(position: Offset, size: IntSize): JoypadButton? {
     val x   = position.x
     val y   = position.y
     val arm = size.width.toFloat() / 3f
@@ -86,17 +87,17 @@ private fun hitTest(position: Offset, size: IntSize): DPadDirection? {
     if (!inVertical && !inHorizontal) return null   // corner → outside cross
 
     return when {
-        y < arm       -> DPadDirection.UP
-        y > 2f * arm  -> DPadDirection.DOWN
-        x < arm       -> DPadDirection.LEFT
-        x > 2f * arm  -> DPadDirection.RIGHT
+        y < arm       -> JoypadButton.UP
+        y > 2f * arm  -> JoypadButton.DOWN
+        x < arm       -> JoypadButton.LEFT
+        x > 2f * arm  -> JoypadButton.RIGHT
         else          -> null  // dead center, no direction
     }
 }
 
 // ─── Drawing ─────────────────────────────────────────────────────────────────
 
-private fun DrawScope.drawDPad(pressed: DPadDirection?) {
+private fun DrawScope.drawDPad(pressed: JoypadButton?) {
     val w           = size.width
     val h           = size.height
     val arm         = w / 3f
@@ -107,7 +108,7 @@ private fun DrawScope.drawDPad(pressed: DPadDirection?) {
     val shadowDx    = 2.5f
     val shadowDy    = 2.5f
 
-    fun armColor(dir: DPadDirection) = if (pressed == dir) ColorPressed else ColorBase
+    fun armColor(dir: JoypadButton) = if (pressed == dir) ColorPressed else ColorBase
 
     // ── Shadow ──────────────────────────────────────────────────────────────
     drawRoundRect(
@@ -126,28 +127,28 @@ private fun DrawScope.drawDPad(pressed: DPadDirection?) {
     // ── Arms (each extends slightly past the junction) ───────────────────────
     // UP
     drawRoundRect(
-        color        = armColor(DPadDirection.UP),
+        color        = armColor(JoypadButton.UP),
         topLeft      = Offset(arm, 0f),
         size         = Size(arm, arm + overlap),
         cornerRadius = cr,
     )
     // DOWN
     drawRoundRect(
-        color        = armColor(DPadDirection.DOWN),
+        color        = armColor(JoypadButton.DOWN),
         topLeft      = Offset(arm, 2f * arm - overlap),
         size         = Size(arm, arm + overlap),
         cornerRadius = cr,
     )
     // LEFT
     drawRoundRect(
-        color        = armColor(DPadDirection.LEFT),
+        color        = armColor(JoypadButton.LEFT),
         topLeft      = Offset(0f, arm),
         size         = Size(arm + overlap, arm),
         cornerRadius = cr,
     )
     // RIGHT
     drawRoundRect(
-        color        = armColor(DPadDirection.RIGHT),
+        color        = armColor(JoypadButton.RIGHT),
         topLeft      = Offset(2f * arm - overlap, arm),
         size         = Size(arm + overlap, arm),
         cornerRadius = cr,
@@ -165,16 +166,16 @@ private fun DrawScope.drawDPad(pressed: DPadDirection?) {
     val hlThick  = arm * 0.09f
     val hlCr     = CornerRadius(hlThick / 2f)
 
-    if (pressed != DPadDirection.UP) {
+    if (pressed != JoypadButton.UP) {
         drawRoundRect(ColorHighlight, Offset(arm + hlInset, arm * 0.07f),        Size(arm - 2f * hlInset, hlThick), hlCr)
     }
-    if (pressed != DPadDirection.DOWN) {
+    if (pressed != JoypadButton.DOWN) {
         drawRoundRect(ColorHighlight, Offset(arm + hlInset, 3f * arm - arm * 0.07f - hlThick), Size(arm - 2f * hlInset, hlThick), hlCr)
     }
-    if (pressed != DPadDirection.LEFT) {
+    if (pressed != JoypadButton.LEFT) {
         drawRoundRect(ColorHighlight, Offset(arm * 0.07f, arm + hlInset),        Size(hlThick, arm - 2f * hlInset), hlCr)
     }
-    if (pressed != DPadDirection.RIGHT) {
+    if (pressed != JoypadButton.RIGHT) {
         drawRoundRect(ColorHighlight, Offset(3f * arm - arm * 0.07f - hlThick, arm + hlInset), Size(hlThick, arm - 2f * hlInset), hlCr)
     }
 
@@ -184,35 +185,36 @@ private fun DrawScope.drawDPad(pressed: DPadDirection?) {
     val arrowSize   = arm * 0.23f
     val arrowInset  = arm * 0.27f
 
-    drawArrow(Offset(cx, arrowInset),               DPadDirection.UP,    arrowSize)
-    drawArrow(Offset(cx, 3f * arm - arrowInset),    DPadDirection.DOWN,  arrowSize)
-    drawArrow(Offset(arrowInset, cy),               DPadDirection.LEFT,  arrowSize)
-    drawArrow(Offset(3f * arm - arrowInset, cy),    DPadDirection.RIGHT, arrowSize)
+    drawArrow(Offset(cx, arrowInset),               JoypadButton.UP,    arrowSize)
+    drawArrow(Offset(cx, 3f * arm - arrowInset),    JoypadButton.DOWN,  arrowSize)
+    drawArrow(Offset(arrowInset, cy),               JoypadButton.LEFT,  arrowSize)
+    drawArrow(Offset(3f * arm - arrowInset, cy),    JoypadButton.RIGHT, arrowSize)
 }
 
-private fun DrawScope.drawArrow(tip: Offset, direction: DPadDirection, s: Float) {
+private fun DrawScope.drawArrow(tip: Offset, direction: JoypadButton, s: Float) {
     val path = Path()
     when (direction) {
-        DPadDirection.UP -> {
+        JoypadButton.UP -> {
             path.moveTo(tip.x,        tip.y)
             path.lineTo(tip.x - s,   tip.y + s * 1.2f)
             path.lineTo(tip.x + s,   tip.y + s * 1.2f)
         }
-        DPadDirection.DOWN -> {
+        JoypadButton.DOWN -> {
             path.moveTo(tip.x,        tip.y)
             path.lineTo(tip.x - s,   tip.y - s * 1.2f)
             path.lineTo(tip.x + s,   tip.y - s * 1.2f)
         }
-        DPadDirection.LEFT -> {
+        JoypadButton.LEFT -> {
             path.moveTo(tip.x,        tip.y)
             path.lineTo(tip.x + s * 1.2f, tip.y - s)
             path.lineTo(tip.x + s * 1.2f, tip.y + s)
         }
-        DPadDirection.RIGHT -> {
+        JoypadButton.RIGHT -> {
             path.moveTo(tip.x,        tip.y)
             path.lineTo(tip.x - s * 1.2f, tip.y - s)
             path.lineTo(tip.x - s * 1.2f, tip.y + s)
         }
+        else-> {} //Ignore
     }
     path.close()
     drawPath(path, color = ColorArrow)
