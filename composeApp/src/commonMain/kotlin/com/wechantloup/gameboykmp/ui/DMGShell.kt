@@ -42,6 +42,8 @@ import gameboykmp.composeapp.generated.resources.gill_sans
 import gameboykmp.composeapp.generated.resources.nintend_bold
 import org.jetbrains.compose.resources.Font
 
+const val DMG_SHELL_COLOR = 0xFFC0C0C0
+
 @Composable
 fun DmgShell(
     scale: Int,
@@ -77,7 +79,7 @@ fun DmgShell(
             modifier = Modifier
                 .matchParentSize()
                 .clip(shellShape)
-                .background(Color(0xFFC0C0C0)),
+                .background(Color(DMG_SHELL_COLOR)),
         ) {
             val grayZoneWidth = scaleDp * 270.5f
             val grayZoneHeight = scaleDp * 205.9f

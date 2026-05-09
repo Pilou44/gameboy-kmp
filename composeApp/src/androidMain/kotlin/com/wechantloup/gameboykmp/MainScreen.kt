@@ -1,10 +1,14 @@
 package com.wechantloup.gameboykmp
 
+import android.content.res.Configuration.ORIENTATION_LANDSCAPE
+import android.content.res.Configuration.ORIENTATION_PORTRAIT
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
@@ -14,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -23,16 +28,20 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.IntSize
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.wechantloup.gameboykmp.apu.Apu
 import com.wechantloup.gameboykmp.joypad.JoypadEvent
+import com.wechantloup.gameboykmp.ui.DMG_SHELL_COLOR
+import com.wechantloup.gameboykmp.ui.DPad
 import com.wechantloup.gameboykmp.ui.GAME_BOY_SCREEN_HEIGHT_PX
 import com.wechantloup.gameboykmp.ui.GAME_BOY_SCREEN_WIDTH_PX
 import com.wechantloup.gameboykmp.ui.GameBoyScreen
+import com.wechantloup.gameboykmp.ui.GameBoyState
 import com.wechantloup.gameboykmp.ui.GameBoyViewModel
 import com.wechantloup.gameboykmp.ui.Palette
 import io.github.vinceglb.filekit.FileKit
@@ -47,12 +56,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.min
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen() {
-    val scope = rememberCoroutineScope()
-    val density = LocalDensity.current
-
     val mockButtonChannel = Channel<JoypadEvent>()
     val owner = checkNotNull(LocalViewModelStoreOwner.current)
     val gameBoyViewModel = viewModel<GameBoyViewModel>(
@@ -70,6 +75,31 @@ fun MainScreen() {
         }
     }
 
+    val configuration = LocalConfiguration.current
+
+    when (configuration.orientation) {
+        ORIENTATION_LANDSCAPE -> {}
+        ORIENTATION_PORTRAIT -> PortraitEmulator(
+            gameBoyState = gameBoyState,
+            selectedPalette = selectedPalette,
+            loadRom = gameBoyViewModel::loadRom,
+        )
+        else -> PortraitEmulator(
+            gameBoyState = gameBoyState,
+            selectedPalette = selectedPalette,
+            loadRom = gameBoyViewModel::loadRom,
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PortraitEmulator(
+    gameBoyState: GameBoyState,
+    selectedPalette: MutableState<Palette>,
+    loadRom: (ByteArray, String) -> Unit,
+) {
+    val scope = rememberCoroutineScope()
     Scaffold(
         topBar = {
             TopAppBar(
@@ -78,9 +108,9 @@ fun MainScreen() {
                     Button(
                         onClick = {
                             scope.launch {
-                                val rom = loadRom()
+                                val rom = pickRom()
                                 rom?.let {
-                                    gameBoyViewModel.loadRom(
+                                    loadRom(
                                         rom.readBytes(),
                                         rom.nameWithoutExtension,
                                     )
@@ -93,40 +123,55 @@ fun MainScreen() {
                 }
             )
         },
+        containerColor = Color(DMG_SHELL_COLOR),
     ) { paddingValues ->
-        Column( // ToDo should be row for landscape
+        var screenSize by remember { mutableStateOf(IntSize.Zero) }
+        val scale by remember {
+            derivedStateOf {
+                val widthScale = screenSize.width / GAME_BOY_SCREEN_WIDTH_PX
+                val heightScale = screenSize.height / 2 / GAME_BOY_SCREEN_HEIGHT_PX
+                min(widthScale, heightScale)
+            }
+        }
+        Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
                 .padding(paddingValues)
+                .onSizeChanged { screenSize = it }
                 .fillMaxSize(),
         ) {
-            var screenSize by remember { mutableStateOf(IntSize.Zero) }
-            val scale by remember {
-                derivedStateOf {
-                    val widthScale = screenSize.width / GAME_BOY_SCREEN_WIDTH_PX
-                    val heightScale = screenSize.height / GAME_BOY_SCREEN_HEIGHT_PX
-                    min(widthScale, heightScale)
-                }
+            gameBoyState.frameBuffer?.let {
+                GameBoyScreen(
+                    frameBuffer = it,
+                    palette = selectedPalette.value,
+                    scale = scale,
+                )
             }
+            Controls()
+        }
+    }
+}
+
+@Composable
+private fun Controls(modifier: Modifier = Modifier) {
+    Column(modifier = modifier) {
+        Row {
             Box(
-                contentAlignment = Alignment.TopCenter,
+                contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .onSizeChanged { screenSize = it }
-                    .fillMaxSize(),
+                    .weight(1f)
+                    .fillMaxHeight(),
             ) {
-                gameBoyState.frameBuffer?.let {
-                    GameBoyScreen(
-                        frameBuffer = it,
-                        palette = selectedPalette.value,
-                        scale = scale,
-                    )
-                }
+                DPad()
+            }
+            Box(modifier = Modifier.weight(1f)) {
+
             }
         }
     }
 }
 
-private suspend fun loadRom(): PlatformFile? {
+private suspend fun pickRom(): PlatformFile? {
     return withContext(Dispatchers.IO) {
         FileKit.openFilePicker()
     }
