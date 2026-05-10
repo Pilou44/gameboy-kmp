@@ -40,6 +40,7 @@ import com.wechantloup.gameboykmp.apu.Apu
 import com.wechantloup.gameboykmp.commands.JoypadControllerHolder
 import com.wechantloup.gameboykmp.ui.dialog.Dialog
 import com.wechantloup.gameboykmp.ui.dialog.OpenedDialogState
+import com.wechantloup.gameboykmp.ui.dmg.DmgShell
 import javax.sound.sampled.AudioFormat
 import javax.sound.sampled.AudioSystem
 import javax.swing.JFileChooser
@@ -74,7 +75,7 @@ fun MainScreen() {
     val gameBoyState by gameBoyViewModel.stateFlow.collectAsState()
     val mainState by mainViewModel.stateFlow.collectAsState()
 
-    val selectedPalette = remember { mutableStateOf<Palette>(Palette.Dmg) }
+    val selectedPalette = remember { mutableStateOf(Palette.DMG) }
     val scale = remember { mutableIntStateOf(3) }
 
     Scaffold { paddingValues ->
@@ -186,9 +187,9 @@ private fun Commands(
                 Text(selectedPalette.value.name)
             }
             DropdownMenu(expanded = paletteExpanded, onDismissRequest = { paletteExpanded = false }) {
-                Palette.all.forEach { palette ->
+                Palette.entries.forEach { palette ->
                     DropdownMenuItem(
-                        text = { Text(palette.name) },
+                        text = { Text(palette.displayName) },
                         onClick = {
                             selectedPalette.value = palette
                             paletteExpanded = false

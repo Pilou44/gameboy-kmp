@@ -46,16 +46,16 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.wechantloup.gameboykmp.apu.Apu
 import com.wechantloup.gameboykmp.joypad.JoypadButton
 import com.wechantloup.gameboykmp.joypad.JoypadEvent
-import com.wechantloup.gameboykmp.ui.ABButtons
 import com.wechantloup.gameboykmp.ui.BitmapGameBoyScreen
-import com.wechantloup.gameboykmp.ui.DMG_SHELL_COLOR
-import com.wechantloup.gameboykmp.ui.DPad
 import com.wechantloup.gameboykmp.ui.GAME_BOY_SCREEN_HEIGHT_PX
 import com.wechantloup.gameboykmp.ui.GAME_BOY_SCREEN_WIDTH_PX
 import com.wechantloup.gameboykmp.ui.GameBoyState
 import com.wechantloup.gameboykmp.ui.GameBoyViewModel
 import com.wechantloup.gameboykmp.ui.Palette
-import com.wechantloup.gameboykmp.ui.StartSelectButton
+import com.wechantloup.gameboykmp.ui.dmg.ABButtons
+import com.wechantloup.gameboykmp.ui.dmg.DMG_SHELL_COLOR
+import com.wechantloup.gameboykmp.ui.dmg.DPad
+import com.wechantloup.gameboykmp.ui.dmg.StartSelectButton
 import io.github.vinceglb.filekit.FileKit
 import io.github.vinceglb.filekit.PlatformFile
 import io.github.vinceglb.filekit.dialogs.openFilePicker
@@ -79,7 +79,7 @@ fun MainScreen() {
 
     val gameBoyState by gameBoyViewModel.stateFlow.collectAsState()
 
-    val selectedPalette = remember { mutableStateOf<Palette>(Palette.Dmg) }
+    val selectedPalette = remember { mutableStateOf<Palette>(Palette.DMG) }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {

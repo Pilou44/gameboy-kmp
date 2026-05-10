@@ -1,4 +1,4 @@
-package com.wechantloup.gameboykmp.ui
+package com.wechantloup.gameboykmp.ui.dmg
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -37,6 +37,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wechantloup.gameboykmp.ui.GAME_BOY_SCREEN_HEIGHT_PX
+import com.wechantloup.gameboykmp.ui.GAME_BOY_SCREEN_WIDTH_PX
+import com.wechantloup.gameboykmp.ui.Palette
 import gameboykmp.composeapp.generated.resources.Res
 import gameboykmp.composeapp.generated.resources.gill_sans
 import gameboykmp.composeapp.generated.resources.nintend_bold
@@ -47,7 +50,7 @@ const val DMG_SHELL_COLOR = 0xFFC0C0C0
 @Composable
 fun DmgShell(
     scale: Int,
-    screenBorderColor: Int = Palette.Dmg.colors[0],
+    screenBorderColor: Int = Palette.DMG.colors[0],
     screen: @Composable () -> Unit,
 ) {
     val density = LocalDensity.current

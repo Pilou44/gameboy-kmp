@@ -1,4 +1,4 @@
-package com.wechantloup.gameboykmp.ui
+package com.wechantloup.gameboykmp.ui.dmg
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture

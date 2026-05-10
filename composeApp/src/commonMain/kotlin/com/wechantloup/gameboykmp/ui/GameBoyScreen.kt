@@ -21,7 +21,7 @@ const val GAME_BOY_SCREEN_HEIGHT_PX = 144
 @Composable
 fun GameBoyScreen(
     frameBuffer: IntArray,
-    palette: Palette = Palette.Dmg,
+    palette: Palette = Palette.DMG,
     scale: Int = SCALE,
     modifier: Modifier = Modifier
 ) {
@@ -52,7 +52,7 @@ fun GameBoyScreen(
 @Composable
 fun BitmapGameBoyScreen(
     frameBuffer: IntArray,
-    palette: Palette = Palette.Dmg,
+    palette: Palette = Palette.DMG,
     scale: Int = SCALE,
     modifier: Modifier = Modifier
 ) {
