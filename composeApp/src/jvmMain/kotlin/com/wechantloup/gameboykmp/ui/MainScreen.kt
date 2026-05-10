@@ -94,7 +94,7 @@ fun MainScreen() {
                             screenBorderColor = selectedPalette.value.colors.first(),
                         ) {
                             gameBoyState.frameBuffer?.let {
-                                GameBoyScreen(
+                                BitmapGameBoyScreen(
                                     frameBuffer = it,
                                     palette = selectedPalette.value,
                                     scale = scale.value,

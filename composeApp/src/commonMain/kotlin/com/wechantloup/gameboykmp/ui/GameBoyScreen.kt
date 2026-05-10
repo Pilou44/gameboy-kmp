@@ -18,6 +18,7 @@ private const val SCALE = 3
 const val GAME_BOY_SCREEN_WIDTH_PX = 160
 const val GAME_BOY_SCREEN_HEIGHT_PX = 144
 
+@Deprecated("Use BitmapGameBoyScreen instead")
 @Composable
 fun GameBoyScreen(
     frameBuffer: IntArray,
