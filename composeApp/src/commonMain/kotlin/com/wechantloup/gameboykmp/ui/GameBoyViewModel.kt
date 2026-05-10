@@ -9,6 +9,7 @@ import com.wechantloup.gameboykmp.bus.Bus
 import com.wechantloup.gameboykmp.cartridge.CartridgeFactory
 import com.wechantloup.gameboykmp.cpu.Cpu
 import com.wechantloup.gameboykmp.joypad.JoypadEvent
+import com.wechantloup.gameboykmp.logger.Logger
 import com.wechantloup.gameboykmp.ppu.Ppu
 import com.wechantloup.gameboykmp.timer.Timer
 import kotlinx.coroutines.Dispatchers
@@ -83,6 +84,8 @@ class GameBoyViewModel(
             }
         }
 
+        var renderingIssueCount = 0
+        var frameCount = 0
         var frameStartNs = currentTimeNanos()
         // Emulation loop
         emulationJob = viewModelScope.launch(Dispatchers.Default) {
@@ -101,7 +104,15 @@ class GameBoyViewModel(
                 val remaining = frameStartNs - currentTimeNanos()
                 if (remaining > 0) {
                     delay(remaining.toDuration(DurationUnit.NANOSECONDS))
+                } else {
+                    renderingIssueCount++
                 }
+
+                if (frameCount % 60 == 0) {
+                    Logger.error(TAG, "Rendering issue, $renderingIssueCount on last 60 taking too much time")
+                    renderingIssueCount = 0
+                }
+                frameCount++
             }
         }
     }
@@ -121,6 +132,7 @@ class GameBoyViewModel(
     }
 
     companion object {
+        private const val TAG = "GameBoyViewModel"
         private const val FRAME_DURATION_NS = (1_000_000_000.0 / 59.7275).toLong()  // ≈ 16_742_706
     }
 }
