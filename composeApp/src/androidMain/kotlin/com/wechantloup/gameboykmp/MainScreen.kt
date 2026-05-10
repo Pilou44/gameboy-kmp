@@ -43,6 +43,7 @@ import com.wechantloup.gameboykmp.apu.Apu
 import com.wechantloup.gameboykmp.joypad.JoypadButton
 import com.wechantloup.gameboykmp.joypad.JoypadEvent
 import com.wechantloup.gameboykmp.ui.ABButtons
+import com.wechantloup.gameboykmp.ui.BitmapGameBoyScreen
 import com.wechantloup.gameboykmp.ui.DMG_SHELL_COLOR
 import com.wechantloup.gameboykmp.ui.DPad
 import com.wechantloup.gameboykmp.ui.GAME_BOY_SCREEN_HEIGHT_PX
@@ -160,7 +161,7 @@ private fun PortraitEmulator(
                     .height(screenBoxHeight),
             ) {
                 gameBoyState.frameBuffer?.let {
-                    GameBoyScreen(
+                    BitmapGameBoyScreen(
                         frameBuffer = it,
                         palette = selectedPalette.value,
                         scale = scale,
