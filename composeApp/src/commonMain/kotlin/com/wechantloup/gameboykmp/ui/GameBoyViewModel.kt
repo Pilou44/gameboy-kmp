@@ -21,8 +21,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlin.reflect.KClass
-import kotlin.time.Clock
 import kotlin.time.DurationUnit
+import kotlin.time.TimeSource
+import kotlin.time.TimeSource.Monotonic.ValueTimeMark
 import kotlin.time.toDuration
 
 class GameBoyViewModel(
@@ -86,7 +87,9 @@ class GameBoyViewModel(
 
         var renderingIssueCount = 0
         var frameCount = 0
-        var frameStartNs = currentTimeNanos()
+        var frameStartMark = currentTimeMark()
+
+        val frameDuration = FRAME_DURATION_NS.toDuration(DurationUnit.NANOSECONDS)
         // Emulation loop
         emulationJob = viewModelScope.launch(Dispatchers.Default) {
             while (true) {
@@ -100,10 +103,10 @@ class GameBoyViewModel(
                     frameCycles += cycles
                 }
 
-                frameStartNs += FRAME_DURATION_NS
-                val remaining = frameStartNs - currentTimeNanos()
-                if (remaining > 0) {
-                    delay(remaining.toDuration(DurationUnit.NANOSECONDS))
+                frameStartMark += frameDuration
+                val remaining = frameStartMark.minus(currentTimeMark())
+                if (remaining.isPositive()) {
+                    delay(remaining)
                 } else {
                     renderingIssueCount++
                 }
@@ -117,9 +120,8 @@ class GameBoyViewModel(
         }
     }
 
-    private fun currentTimeNanos(): Long {
-        val now = Clock.System.now()
-        return now.epochSeconds * 1_000_000_000L + now.nanosecondsOfSecond
+    private fun currentTimeMark(): ValueTimeMark {
+        return TimeSource.Monotonic.markNow()
     }
 
     class Factory(
