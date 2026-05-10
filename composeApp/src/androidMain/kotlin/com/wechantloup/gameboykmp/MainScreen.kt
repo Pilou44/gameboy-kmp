@@ -5,6 +5,7 @@ import android.content.res.Configuration.ORIENTATION_PORTRAIT
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
@@ -176,6 +178,14 @@ private fun PortraitEmulator(
                     .fillMaxWidth()
                     .height(screenBoxHeight),
             ) {
+                Box(
+                    modifier = Modifier
+                        .size(
+                            width = with(density) { (scale * GAME_BOY_SCREEN_WIDTH_PX).toDp() },
+                            height = with(density) { (scale * GAME_BOY_SCREEN_HEIGHT_PX).toDp() },
+                        )
+                        .background(Color(selectedPalette.value.colors[0])),
+                )
                 gameBoyState.frameBuffer?.let {
                     BitmapGameBoyScreen(
                         frameBuffer = it,
