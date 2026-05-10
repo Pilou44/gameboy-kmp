@@ -105,7 +105,12 @@ fun MainScreen() {
     val configuration = LocalConfiguration.current
 
     when (configuration.orientation) {
-        ORIENTATION_LANDSCAPE -> {}
+        ORIENTATION_LANDSCAPE -> LandscapeEmulator(
+            gameBoyState = gameBoyState,
+            buttonChannel = buttonChannel,
+            selectedPalette = selectedPalette,
+            loadRom = gameBoyViewModel::loadRom,
+        )
         ORIENTATION_PORTRAIT -> PortraitEmulator(
             gameBoyState = gameBoyState,
             buttonChannel = buttonChannel,
@@ -202,6 +207,71 @@ private fun PortraitEmulator(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LandscapeEmulator(
+    gameBoyState: GameBoyState,
+    buttonChannel: Channel<JoypadEvent>,
+    selectedPalette: MutableState<Palette>,
+    loadRom: (ByteArray, String) -> Unit,
+) {
+    Scaffold(
+        containerColor = Color(DMG_SHELL_COLOR),
+    ) { paddingValues ->
+        val density = LocalDensity.current
+        var screenSize by remember { mutableStateOf(IntSize.Zero) }
+        val scale by remember {
+            derivedStateOf {
+                val widthScale = screenSize.width / 2 / GAME_BOY_SCREEN_WIDTH_PX
+                val heightScale = screenSize.height / GAME_BOY_SCREEN_HEIGHT_PX
+                min(widthScale, heightScale)
+            }
+        }
+        Row(
+            modifier = Modifier
+                .padding(paddingValues)
+                .onSizeChanged { screenSize = it }
+                .fillMaxSize(),
+        ) {
+            LeftControls(
+                buttonChannel = buttonChannel,
+                modifier = Modifier
+                    .weight(0.5f)
+                    .fillMaxHeight(),
+            )
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(
+                            width = with(density) { (scale * GAME_BOY_SCREEN_WIDTH_PX).toDp() },
+                            height = with(density) { (scale * GAME_BOY_SCREEN_HEIGHT_PX).toDp() },
+                        )
+                        .background(Color(selectedPalette.value.colors[0])),
+                )
+                gameBoyState.frameBuffer?.let {
+                    BitmapGameBoyScreen(
+                        frameBuffer = it,
+                        palette = selectedPalette.value,
+                        scale = scale,
+                    )
+                }
+            }
+            RightControls(
+                buttonChannel = buttonChannel,
+                loadRom = loadRom,
+                modifier = Modifier
+                    .weight(0.5f)
+                    .fillMaxHeight(),
+            )
+        }
+    }
+}
+
 @Composable
 private fun Controls(
     buttonChannel: Channel<JoypadEvent>,
@@ -264,6 +334,88 @@ private fun Controls(
                 onReleased = { onButtonReleased(JoypadButton.START) },
             )
         }
+    }
+}
+
+@Composable
+private fun LeftControls(
+    buttonChannel: Channel<JoypadEvent>,
+    modifier: Modifier = Modifier,
+) {
+    val onButtonPressed: (JoypadButton) -> Unit = {
+        val event = JoypadEvent.Pressed(it)
+        buttonChannel.trySend(event)
+    }
+    val onButtonReleased: (JoypadButton) -> Unit = {
+        val event = JoypadEvent.Released(it)
+        buttonChannel.trySend(event)
+    }
+    Box(modifier = modifier) {
+        DPad(
+            onDirectionPressed = { direction ->
+                onButtonPressed(direction)
+            },
+            onDirectionReleased = { direction ->
+                onButtonReleased(direction)
+            },
+            modifier = Modifier.align(Alignment.Center),
+        )
+        StartSelectButton(
+            label      = "SELECT",
+//                fontFamily = nintendoFont,
+            onPressed  = { onButtonPressed(JoypadButton.SELECT) },
+            onReleased = { onButtonReleased(JoypadButton.SELECT) },
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
+    }
+}
+
+@Composable
+private fun RightControls(
+    buttonChannel: Channel<JoypadEvent>,
+    loadRom: (ByteArray, String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val scope = rememberCoroutineScope()
+    val onButtonPressed: (JoypadButton) -> Unit = {
+        val event = JoypadEvent.Pressed(it)
+        buttonChannel.trySend(event)
+    }
+    val onButtonReleased: (JoypadButton) -> Unit = {
+        val event = JoypadEvent.Released(it)
+        buttonChannel.trySend(event)
+    }
+    Box(
+        modifier = modifier,
+    ) {
+        Button(
+            onClick = {
+                scope.launch {
+                    val rom = pickRom()
+                    rom?.let {
+                        loadRom(
+                            rom.readBytes(),
+                            rom.nameWithoutExtension,
+                        )
+                    }
+                }
+            },
+            modifier = Modifier.align(Alignment.TopCenter),
+        ) {
+            Text("Load ROM")
+        }
+        ABButtons(
+            onButtonPressed = { onButtonPressed(it) },
+            onButtonReleased = { onButtonReleased(it) },
+            modifier = Modifier.align(Alignment.Center),
+        )
+        StartSelectButton(
+            label      = "START",
+//                fontFamily = nintendoFont,
+            onPressed  = { onButtonPressed(JoypadButton.START) },
+            onReleased = { onButtonReleased(JoypadButton.START) },
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
     }
 }
 
