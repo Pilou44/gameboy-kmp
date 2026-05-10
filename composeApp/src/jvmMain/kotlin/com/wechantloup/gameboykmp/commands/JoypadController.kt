@@ -16,7 +16,11 @@ class JoypadController {
     val commandsMapFlow: StateFlow<CommandsMap> = _commandsMap
     private val commandsMap: CommandsMap get() = _commandsMap.value
 
-    val buttonChannel = Channel<JoypadEvent>(Channel.UNLIMITED)
+    private var targetChannel: Channel<JoypadEvent>? = null
+
+    fun setTargetChannel(channel: Channel<JoypadEvent>) {
+        targetChannel = channel
+    }
 
     fun handleKeyEvent(key: Key, type: KeyEventType): Boolean {
         val button = commandsMap.keyboardCommands[key] ?: return false
@@ -25,14 +29,14 @@ class JoypadController {
             KeyEventType.KeyUp   -> JoypadEvent.Released(button)
             else                 -> return false
         }
-        buttonChannel.trySend(event)
+        targetChannel?.trySend(event)
         return true
     }
 
     fun handleGamepadEvent(buttonIndex: Int, pressed: Boolean) {
         val button = commandsMap.joypadCommands[buttonIndex] ?: return
         val event = if (pressed) JoypadEvent.Pressed(button) else JoypadEvent.Released(button)
-        buttonChannel.trySend(event)
+        targetChannel?.trySend(event)
     }
 
     fun remapKeyboard(key: Key, button: JoypadButton) {

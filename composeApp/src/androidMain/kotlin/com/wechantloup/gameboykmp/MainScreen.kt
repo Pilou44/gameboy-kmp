@@ -65,19 +65,21 @@ import io.github.vinceglb.filekit.nameWithoutExtension
 import io.github.vinceglb.filekit.readBytes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.channels.consumeEach
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.min
 
 @Composable
 fun MainScreen() {
-    val buttonChannel = remember { Channel<JoypadEvent>() }
     val owner = checkNotNull(LocalViewModelStoreOwner.current)
     val gameBoyViewModel = viewModel<GameBoyViewModel>(
         viewModelStoreOwner = owner,
-        factory = GameBoyViewModel.Factory(buttonChannel),
+        factory = GameBoyViewModel.Factory(),
     )
+    val buttonChannel = gameBoyViewModel.buttonChannel
 
     val gameBoyState by gameBoyViewModel.stateFlow.collectAsState()
 
@@ -433,7 +435,7 @@ private suspend fun startAudio(audioSamplesChannel: Channel<FloatArray>) {
             AudioFormat.CHANNEL_OUT_MONO,
             AudioFormat.ENCODING_PCM_FLOAT
         ),
-        Apu.SAMPLES_PER_FRAME * 4 * 4 // Float = 4 bytes, 4 frames de buffer
+        Apu.SAMPLES_PER_FRAME * 4 * 4 // Float = 4 bytes, buffer of 4 frames
     )
 
     val audioTrack = AudioTrack.Builder()
@@ -457,10 +459,25 @@ private suspend fun startAudio(audioSamplesChannel: Channel<FloatArray>) {
     audioTrack.play()
 
     try {
-        audioSamplesChannel.consumeEach { samples ->
-            val written = audioTrack.write(samples, 0, samples.size, AudioTrack.WRITE_BLOCKING)
-            if (written < 0) {
-                // Gérer l'erreur, ex: log ou recréer l'AudioTrack
+        // receiveCatching() is a suspend function → responds to coroutine cancellation
+        while (currentCoroutineContext().isActive) {
+            val result = audioSamplesChannel.receiveCatching()
+            val samples = result.getOrNull() ?: break
+
+            var offset = 0
+            // Non-blocking loop: the coroutine can be cancelled between writes
+            while (offset < samples.size && currentCoroutineContext().isActive) {
+                val written = audioTrack.write(
+                    samples,
+                    offset,
+                    samples.size - offset,
+                    AudioTrack.WRITE_NON_BLOCKING
+                )
+                when {
+                    written > 0 -> offset += written
+                    written == 0 -> delay(1) // buffer full, yield to scheduler
+                    else -> break // write error
+                }
             }
         }
     } finally {

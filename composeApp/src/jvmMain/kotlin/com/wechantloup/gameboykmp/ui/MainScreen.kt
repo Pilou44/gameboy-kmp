@@ -59,12 +59,14 @@ fun MainScreen() {
     val owner = checkNotNull(LocalViewModelStoreOwner.current)
     val gameBoyViewModel = viewModel<GameBoyViewModel>(
         viewModelStoreOwner = owner,
-        factory = GameBoyViewModel.Factory(JoypadControllerHolder.instance.buttonChannel),
+        factory = GameBoyViewModel.Factory(),
     )
     val mainViewModel = viewModel<MainViewModel>(
         viewModelStoreOwner = owner,
         factory = MainViewModel.Factory()
     )
+
+    JoypadControllerHolder.instance.setTargetChannel(gameBoyViewModel.buttonChannel)
 
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {

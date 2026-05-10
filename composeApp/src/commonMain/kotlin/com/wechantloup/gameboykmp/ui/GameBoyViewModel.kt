@@ -27,9 +27,7 @@ import kotlin.time.TimeSource
 import kotlin.time.TimeSource.Monotonic.ValueTimeMark
 import kotlin.time.toDuration
 
-class GameBoyViewModel(
-    buttonChannel: Channel<JoypadEvent>,
-) : ViewModel() {
+class GameBoyViewModel : ViewModel() {
 
     private var emulationJob: Job? = null
     @Volatile
@@ -37,6 +35,7 @@ class GameBoyViewModel(
     private val _stateFlow = MutableStateFlow(GameBoyState())
     val stateFlow: StateFlow<GameBoyState> = _stateFlow
     val audioSamplesChannel = Channel<FloatArray>(8)
+    val buttonChannel = Channel<JoypadEvent>(Channel.UNLIMITED)
 
     private var bus: Bus? = null
 
@@ -119,7 +118,7 @@ class GameBoyViewModel(
                     renderingIssueCount++
                 }
 
-                if (frameCount % 60 == 0) {
+                if (frameCount % 60 == 0 && renderingIssueCount > 0) {
                     Logger.error(TAG, "Rendering issue, $renderingIssueCount on last 60 taking too much time")
                     renderingIssueCount = 0
                 }
@@ -140,12 +139,10 @@ class GameBoyViewModel(
         return TimeSource.Monotonic.markNow()
     }
 
-    class Factory(
-        private  val buttonChannel: Channel<JoypadEvent>,
-    ) : ViewModelProvider.Factory {
+    class Factory : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: KClass<T>, extras: CreationExtras): T {
             @Suppress("UNCHECKED_CAST")
-            return GameBoyViewModel(buttonChannel) as T
+            return GameBoyViewModel() as T
         }
     }
 
