@@ -20,6 +20,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlin.concurrent.Volatile
 import kotlin.reflect.KClass
 import kotlin.time.DurationUnit
 import kotlin.time.TimeSource
@@ -31,6 +32,8 @@ class GameBoyViewModel(
 ) : ViewModel() {
 
     private var emulationJob: Job? = null
+    @Volatile
+    private var isPaused = false
     private val _stateFlow = MutableStateFlow(GameBoyState())
     val stateFlow: StateFlow<GameBoyState> = _stateFlow
     val audioSamplesChannel = Channel<FloatArray>(8)
@@ -93,6 +96,11 @@ class GameBoyViewModel(
         // Emulation loop
         emulationJob = viewModelScope.launch(Dispatchers.Default) {
             while (true) {
+                while (isPaused) {
+                    delay(200)
+                    frameStartMark = currentTimeMark()
+                }
+
                 // Run for 1 frame (70224 cycles)
                 var frameCycles = 0
                 while (frameCycles < 70224) {
@@ -118,6 +126,14 @@ class GameBoyViewModel(
                 frameCount++
             }
         }
+    }
+
+    fun pause() {
+        isPaused = true
+    }
+
+    fun resume() {
+        isPaused = false
     }
 
     private fun currentTimeMark(): ValueTimeMark {

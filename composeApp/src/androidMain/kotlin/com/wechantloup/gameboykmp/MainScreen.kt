@@ -20,6 +20,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
@@ -37,6 +38,9 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.wechantloup.gameboykmp.apu.Apu
@@ -48,7 +52,6 @@ import com.wechantloup.gameboykmp.ui.DMG_SHELL_COLOR
 import com.wechantloup.gameboykmp.ui.DPad
 import com.wechantloup.gameboykmp.ui.GAME_BOY_SCREEN_HEIGHT_PX
 import com.wechantloup.gameboykmp.ui.GAME_BOY_SCREEN_WIDTH_PX
-import com.wechantloup.gameboykmp.ui.GameBoyScreen
 import com.wechantloup.gameboykmp.ui.GameBoyState
 import com.wechantloup.gameboykmp.ui.GameBoyViewModel
 import com.wechantloup.gameboykmp.ui.Palette
@@ -77,6 +80,19 @@ fun MainScreen() {
     val gameBoyState by gameBoyViewModel.stateFlow.collectAsState()
 
     val selectedPalette = remember { mutableStateOf<Palette>(Palette.Dmg) }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_PAUSE -> gameBoyViewModel.pause()
+                Lifecycle.Event.ON_RESUME -> gameBoyViewModel.resume()
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
