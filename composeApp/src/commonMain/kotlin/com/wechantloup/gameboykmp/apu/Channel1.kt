@@ -127,6 +127,16 @@ class Channel1(
                     val nr14 = bus.readRaw(NR14_ADDR)
                     val newNr14 = ((newFreq shr 8) and 0x07) or (nr14 and 0xF8)
                     bus.writeRaw(NR14_ADDR, newNr14)
+
+                    // Second computation
+                    val newFreq2 = if (negate > 0) {
+                        newFreq - (newFreq shr shift)
+                    } else {
+                        newFreq + (newFreq shr shift)
+                    }
+                    if (newFreq2 > 2047) {
+                        enabled = false
+                    }
                 }
             }
         }
