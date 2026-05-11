@@ -52,6 +52,7 @@ class Channel1(
     private var lengthCounter = 0   // counts down to 0, then disables channel
     private var envelopeTimer = 0   // envelope timer counter
     private var lengthEnabled = false  // tracks current lengthEnable state
+    private var negateUsed = false
 
     override val isEnabled: Boolean
         get() = enabled
@@ -113,6 +114,8 @@ class Channel1(
             sweepTimer = if (period > 0) period else 8
 
             if (sweepEnabled && period > 0) {
+                if (negate > 0) negateUsed = true
+
                 val newFreq = if (negate > 0) {
                     shadowFrequency - (shadowFrequency shr shift)
                 } else {
@@ -166,6 +169,7 @@ class Channel1(
         envelopeTimer = 0
         lengthEnabled = false
         sweepEnabled = false
+        negateUsed = false
     }
 
     override fun loadLengthCounter(value: Int) {
@@ -198,8 +202,10 @@ class Channel1(
         envelopeTimer = nr12 and 0x07
         sweepTimer = if (period > 0) period else 8
         sweepEnabled = (period != 0) || (shift != 0)
+        negateUsed = false
 
         if (shift != 0) {
+            if (negate > 0) negateUsed = true
             val newFreq = if (negate > 0) {
                 shadowFrequency - (shadowFrequency shr shift)
             } else {
@@ -230,6 +236,12 @@ class Channel1(
         }
 
         lengthEnabled = newLengthEnable
+    }
+
+    fun onNr10Write(value: Int) {
+        if (negateUsed && value and 0x08 == 0) {
+            enabled = false
+        }
     }
 
     private fun loadFrequency() {

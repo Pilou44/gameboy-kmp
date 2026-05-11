@@ -24,6 +24,7 @@ class Apu(
     init {
         bus.onApuDivReset = { frameSequencerCycleCount = 0 }
         bus.onApuPowerOff = { powerOff() }
+        bus.onChannel1Nr10Write = { v -> (channels[0] as Channel1).onNr10Write(v) }
         bus.onChannel1Trigger = { channels[0].trigger() }
         bus.onChannel2Trigger = { channels[1].trigger() }
         bus.onChannel3Trigger = { channels[2].trigger() }

@@ -62,6 +62,7 @@ class Bus(
     var onChannel2ControlWrite: ((Int) -> Unit)? = null
     var onChannel3ControlWrite: ((Int) -> Unit)? = null
     var onChannel4ControlWrite: ((Int) -> Unit)? = null
+    var onChannel1Nr10Write: ((Int) -> Unit)? = null
     var onDivReset: (() -> Unit)? = null
     var onApuDivReset: (() -> Unit)? = null
 
@@ -102,6 +103,9 @@ class Bus(
                 internalRam[address] = v
                 when (address) {
                     // TODO: bit 7 (trigger) is write-only on real hardware and should not be stored
+                    0xFF10 -> {
+                        onChannel1Nr10Write?.invoke(v)
+                    }
                     0xFF14 -> {
                         onChannel1ControlWrite?.invoke(v)
                         if (v and 0x80 != 0) onChannel1Trigger?.invoke()
