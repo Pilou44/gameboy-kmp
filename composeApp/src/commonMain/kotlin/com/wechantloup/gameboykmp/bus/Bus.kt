@@ -155,6 +155,14 @@ class Bus(
     fun readRaw(address: Int): Int = internalRam[address]
 
     /**
+     * Direct register write bypassing APU CPU-view callbacks.
+     * For internal APU use only — writes directly to internal RAM.
+     */
+    fun writeRaw(address: Int, value: Int) {
+        internalRam[address] = value
+    }
+
+    /**
      * Called by channels to update their status bit in NR52 (bits 3-0).
      * Bypasses the normal write path to avoid triggering power-off logic.
      */

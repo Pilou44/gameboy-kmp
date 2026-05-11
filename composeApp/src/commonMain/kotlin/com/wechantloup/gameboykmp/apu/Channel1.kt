@@ -15,7 +15,7 @@ class Channel1(
      * Bits 2-0: sweep shift (0-7)
      * New frequency formula: new_freq = current_freq ± (current_freq >> shift)
      * If shift = 0, frequency does not change but sweep still runs.
-     * If period = 0, sweep is disabled.
+     * If period = 0, sweepTimer is set to 8.
      *
      * NR11 — FF11 — Duty & Length
      * Bits 7-6: duty cycle (0-3 → 12.5%, 25%, 50%, 75%)
@@ -48,6 +48,7 @@ class Channel1(
     private var currentVolume = 0   // 0-15, modified by envelope
     private var sweepTimer = 0      // sweep timer counter
     private var shadowFrequency = 0 // frequency copy, modified by sweep
+    private var sweepEnabled = false
     private var lengthCounter = 0   // counts down to 0, then disables channel
     private var envelopeTimer = 0   // envelope timer counter
     private var lengthEnabled = false  // tracks current lengthEnable state
@@ -104,23 +105,29 @@ class Channel1(
 
         if (sweepTimer == 0) {
             val nr10 = bus.read(NR10_ADDR)
-            sweepTimer = (nr10 and 0x70) shr 4
 
-            if (sweepTimer == 0) return
-
+            val period = (nr10 and 0x70) shr 4
             val negate = nr10 and 0x08
             val shift = nr10 and 0x07
 
-            val newFreq = if (negate > 0) {
-                shadowFrequency - (shadowFrequency shr shift)
-            } else {
-                shadowFrequency + (shadowFrequency shr shift)
-            }
+            sweepTimer = if (period > 0) period else 8
 
-            if (newFreq > 2047) {
-                enabled = false
-            } else if (shift > 0) {
-                shadowFrequency = newFreq
+            if (sweepEnabled && period > 0) {
+                val newFreq = if (negate > 0) {
+                    shadowFrequency - (shadowFrequency shr shift)
+                } else {
+                    shadowFrequency + (shadowFrequency shr shift)
+                }
+
+                if (newFreq > 2047) {
+                    enabled = false
+                } else if (shift > 0) {
+                    shadowFrequency = newFreq
+                    bus.writeRaw(NR13_ADDR, newFreq and 0xFF)
+                    val nr14 = bus.readRaw(NR14_ADDR)
+                    val newNr14 = ((newFreq shr 8) and 0x07) or (nr14 and 0xF8)
+                    bus.writeRaw(NR14_ADDR, newNr14)
+                }
             }
         }
     }
@@ -148,6 +155,7 @@ class Channel1(
         lengthCounter = 0
         envelopeTimer = 0
         lengthEnabled = false
+        sweepEnabled = false
     }
 
     override fun loadLengthCounter(value: Int) {
@@ -170,10 +178,27 @@ class Channel1(
         enabled = true
         loadFrequency()
 
+        val nr10 = bus.read(NR10_ADDR)
+        val period = (nr10 and 0x70) shr 4
+        val shift  = nr10 and 0x07
+        val negate  = nr10 and 0x08
+
         val nr12 = bus.read(NR12_ADDR)
         currentVolume = (nr12 and 0xF0) shr 4
         envelopeTimer = nr12 and 0x07
-        sweepTimer = (bus.read(NR10_ADDR) and 0x70) shr 4
+        sweepTimer = if (period > 0) period else 8
+        sweepEnabled = (period != 0) || (shift != 0)
+
+        if (shift != 0) {
+            val newFreq = if (negate > 0) {
+                shadowFrequency - (shadowFrequency shr shift)
+            } else {
+                shadowFrequency + (shadowFrequency shr shift)
+            }
+            if (newFreq > 2047) {
+                enabled = false
+            }
+        }
     }
 
     override fun onDacWrite(value: Int) {
