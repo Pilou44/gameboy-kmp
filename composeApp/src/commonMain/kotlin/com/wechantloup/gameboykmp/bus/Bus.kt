@@ -63,6 +63,8 @@ class Bus(
     var onChannel3ControlWrite: ((Int) -> Unit)? = null
     var onChannel4ControlWrite: ((Int) -> Unit)? = null
     var onChannel1Nr10Write: ((Int) -> Unit)? = null
+    var onWaveRamRead: ((Int) -> Int)? = null
+    var onWaveRamWrite: ((Int, Int) -> Unit)? = null
     var onDivReset: (() -> Unit)? = null
     var onApuDivReset: (() -> Unit)? = null
 
@@ -162,6 +164,7 @@ class Bus(
                     0xFF21 -> onChannel4DacWrite?.invoke(v)
                 }
             }
+            in 0xFF30..0xFF3F -> onWaveRamWrite?.invoke(address, v)
             in 0x0000..0x7FFF -> cartridge.writeRom(address, v)
             in 0x8000..0x9FFF -> writeVram(address - 0x8000, v)
             in 0xA000..0xBFFF -> cartridge.writeRam(address - 0xA000, v)
@@ -292,7 +295,7 @@ class Bus(
             0xFF25 -> raw          // NR51 : fully readable
             0xFF26 -> raw or 0x70  // NR52 : bits 6-4 always 1
             in 0xFF27..0xFF2F -> 0xFF  // unused registers → read as 0xFF
-            in 0xFF30..0xFF3F -> raw   // Wave RAM : fully readable
+            in 0xFF30..0xFF3F -> onWaveRamRead?.invoke(address) ?: raw  // Wave RAM : fully readable
             else -> raw
         }
     }

@@ -41,6 +41,8 @@ class Apu(
         bus.onChannel2ControlWrite = { v -> channels[1].onControlWrite(v) }
         bus.onChannel3ControlWrite = { v -> channels[2].onControlWrite(v) }
         bus.onChannel4ControlWrite = { v -> channels[3].onControlWrite(v) }
+        bus.onWaveRamRead = { v -> (channels[2] as Channel3).getWaveRamByte(v) }
+        bus.onWaveRamWrite = { address, v -> (channels[2] as Channel3).setWaveRamByte(address, v) }
     }
 
     fun step(cycles: Int) {

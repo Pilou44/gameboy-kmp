@@ -54,9 +54,9 @@ class Channel3(
 
         frequencyTimer -= cycles
 
-        if (frequencyTimer <= 0) {
+        while (frequencyTimer <= 0) {
             wavePosition = (wavePosition + 1) % 32
-            frequencyTimer = (2048 - frequency) * 2
+            frequencyTimer += (2048 - frequency) * 2
         }
     }
 
@@ -106,6 +106,11 @@ class Channel3(
     }
 
     override fun trigger() {
+        if (enabled) {
+            val value = bus.readRaw(WAVE_ADDR + wavePosition / 2)
+            bus.writeRaw(WAVE_ADDR, value)
+        }
+
         if (lengthCounter == 0) {
             lengthCounter = 256
             // Extra clock if length already enabled and frame sequencer at odd step
@@ -143,6 +148,26 @@ class Channel3(
         }
 
         lengthEnabled = newLengthEnable
+    }
+
+    fun getWaveRamByte(address: Int): Int {
+        return if (enabled) {
+            val byteIndex = wavePosition / 2
+            val newAddress = WAVE_ADDR + byteIndex
+            bus.readRaw(newAddress)
+        } else {
+            bus.readRaw(address)
+        }
+    }
+
+    fun setWaveRamByte(address: Int, value: Int) {
+        if (enabled) {
+            val byteIndex = wavePosition / 2
+            val newAddress = WAVE_ADDR + byteIndex
+            bus.writeRaw(newAddress, value)
+        } else {
+            bus.writeRaw(address, value)
+        }
     }
 
     private fun loadFrequency() {

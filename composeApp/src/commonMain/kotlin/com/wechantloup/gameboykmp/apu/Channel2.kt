@@ -52,9 +52,9 @@ class Channel2(
 
         frequencyTimer -= cycles
 
-        if (frequencyTimer <= 0) {
+        while (frequencyTimer <= 0) {
             dutyStep = (dutyStep + 1) % 8
-            frequencyTimer = (2048 - frequency) * 4
+            frequencyTimer += (2048 - frequency) * 4
         }
     }
 

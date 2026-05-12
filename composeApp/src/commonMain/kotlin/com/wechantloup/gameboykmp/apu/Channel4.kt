@@ -50,19 +50,26 @@ class Channel4(
 
         frequencyTimer -= cycles
 
-        if (frequencyTimer > 0) return
+        while (frequencyTimer <= 0) {
+            val nr43 = bus.read(NR43_ADDR)
+            val divisorCode = nr43 and 0x07
+            val clockShift = (nr43 and 0xF0) shr 4
+            val divisor = when (divisorCode) {
+                0 -> 8; 1 -> 16; 2 -> 32; 3 -> 48
+                4 -> 64; 5 -> 80; 6 -> 96; 7 -> 112
+                else -> 8
+            }
+            frequencyTimer += divisor shl clockShift
 
-        loadFrequency()
+            val bit0 = lfsr and 0x01
+            val bit1 = (lfsr and 0x02) shr 1
+            val xorBit = bit0 xor bit1
+            lfsr = lfsr shr 1
+            lfsr = lfsr or (xorBit shl 14)
 
-        val bit0 = lfsr and 0x01
-        val bit1 = (lfsr and 0x02) shr 1
-        val xorBit = bit0 xor bit1
-        lfsr = lfsr shr 1
-        lfsr = lfsr or (xorBit shl 14)
-
-        val mode7Bits = (bus.read(NR43_ADDR) and 0x08) > 0
-        if (mode7Bits) {
-            lfsr = lfsr or (xorBit shl 6)
+            if (bus.read(NR43_ADDR) and 0x08 > 0) {
+                lfsr = lfsr or (xorBit shl 6)
+            }
         }
     }
 
