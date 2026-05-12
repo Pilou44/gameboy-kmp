@@ -66,7 +66,13 @@ class Channel1(
 
         while (frequencyTimer <= 0) {
             dutyStep = (dutyStep + 1) % 8
-            frequencyTimer+= (2048 - shadowFrequency) * 4
+
+            val frequencyHigh = bus.readRaw(NR14_ADDR) and 0x07
+            val frequencyLow = bus.readRaw(NR13_ADDR) and 0xFF
+            val newFrequency = frequencyHigh shl 8 or frequencyLow
+            val frequency = newFrequency
+
+            frequencyTimer+= (2048 - frequency) * 4
         }
     }
 

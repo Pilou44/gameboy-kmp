@@ -56,6 +56,12 @@ class Channel3(
 
         while (frequencyTimer <= 0) {
             wavePosition = (wavePosition + 1) % 32
+
+            val frequencyHigh = bus.readRaw(NR34_ADDR) and 0x07
+            val frequencyLow = bus.readRaw(NR33_ADDR) and 0xFF
+            val newFrequency = frequencyHigh shl 8 or frequencyLow
+            frequency = newFrequency
+
             frequencyTimer += (2048 - frequency) * 2
         }
     }
@@ -107,13 +113,31 @@ class Channel3(
 
     override fun trigger() {
         if (enabled) {
-            // TODO: DMG corruption on retrigger while active — the exact byte written and
-            //  its destination in wave RAM depend on timing (which sample CH3 is currently
-            //  reading). Writing always to WAVE_ADDR (FF30) is likely wrong.
-            //  See: https://gbdev.gg8.se/wiki/articles/Gameboy_sound_hardware#Wave_Channel
-            val value = bus.readRaw(WAVE_ADDR + wavePosition / 2)
-            bus.writeRaw(WAVE_ADDR, value)
+            // TODO: DMG corruption on retrigger while active — destination logic is implemented
+            //  per Pan Docs (case 1: byte index 0-3 → write to wave[0]; case 2: byte index 4-15
+            //  → copy aligned 4-byte group to wave[0..3]), but the timing condition is missing.
+            //  On real DMG, corruption only occurs "while it reads a sample byte" (~2 T-cycle
+            //  window after wavePosition advances). Currently always applied when enabled.
+            //  Approximation: check (2048 - frequency) * 2 - frequencyTimer <= 2 before corrupting.
+            val index = wavePosition / 2
+            if (index < 4) {
+                val value = bus.readRaw(WAVE_ADDR + index)
+                bus.writeRaw(WAVE_ADDR, value)
+            } else {
+                val alignedIndex = index and 0x0C
+                for (i in 0..3) {
+                    val value = bus.readRaw(WAVE_ADDR + alignedIndex + i)
+                    bus.writeRaw(WAVE_ADDR + i, value)
+                }
+            }
         }
+
+        // TODO: DMG quirk — after trigger, the first sample played is the previous value
+        //  still in the high nibble of the sample buffer, not the first nibble of wave RAM.
+        //  The wave channel doesn't load the first byte on trigger; the first nibble from
+        //  the wave table is not played until the waveform loops.
+        //  See: https://gbdev.io/pandocs/Audio_details.html
+        wavePosition = 0
 
         if (lengthCounter == 0) {
             lengthCounter = 256
