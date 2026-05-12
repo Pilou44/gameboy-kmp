@@ -107,6 +107,10 @@ class Channel3(
 
     override fun trigger() {
         if (enabled) {
+            // TODO: DMG corruption on retrigger while active — the exact byte written and
+            //  its destination in wave RAM depend on timing (which sample CH3 is currently
+            //  reading). Writing always to WAVE_ADDR (FF30) is likely wrong.
+            //  See: https://gbdev.gg8.se/wiki/articles/Gameboy_sound_hardware#Wave_Channel
             val value = bus.readRaw(WAVE_ADDR + wavePosition / 2)
             bus.writeRaw(WAVE_ADDR, value)
         }
@@ -152,6 +156,10 @@ class Channel3(
 
     fun getWaveRamByte(address: Int): Int {
         return if (enabled) {
+            // TODO: DMG quirk — wave RAM is only accessible within ~2 T-cycles after CH3
+            //  reads a sample. Outside that window, reads should return 0xFF.
+            //  Current implementation always redirects to the current wave position byte,
+            //  which is a simplification that may cause test 10/12 failures.
             val byteIndex = wavePosition / 2
             val newAddress = WAVE_ADDR + byteIndex
             bus.readRaw(newAddress)
@@ -162,6 +170,9 @@ class Channel3(
 
     fun setWaveRamByte(address: Int, value: Int) {
         if (enabled) {
+            // TODO: DMG quirk — wave RAM writes are only effective within ~2 T-cycles after
+            //  CH3 reads a sample. Outside that window, writes should be ignored.
+            //  Current implementation always redirects, which is a simplification.
             val byteIndex = wavePosition / 2
             val newAddress = WAVE_ADDR + byteIndex
             bus.writeRaw(newAddress, value)
