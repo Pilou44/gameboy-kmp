@@ -112,7 +112,8 @@ class Channel3(
     }
 
     override fun trigger() {
-        if (enabled) {
+        val cycleApproximation = (2048 - frequency) * 2 - frequencyTimer
+        if (enabled && cycleApproximation in 0..2) {
             // TODO: DMG corruption on retrigger while active — destination logic is implemented
             //  per Pan Docs (case 1: byte index 0-3 → write to wave[0]; case 2: byte index 4-15
             //  → copy aligned 4-byte group to wave[0..3]), but the timing condition is missing.
@@ -132,13 +133,6 @@ class Channel3(
             }
         }
 
-        // TODO: DMG quirk — after trigger, the first sample played is the previous value
-        //  still in the high nibble of the sample buffer, not the first nibble of wave RAM.
-        //  The wave channel doesn't load the first byte on trigger; the first nibble from
-        //  the wave table is not played until the waveform loops.
-        //  See: https://gbdev.io/pandocs/Audio_details.html
-        wavePosition = 0
-
         if (lengthCounter == 0) {
             lengthCounter = 256
             // Extra clock if length already enabled and frame sequencer at odd step
@@ -149,6 +143,13 @@ class Channel3(
         }
 
         if (!dacEnabled) return
+
+        // TODO: DMG quirk — after trigger, the first sample played is the previous value
+        //  still in the high nibble of the sample buffer, not the first nibble of wave RAM.
+        //  The wave channel doesn't load the first byte on trigger; the first nibble from
+        //  the wave table is not played until the waveform loops.
+        //  See: https://gbdev.io/pandocs/Audio_details.html
+        wavePosition = 0
 
         enabled = true
         loadFrequency()
