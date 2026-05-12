@@ -96,7 +96,6 @@ class Channel3(
         frequencyTimer = 0
         frequency = 0
         currentVolume = 0
-        lengthCounter = 0
         wavePosition = 0
         lengthEnabled = false
     }

@@ -50,8 +50,6 @@ class Apu(
 
     private fun powerOff() {
         channels.forEach { it.reset() }
-        frameSequencer = 0
-        frameSequencerCycleCount = 0
         channelsCycleCount = 0
         samples.clear()
     }

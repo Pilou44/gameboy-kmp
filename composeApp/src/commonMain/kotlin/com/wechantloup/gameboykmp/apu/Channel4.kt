@@ -108,7 +108,6 @@ class Channel4(
         enabled = false
         frequencyTimer = 0
         currentVolume = 0
-        lengthCounter = 0
         lfsr = 0
         envelopeTimer = 0
         lengthEnabled = false

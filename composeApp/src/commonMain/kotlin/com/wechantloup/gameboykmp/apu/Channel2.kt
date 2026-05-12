@@ -106,7 +106,6 @@ class Channel2(
         dutyStep = 0
         currentVolume = 0
         frequency = 0
-        lengthCounter = 0
         envelopeTimer = 0
         lengthEnabled = false
     }

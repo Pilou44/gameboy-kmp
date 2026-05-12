@@ -97,8 +97,42 @@ class Bus(
             }
             0xFF46 -> triggerDmaTransfer(v)
             0xFF26 -> writeNR52(v)
-            // When APU is off, writes to NR10-NR25 are ignored (wave RAM 0xFF30-0xFF3F is always writable)
-            // TODO: NR41 (0xFF20) length counter should be writable even when APU is powered off (DMG quirk)
+
+            // Length registers: writable even when APU is off (DMG quirk)
+            0xFF11 -> {
+                internalRam[address] = if (apuPoweredOn) {
+                    v
+                } else {
+                    (internalRam[address] and 0xC0) or (v and 0x3F)
+                }
+                onChannel1LengthWrite?.invoke(v)
+            }
+            0xFF16 -> {
+                internalRam[address] = if (apuPoweredOn) {
+                    v
+                } else {
+                    (internalRam[address] and 0xC0) or (v and 0x3F)
+                }
+                onChannel2LengthWrite?.invoke(v)
+            }
+            0xFF1B -> {
+                internalRam[address] = if (apuPoweredOn) {
+                    v
+                } else {
+                    (internalRam[address] and 0xC0) or (v and 0x3F)
+                }
+                onChannel3LengthWrite?.invoke(v)
+            }
+            0xFF20 -> {
+                internalRam[address] = if (apuPoweredOn) {
+                    v
+                } else {
+                    (internalRam[address] and 0xC0) or (v and 0x3F)
+                }
+                onChannel4LengthWrite?.invoke(v)
+            }
+
+            // All other APU registers: ignored when APU is off
             in 0xFF10..0xFF25 -> if (apuPoweredOn) {
                 internalRam[address] = v
                 when (address) {
@@ -121,22 +155,6 @@ class Bus(
                     0xFF23 -> {
                         onChannel4ControlWrite?.invoke(v)
                         if (v and 0x80 != 0) onChannel4Trigger?.invoke()
-                    }
-                    0xFF11 -> {
-                        internalRam[address] = v
-                        onChannel1LengthWrite?.invoke(v)
-                    }
-                    0xFF16 -> {
-                        internalRam[address] = v
-                        onChannel2LengthWrite?.invoke(v)
-                    }
-                    0xFF1B -> {
-                        internalRam[address] = v
-                        onChannel3LengthWrite?.invoke(v)
-                    }
-                    0xFF20 -> {
-                        internalRam[address] = v
-                        onChannel4LengthWrite?.invoke(v)
                     }
                     0xFF12 -> onChannel1DacWrite?.invoke(v)
                     0xFF17 -> onChannel2DacWrite?.invoke(v)

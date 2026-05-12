@@ -165,7 +165,6 @@ class Channel1(
         currentVolume = 0
         sweepTimer = 0
         shadowFrequency = 0
-        lengthCounter = 0
         envelopeTimer = 0
         lengthEnabled = false
         sweepEnabled = false
