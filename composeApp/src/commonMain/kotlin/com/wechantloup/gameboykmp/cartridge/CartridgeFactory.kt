@@ -12,7 +12,16 @@ object CartridgeFactory {
         val type = CartridgeType.fromCode(typeCode)
             ?: throw IllegalArgumentException("Unknown cartridge type: 0x${typeCode.toString(16)}")
         return when (type) {
-            CartridgeType.ROM_ONLY -> RomOnlyCartridge(rom)
+            CartridgeType.ROM_ONLY,
+            CartridgeType.ROM_RAM,
+            CartridgeType.ROM_RAM_BATTERY,
+            -> RomRamCartridge(
+                rom = rom,
+                romName = romName,
+                scope = scope,
+                withBattery = type == CartridgeType.ROM_RAM_BATTERY,
+            )
+
             CartridgeType.MBC1,
             CartridgeType.MBC1_RAM,
             CartridgeType.MBC1_RAM_BATTERY,

@@ -1,6 +1,6 @@
 package com.wechantloup.gameboykmp.cpu
 
-import com.wechantloup.gameboykmp.cartridge.RomOnlyCartridge
+import com.wechantloup.gameboykmp.cartridge.RomRamCartridge
 import com.wechantloup.gameboykmp.bus.Bus
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -11,7 +11,7 @@ import kotlin.test.assertTrue
 class CpuTest {
     private lateinit var bus: Bus
     private lateinit var cpu: Cpu
-    val cartridge = RomOnlyCartridge(ByteArray(0x7FFF))
+    val cartridge = RomRamCartridge(ByteArray(0x7FFF))
 
     @BeforeTest
     fun setUp() {

@@ -1,11 +1,11 @@
 package com.wechantloup.gameboykmp.bus
 
-import com.wechantloup.gameboykmp.cartridge.RomOnlyCartridge
+import com.wechantloup.gameboykmp.cartridge.RomRamCartridge
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class BusTest {
-    val cartridge = RomOnlyCartridge(ByteArray(0x7FFF))
+    val cartridge = RomRamCartridge(ByteArray(0x7FFF))
 
     @Test
     fun testWriteAndRead() {
