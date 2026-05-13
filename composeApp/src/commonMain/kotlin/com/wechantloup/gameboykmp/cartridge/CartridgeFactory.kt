@@ -31,6 +31,15 @@ object CartridgeFactory {
                 scope = scope,
                 withBattery = type == CartridgeType.MBC1_RAM_BATTERY,
             )
+
+            CartridgeType.MBC2,
+            CartridgeType.MBC2_BATTERY,
+            -> Mbc2Cartridge(
+                rom = rom,
+                romName = romName,
+                scope = scope,
+                withBattery = type == CartridgeType.MBC2_BATTERY,
+            )
             else -> TODO("Cartridge type $type not yet implemented")
         }
     }
