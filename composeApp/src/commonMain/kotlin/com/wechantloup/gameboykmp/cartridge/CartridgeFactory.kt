@@ -1,5 +1,6 @@
 package com.wechantloup.gameboykmp.cartridge
 
+import com.wechantloup.gameboykmp.logger.Logger
 import kotlinx.coroutines.CoroutineScope
 
 object CartridgeFactory {
@@ -11,6 +12,7 @@ object CartridgeFactory {
         val typeCode = rom[0x0147].toInt() and 0xFF
         val type = CartridgeType.fromCode(typeCode)
             ?: throw IllegalArgumentException("Unknown cartridge type: 0x${typeCode.toString(16)}")
+        Logger.debug("CartridgeFactory", "Cartridge type = ${type.name}")
         return when (type) {
             CartridgeType.ROM_ONLY,
             CartridgeType.ROM_RAM,
