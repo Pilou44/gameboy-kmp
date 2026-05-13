@@ -67,6 +67,7 @@ class Bus(
     var onWaveRamWrite: ((Int, Int) -> Unit)? = null
     var onDivReset: (() -> Unit)? = null
     var onApuDivReset: (() -> Unit)? = null
+    var onApuPowerOn: (() -> Unit)? = null
 
     val apuPoweredOn: Boolean get() = internalRam[0xFF26] and 0x80 != 0
 
@@ -254,6 +255,7 @@ class Bus(
             !wasOn && isOn -> {
                 // Power on: set bit 7 only, channel status bits stay 0
                 internalRam[0xFF26] = 0x80
+                onApuPowerOn?.invoke()
             }
             else -> {
                 // No power state change: preserve channel status bits 3-0
