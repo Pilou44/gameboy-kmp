@@ -3,6 +3,7 @@ package com.wechantloup.gameboykmp
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -23,6 +24,7 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -115,36 +117,26 @@ fun MainScreen() {
         }
     }
 
-    // ToDo
-//    val configuration = LocalConfiguration.current
-//
-//    when (configuration.orientation) {
-//        ORIENTATION_LANDSCAPE -> LandscapeEmulator(
-//            gameBoyState = gameBoyState,
-//            buttonChannel = buttonChannel,
-//            selectedPalette = selectedPalette,
-//            loadRom = gameBoyViewModel::loadRom,
-//        )
-//        ORIENTATION_PORTRAIT -> PortraitEmulator(
-//            gameBoyState = gameBoyState,
-//            buttonChannel = buttonChannel,
-//            selectedPalette = selectedPalette,
-//            loadRom = gameBoyViewModel::loadRom,
-//        )
-//        else -> PortraitEmulator(
-//            gameBoyState = gameBoyState,
-//            buttonChannel = buttonChannel,
-//            selectedPalette = selectedPalette,
-//            loadRom = gameBoyViewModel::loadRom,
-//        )
-//    }
-
-    PortraitEmulator(
-        gameBoyState = gameBoyState,
-        buttonChannel = buttonChannel,
-        selectedPalette = selectedPalette,
-        loadRom = gameBoyViewModel::loadRom,
-    )
+    BoxWithConstraints {
+        val isLandscape = maxWidth > maxHeight
+        key(isLandscape) {
+            if (isLandscape) {
+                LandscapeEmulator(
+                    gameBoyState = gameBoyState,
+                    buttonChannel = buttonChannel,
+                    selectedPalette = selectedPalette,
+                    loadRom = gameBoyViewModel::loadRom,
+                )
+            } else {
+                PortraitEmulator(
+                    gameBoyState = gameBoyState,
+                    buttonChannel = buttonChannel,
+                    selectedPalette = selectedPalette,
+                    loadRom = gameBoyViewModel::loadRom,
+                )
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
