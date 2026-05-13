@@ -6,20 +6,21 @@ import org.jetbrains.skia.Bitmap
 import org.jetbrains.skia.ColorAlphaType
 import org.jetbrains.skia.ColorType
 import org.jetbrains.skia.ImageInfo
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 actual fun intArrayToImageBitmap(pixels: IntArray, width: Int, height: Int): ImageBitmap {
     val byteArray = ByteArray(pixels.size * 4)
-    pixels.forEachIndexed { index, pixel ->
-        byteArray[index * 4] = ((pixel shr 16) and 0xFF).toByte()
-        byteArray[index * 4 + 1] = ((pixel shr 8) and 0xFF).toByte()
-        byteArray[index * 4 + 2] = (pixel and 0xFF).toByte()
-        byteArray[index * 4 + 3] = ((pixel shr 24) and 0xFF).toByte()
-    }
+
+    ByteBuffer.wrap(byteArray)
+        .order(ByteOrder.LITTLE_ENDIAN) // ARGB int → BGRA bytes
+        .asIntBuffer()
+        .put(pixels)
 
     val imageInfo = ImageInfo(
         width = width,
         height = height,
-        colorType = ColorType.RGBA_8888,
+        colorType = ColorType.BGRA_8888,
         alphaType = ColorAlphaType.OPAQUE,
     )
     val bitmap = Bitmap()
