@@ -96,12 +96,14 @@ class Mbc1Cartridge(
 
     override fun readRam(address: Int): Int {
         if (!ramEnabled) return 0xFF
-        return ram[ramBank * 0x2000 + address]
+        val effectiveRamBank = if (bankingMode == 1) ramBank else 0
+        return ram[effectiveRamBank * 0x2000 + address]
     }
 
     override fun writeRam(address: Int, value: Int) {
         if (!ramEnabled) return
-        ram[ramBank * 0x2000 + address] = value
+        val effectiveRamBank = if (bankingMode == 1) ramBank else 0
+        ram[effectiveRamBank * 0x2000 + address] = value
         onRamWritten()  // persist on every write
     }
 
