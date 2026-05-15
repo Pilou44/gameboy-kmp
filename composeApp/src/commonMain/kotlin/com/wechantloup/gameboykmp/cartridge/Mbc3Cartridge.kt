@@ -20,18 +20,15 @@ class Mbc3Cartridge(
     private val _isSaving = MutableStateFlow(false)
     override val isSaving: StateFlow<Boolean> = _isSaving
 
-    private val ram = IntArray(0x8000)  // 32KB max - 4 banks × 8KB
-        .also { ram ->
-            if (withSave) { SaveManager.load(romName)?.copyInto(ram) } // ToDo
-        }
-    private val carry: Boolean = false
-        .also {
-            if (withRtc) TODO() // Load carry
-        }
-    private val rtcOffset: Int = 0x00
-        .also {
-            if (withRtc) TODO() // Load rtc
-        }
+    private val cartridgeSave: Mbc3CartridgeSave = SaveManager.load(romName)
+        ?.let { Mbc3CartridgeSave(it) }
+        ?: Mbc3CartridgeSave()
+    private val ram: IntArray
+        get() = cartridgeSave.ram
+    private val carry: Boolean
+        get() = cartridgeSave.carry
+    private val rtcOffset: Long
+        get() = cartridgeSave.rtcOffset
 
     override fun readRom(address: Int): Int {
         TODO("Not yet implemented")
@@ -56,7 +53,7 @@ class Mbc3Cartridge(
         saveJob?.cancel()
         saveJob = scope.launch(Dispatchers.IO) {
             delay(DEBOUNCE_DURATION_MS) // debounce: wait for writes to settle before persisting
-            SaveManager.save(romName, ram)
+            SaveManager.save(romName, cartridgeSave.toIntArray())
             _isSaving.value = false
         }
     }

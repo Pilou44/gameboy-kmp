@@ -1,8 +1,8 @@
 package com.wechantloup.gameboykmp.cartridge
 
 data class Mbc3CartridgeSave(
-    val rtcOffset: Long = 0,
-    val carry: Boolean = false,
+    var rtcOffset: Long = 0,
+    var carry: Boolean = false,
     val ram: IntArray = IntArray(0x8000), // 32KB max - 4 banks × 8KB
 ) {
     constructor(value: IntArray) : this(
