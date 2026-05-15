@@ -42,6 +42,25 @@ object CartridgeFactory {
                 scope = scope,
                 withBattery = type == CartridgeType.MBC2_BATTERY,
             )
+
+            CartridgeType.MBC3_TIMER_BATTERY,
+            CartridgeType.MBC3_TIMER_RAM_BATTERY,
+            CartridgeType.MBC3,
+            CartridgeType.MBC3_RAM,
+            CartridgeType.MBC3_RAM_BATTERY,
+            -> Mbc3Cartridge(
+                rom = rom,
+                romName = romName,
+                scope = scope,
+                withSave = type in setOf(
+                    CartridgeType.MBC3_RAM_BATTERY,
+                    CartridgeType.MBC3_TIMER_RAM_BATTERY,
+                ),
+                withRtc = type in setOf(
+                    CartridgeType.MBC3_TIMER_BATTERY,
+                    CartridgeType.MBC3_TIMER_RAM_BATTERY,
+                ),
+            )
             else -> TODO("Cartridge type $type not yet implemented")
         }
     }
