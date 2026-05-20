@@ -8,6 +8,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlin.time.Clock
 
 class Mbc3Cartridge(
     private val rom: ByteArray,
@@ -30,6 +31,18 @@ class Mbc3Cartridge(
     private val rtcOffset: Long
         get() = cartridgeSave.rtcOffset
 
+    private var haltRtc = false
+
+    private var latchedSeconds = 0
+    private var latchedMinutes = 0
+    private var latchedHours = 0
+    private var latchedDays = 0
+    private var latchedHaltRtc = false
+    private var latchedCarry = false
+
+    private var ramBank = 0
+    private var ramEnabled = false
+
     override fun readRom(address: Int): Int {
         TODO("Not yet implemented")
     }
@@ -39,11 +52,47 @@ class Mbc3Cartridge(
     }
 
     override fun readRam(address: Int): Int {
-        TODO("Not yet implemented")
+        if (!ramEnabled) return 0xFF
+        return when (ramBank) {
+            in 0x00..0x03 -> ram[ramBank * 0x2000 + address]
+            in 0x08..0x0C -> readRtc()
+            else -> 0xFF
+        }
     }
 
     override fun writeRam(address: Int, value: Int) {
         TODO("Not yet implemented")
+    }
+
+    private fun readRtc(): Int {
+        return when (ramBank) {
+            0x08 -> latchedSeconds and 0xFF
+            0x09 -> latchedMinutes and 0xFF
+            0x0A -> latchedHours and 0xFF
+            0x0B -> latchedDays and 0xFF
+            0x0C -> {
+                val carryInt = if (latchedCarry) 1 shl 7 else 0
+                val haltInt = if (latchedHaltRtc) 1 shl 6 else 0
+                ((latchedDays shr 8) and 0x01) or carryInt or haltInt
+            }
+            else -> 0xFF
+        }
+    }
+
+    private fun latch() {
+        val currentTime = Clock.System.now()
+        val gameRtcSeconds = currentTime.epochSeconds - rtcOffset
+        latchedSeconds = (gameRtcSeconds % 60).toInt() and 0xFF
+        latchedMinutes = ((gameRtcSeconds / 60) % 60).toInt() and 0xFF
+        latchedHours = ((gameRtcSeconds / 60 / 60) % 24).toInt() and 0xFF
+        val days = (gameRtcSeconds / 60 / 60 / 24).toInt()
+        if (days > 511) {
+            cartridgeSave.carry = true
+        }
+        latchedDays = days and 0x1FF
+        latchedCarry = carry
+        latchedHaltRtc = haltRtc
+        onRamWritten()
     }
 
     private fun onRamWritten() {
