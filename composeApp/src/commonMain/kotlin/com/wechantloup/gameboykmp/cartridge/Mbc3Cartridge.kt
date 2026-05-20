@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlin.time.Clock
+import kotlin.time.Instant
 
 class Mbc3Cartridge(
     private val rom: ByteArray,
@@ -31,7 +32,9 @@ class Mbc3Cartridge(
     private val rtcOffset: Long
         get() = cartridgeSave.rtcOffset
 
+    // TODO haltRtc and haltRtcTime should be saved with RAM
     private var haltRtc = false
+    private var haltRtcTime: Instant = Instant.DISTANT_PAST
 
     private var latchedSeconds = 0
     private var latchedMinutes = 0
@@ -61,7 +64,13 @@ class Mbc3Cartridge(
     }
 
     override fun writeRam(address: Int, value: Int) {
-        TODO("Not yet implemented")
+        if (!ramEnabled) return
+        when (ramBank) {
+            in 0x00..0x03 -> ram[ramBank * 0x2000 + address] = value
+            in 0x08..0x0C -> writeRtc(value)
+            else -> {}
+        }
+        onRamWritten()
     }
 
     private fun readRtc(): Int {
@@ -79,8 +88,68 @@ class Mbc3Cartridge(
         }
     }
 
+    private fun writeRtc(value: Int) {
+        val currentTime = if (haltRtc) haltRtcTime else Clock.System.now()
+        val currentSeconds = currentTime.epochSeconds
+        val gameRtcSeconds = currentSeconds - rtcOffset
+        when (ramBank) {
+            0x08 -> {
+                val newSeconds = value and 0xFF
+                val newGameRtcSeconds = (gameRtcSeconds / 60) * 60 + newSeconds
+                cartridgeSave.rtcOffset = currentSeconds - newGameRtcSeconds
+            }
+            0x09 -> {
+                val newMinutes = value and 0xFF
+                val seconds = gameRtcSeconds % 60
+                val newGameRtcSeconds = ((gameRtcSeconds / 60 / 60) * 60 + newMinutes) * 60 + seconds
+                cartridgeSave.rtcOffset = currentSeconds - newGameRtcSeconds
+            }
+            0x0A -> {
+                val newHours = value and 0xFF
+                val secondsMinutes = gameRtcSeconds % 3600
+                val newGameRtcSeconds = ((gameRtcSeconds / 24 / 60 / 60) * 24 + newHours) * 3600 + secondsMinutes
+                cartridgeSave.rtcOffset = currentSeconds - newGameRtcSeconds
+            }
+            0x0B -> {
+                val newDaysLow = value and 0xFF
+                val secondsMinutesHours = gameRtcSeconds % (3600 * 24)
+                val days = gameRtcSeconds / 24 / 60 / 60
+                val newDays = (days.toInt() and 0x100) or newDaysLow
+                val newGameRtcSeconds = newDays * 24 * 3600 + secondsMinutesHours
+                cartridgeSave.rtcOffset = currentSeconds - newGameRtcSeconds
+            }
+            0x0C -> {
+                val newDaysHigh = (value and 0x01) shl 8
+                val secondsMinutesHours = gameRtcSeconds % (3600 * 24)
+                val days = gameRtcSeconds / 24 / 60 / 60
+                val newDays = (days.toInt() and 0xFF) or newDaysHigh
+                val newGameRtcSeconds = newDays * 24 * 3600 + secondsMinutesHours
+                cartridgeSave.rtcOffset = currentSeconds - newGameRtcSeconds
+
+                cartridgeSave.carry = (value and 0x80) != 0
+
+                val halt = (value and 0x40) > 0
+                handleHalt(halt)
+            }
+            else -> {}
+        }
+    }
+
+    private fun handleHalt(halt: Boolean) {
+        if (halt == haltRtc) return
+
+        if (halt) {
+            haltRtcTime = Clock.System.now()
+        } else {
+            val now = Clock.System.now()
+            val duration = (now - haltRtcTime).inWholeSeconds
+            cartridgeSave.rtcOffset += duration
+        }
+        haltRtc = halt
+    }
+
     private fun latch() {
-        val currentTime = Clock.System.now()
+        val currentTime = if (haltRtc) haltRtcTime else Clock.System.now()
         val gameRtcSeconds = currentTime.epochSeconds - rtcOffset
         latchedSeconds = (gameRtcSeconds % 60).toInt() and 0xFF
         latchedMinutes = ((gameRtcSeconds / 60) % 60).toInt() and 0xFF
@@ -96,7 +165,7 @@ class Mbc3Cartridge(
     }
 
     private fun onRamWritten() {
-        if (!withSave) return
+        if (!withSave && !withRtc) return
 
         _isSaving.value = true
         saveJob?.cancel()
