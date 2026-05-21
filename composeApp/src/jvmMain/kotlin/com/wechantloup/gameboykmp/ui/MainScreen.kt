@@ -263,7 +263,7 @@ private suspend fun pickRom(): File? {
             val chooser = JFileChooser().apply {
                 fileSelectionMode = JFileChooser.FILES_ONLY
                 dialogTitle = "Pick ROM"
-                fileFilter = FileNameExtensionFilter("Sprite files (*.gb)", "gb")
+                fileFilter = FileNameExtensionFilter("Game Boy ROM (*.gb, *.gbc)", "gb", "gbc")
             }
             val result = chooser.showOpenDialog(null)
 

@@ -44,15 +44,50 @@ class Mbc3Cartridge(
     private var latchedHaltRtc = false
     private var latchedCarry = false
 
+    private var romBank = 1
     private var ramBank = 0
     private var ramEnabled = false
+    private var lastWriteRom: Pair<Int, Int> = 0 to 0
 
     override fun readRom(address: Int): Int {
-        TODO("Not yet implemented")
+        return when (address) {
+            in 0x0000..0x3FFF -> {
+                rom[address].toInt() and 0xFF
+            }
+            in 0x4000..0x7FFF -> {
+                rom[romBank * 0x4000 + (address - 0x4000)].toInt() and 0xFF
+            }
+            else -> throw IllegalArgumentException("Bad address")
+        }
     }
 
+    /**
+     * 0x0000–0x1FFF : RAM enable/disable
+     * 0x2000–0x3FFF : ROM bank select (7 bits)
+     * 0x4000–0x5FFF : RAM bank / RTC register select (0x00–0x03 ou 0x08–0x0C)
+     * 0x6000–0x7FFF : latch (séquence 0x00 → 0x01)
+     */
     override fun writeRom(address: Int, value: Int) {
-        TODO("Not yet implemented")
+        if (address !in 0x0000..0x7FFF) return
+
+        when (address) {
+            in 0x0000..0x1FFF -> {
+                ramEnabled = value and 0x0F == 0x0A
+            }
+            in 0x2000..0x3FFF -> {
+                romBank = (value and 0x7F).coerceAtLeast(1)
+            }
+            in 0x4000..0x5FFF -> {
+                ramBank = value and 0x0F
+            }
+            in 0x6000..0x7FFF -> {
+                if (value == 0x01 && lastWriteRom.second == 0x00 && lastWriteRom.first in 0x6000..0x7FFF) {
+                    latch()
+                }
+            }
+        }
+
+        lastWriteRom = address to value
     }
 
     override fun readRam(address: Int): Int {
