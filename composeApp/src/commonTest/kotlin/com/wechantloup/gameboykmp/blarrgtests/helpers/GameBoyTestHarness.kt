@@ -14,7 +14,7 @@ import com.wechantloup.gameboykmp.timer.Timer
 class GameBoyTestHarness {
     val cartridge = FakeCartridge()
     val bus = Bus(cartridge)
-    val cpu = Cpu(bus, {}).also { it.reset() }
+    val cpu = Cpu(bus, ::step1).also { it.reset() }
     val timer = Timer(bus)
     val ppu = Ppu(bus)
     val apu = Apu(bus)
@@ -25,25 +25,18 @@ class GameBoyTestHarness {
      */
     fun step(n: Int = 1) {
         repeat(n) {
-//            println(cpu.registers.pc)
             val cycles = cpu.step()
-            ppu.step(cycles)
-            apu.step(cycles)
-            timer.step(cycles)
+            repeat(cycles / 4) {
+                step1()
+            }
         }
     }
 
-//    fun stepCycles(targetCycles: Int) {
-//        var elapsed = 0
-//        while (elapsed < targetCycles) {
-////            println("PC = 0x${cpu.registers.pc.toString(16)}")
-//            val cycles = cpu.step()
-//            ppu.step(cycles)
-//            apu.step(cycles)
-//            timer.step(cycles)
-//            elapsed += cycles
-//        }
-//    }
+    fun step1() {
+        ppu.step(4)
+        timer.step(4)
+        apu.step(4)
+    }
 
     private var cycleDebt = 0
 
@@ -52,9 +45,9 @@ class GameBoyTestHarness {
         cycleDebt = 0
         while (elapsed < targetCycles) {
             val cycles = cpu.step()
-            ppu.step(cycles)
-            apu.step(cycles)
-            timer.step(cycles)
+            repeat(cycles / 4) {
+                step1()
+            }
             elapsed += cycles
         }
         cycleDebt = elapsed - targetCycles

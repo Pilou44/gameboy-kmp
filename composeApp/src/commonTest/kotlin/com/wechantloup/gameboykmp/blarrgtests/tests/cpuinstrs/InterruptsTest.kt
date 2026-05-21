@@ -43,7 +43,7 @@ class InterruptsTest {
         h.step()  // DI
         h.bus.setIF(0x04)          // trigger timer interrupt
         h.step()  // CPU should NOT handle interrupt
-        assertEquals(0x0101, h.cpu.registers.pc, "PC should not have jumped to interrupt vector")
+        assertEquals(0x0102, h.cpu.registers.pc, "PC should not have jumped to interrupt vector")
         assertEquals(0x04, h.bus.iF and 0x04, "IF bit 2 should still be set")
     }
 
@@ -61,7 +61,8 @@ class InterruptsTest {
         h.stepCycles(2048)
         assertEquals(0x00, h.bus.iF and 0x04, "IF bit 2 should not be set yet after 2048 cycles")
 
-        h.stepCycles(2048)
+        // +4 cycles for TIMA overflow delay before IF is set
+        h.stepCycles(2052)
         assertEquals(0x04, h.bus.iF and 0x04, "IF bit 2 should be set after 4096 cycles")
     }
 
@@ -84,7 +85,8 @@ class InterruptsTest {
         h.step()  // HALT
         assertTrue(h.cpu.isHalted, "CPU should be halted")
 
-        h.stepCycles(4096)
+        // 4096 cycles to overflow + 4 for IF to be set + 4 for CPU to detect it on next step
+        h.stepCycles(4096 + 8)
         assertFalse(h.cpu.isHalted, "CPU should have exited HALT after timer interrupt")
     }
 }
