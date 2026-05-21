@@ -32,9 +32,10 @@ class Mbc3Cartridge(
     private val rtcOffset: Long
         get() = cartridgeSave.rtcOffset
 
-    // TODO haltRtc and haltRtcTime should be saved with RAM
-    private var haltRtc = false
-    private var haltRtcTime: Instant = Instant.DISTANT_PAST
+    private val isRtcHalted: Boolean
+        get() = cartridgeSave.isRtcHalted
+    private val haltRtcTime: Instant
+        get() = Instant.fromEpochSeconds(cartridgeSave.haltRtcTime)
 
     private var latchedSeconds = 0
     private var latchedMinutes = 0
@@ -89,7 +90,7 @@ class Mbc3Cartridge(
     }
 
     private fun writeRtc(value: Int) {
-        val currentTime = if (haltRtc) haltRtcTime else Clock.System.now()
+        val currentTime = if (isRtcHalted) haltRtcTime else Clock.System.now()
         val currentSeconds = currentTime.epochSeconds
         val gameRtcSeconds = currentSeconds - rtcOffset
         when (ramBank) {
@@ -136,20 +137,20 @@ class Mbc3Cartridge(
     }
 
     private fun handleHalt(halt: Boolean) {
-        if (halt == haltRtc) return
+        if (halt == isRtcHalted) return
 
         if (halt) {
-            haltRtcTime = Clock.System.now()
+            cartridgeSave.haltRtcTime = Clock.System.now().epochSeconds
         } else {
             val now = Clock.System.now()
             val duration = (now - haltRtcTime).inWholeSeconds
             cartridgeSave.rtcOffset += duration
         }
-        haltRtc = halt
+        cartridgeSave.isRtcHalted = halt
     }
 
     private fun latch() {
-        val currentTime = if (haltRtc) haltRtcTime else Clock.System.now()
+        val currentTime = if (isRtcHalted) haltRtcTime else Clock.System.now()
         val gameRtcSeconds = currentTime.epochSeconds - rtcOffset
         latchedSeconds = (gameRtcSeconds % 60).toInt() and 0xFF
         latchedMinutes = ((gameRtcSeconds / 60) % 60).toInt() and 0xFF
@@ -160,7 +161,7 @@ class Mbc3Cartridge(
         }
         latchedDays = days and 0x1FF
         latchedCarry = carry
-        latchedHaltRtc = haltRtc
+        latchedHaltRtc = isRtcHalted
         onRamWritten()
     }
 
