@@ -104,9 +104,11 @@ class GameBoyViewModel : ViewModel() {
                 var frameCycles = 0
                 while (frameCycles < 70224) {
                     val cycles = cpu.step()
-                    ppu.step(cycles)
-                    apu.step(cycles)
-                    timer.step(cycles)
+                    repeat(cycles / 4) {
+                        ppu.step(4)
+                        timer.step(4)
+                        apu.step(4)
+                    }
                     frameCycles += cycles
                 }
 

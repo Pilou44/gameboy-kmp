@@ -23,27 +23,26 @@
 07: 01  
 08: 02  
 
-## Halt bug: NOK
+## Halt bug: OK
 IE IF IF DE  
-01 10 11 0C04  
-01 00 01 0C04  
-01 01 01 0C04  
-11 00 01 0C04  
-11 10 11 0C04  
-11 11 11 0C04  
-E1 00 01 0C04  
+01 10 F1 0C04  
+01 00 E1 0C04  
+01 01 E1 0411  
+11 00 E1 0C04  
+11 10 F1 0411  
+11 11 F1 0411  
+E1 00 E1 0C04  
 E1 E0 E1 0C04  
-E1 E1 E1 0C04  
-3DB103C3
+E1 E1 E1 0411  
 
 ## Instr timming OK
 
 ## Interrupt time NOK
-01 00 FC  
-01 08 0D  
-01 00 FC  
+00 00 00  
 00 08 0D  
-FECD042E  
+00 00 00  
+00 08 0D  
+7F8F4AAF  
 
 ## Mem timing NOK
 01: 01  

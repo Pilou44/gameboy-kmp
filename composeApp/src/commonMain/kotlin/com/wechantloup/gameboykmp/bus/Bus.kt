@@ -30,7 +30,7 @@ class Bus(
     // Bit 2 : Timer    - TIMA overflowed and was reloaded from TMA
     // Bit 3 : Serial   - Serial transfer complete
     // Bit 4 : Joypad   - Joypad button pressed (high-to-low transition)
-    // Bits 5-7 : unused, always 0
+    // Bits 5-7 : unused, always read as 1
     val ie: Int get() = read(0xFFFF) // Enabled interrupts
     val iF: Int get() = read(0xFF0F) // Requested interrupts
 
@@ -87,6 +87,7 @@ class Bus(
         in 0xA000..0xBFFF -> cartridge.readRam(address - 0xA000)
         in 0xFE00..0xFE9F -> readOam(address - 0XFE00)
         in 0xFF10..0xFF3F -> readApuRegister(address)
+        0xFF0F -> internalRam[0xFF0F] or 0xE0  // IF: upper 3 bits always read as 1
         else -> internalRam[address]
     }
 

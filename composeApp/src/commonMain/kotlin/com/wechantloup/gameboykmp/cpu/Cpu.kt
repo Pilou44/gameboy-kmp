@@ -12,7 +12,6 @@ class Cpu(
     private var imeScheduled = false
 
     private var haltBug = false
-    private var wasHalted = false
 
     fun step(): Int {
         // Check for pending interrupts
@@ -20,7 +19,6 @@ class Cpu(
 
         if (pending != 0) {
             // Wake from HALT regardless of IME
-            wasHalted = isHalted
             isHalted = false
 
             if (ime) {
@@ -43,18 +41,8 @@ class Cpu(
                     else -> 0x0040
                 }
                 return 20
-            } else if (!haltBug) {
-                haltBug = true
-                return 4
             }
         }
-
-        if (wasHalted) {
-            wasHalted = false
-            return 4  // PC inchangé
-        }
-
-        haltBug = false
 
         if (isHalted) return 4
 
@@ -105,7 +93,16 @@ class Cpu(
         return when (opcode) {
             0x00 -> 4 /* NOP - do nothing */
 
-            0x76 -> { isHalted = true; 4 }  // HALT
+            0x76 -> {
+                val pending = bus.ie and bus.iF and 0x1F
+                if (!ime && pending != 0) {
+                    // Halt bug: don't halt, next fetch will read PC twice
+                    haltBug = true
+                } else {
+                    isHalted = true
+                }
+                4
+            }
 
             0x10 -> {
                 fetch() // consume the 0x00 byte that always follows STOP
@@ -618,7 +615,11 @@ class Cpu(
 
     private fun fetch(): Int {
         val data = bus.read(registers.pc) and 0xFF
-        registers.pc = (registers.pc + 1) and 0xFFFF
+        if (haltBug) {
+            haltBug = false  // only skip increment once
+        } else {
+            registers.pc = (registers.pc + 1) and 0xFFFF
+        }
         return data
     }
 
