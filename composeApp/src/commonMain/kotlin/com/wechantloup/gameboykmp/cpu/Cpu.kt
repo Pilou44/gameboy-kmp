@@ -4,6 +4,7 @@ import com.wechantloup.gameboykmp.bus.Bus
 
 class Cpu(
     private val bus: Bus,
+    private val onMachineCycleTick: () -> Unit,
 ) {
     val registers = Registers() // Visible for tests
     var isHalted = false // Visible for tests

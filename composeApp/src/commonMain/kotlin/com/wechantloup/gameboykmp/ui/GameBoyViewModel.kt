@@ -38,6 +38,9 @@ class GameBoyViewModel : ViewModel() {
     val buttonChannel = Channel<JoypadEvent>(Channel.UNLIMITED)
 
     private var bus: Bus? = null
+    private var timer: Timer? = null
+    private var ppu: Ppu? = null
+    private var apu: Apu? = null
 
     init {
         viewModelScope.launch {
@@ -66,10 +69,10 @@ class GameBoyViewModel : ViewModel() {
             }
         }
 
-        val timer = Timer(bus)
-        val ppu = Ppu(bus)
-        val apu = Apu(bus)
-        val cpu = Cpu(bus).also { it.reset() }
+        timer = Timer(bus)
+        val ppu = Ppu(bus).also { ppu = it }
+        val apu = Apu(bus).also { apu = it }
+        val cpu = Cpu(bus, ::onMachineCycleTick).also { it.reset() }
 
         viewModelScope.launch {
             for (samples in apu.samplesChannel) {
@@ -105,9 +108,7 @@ class GameBoyViewModel : ViewModel() {
                 while (frameCycles < 70224) {
                     val cycles = cpu.step()
                     repeat(cycles / 4) {
-                        ppu.step(4)
-                        timer.step(4)
-                        apu.step(4)
+                        onMachineCycleTick()
                     }
                     frameCycles += cycles
                 }
@@ -135,6 +136,12 @@ class GameBoyViewModel : ViewModel() {
 
     fun resume() {
         isPaused = false
+    }
+
+    private fun onMachineCycleTick() {
+        ppu?.step(4) // TODO Always 4, useless parameter
+        timer?.step(4) // TODO Always 4, useless parameter
+        apu?.step(4) // TODO Always 4, useless parameter
     }
 
     private fun currentTimeMark(): ValueTimeMark {

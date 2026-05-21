@@ -1,7 +1,8 @@
 package com.wechantloup.gameboykmp.cpu
 
-import com.wechantloup.gameboykmp.cartridge.RomRamCartridge
 import com.wechantloup.gameboykmp.bus.Bus
+import com.wechantloup.gameboykmp.cartridge.RomRamCartridge
+import dev.mokkery.mock
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -11,12 +12,17 @@ import kotlin.test.assertTrue
 class CpuTest {
     private lateinit var bus: Bus
     private lateinit var cpu: Cpu
-    val cartridge = RomRamCartridge(ByteArray(0x7FFF))
+    val cartridge = RomRamCartridge(
+        rom = ByteArray(0x7FFF),
+        romName = "name",
+        scope = mock(),
+        withBattery = false,
+    )
 
     @BeforeTest
     fun setUp() {
         bus = Bus(cartridge)
-        cpu = Cpu(bus)
+        cpu = Cpu(bus, {})
         cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.pc = 0xC000
