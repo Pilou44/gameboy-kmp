@@ -37,7 +37,7 @@ E1 E1 E1 0411
 
 ## Instr timming OK
 
-## Interrupt time NOK
+## Interrupt time NOK - Good if no GBC support
 00 00 00  
 00 08 0D  
 00 00 00  

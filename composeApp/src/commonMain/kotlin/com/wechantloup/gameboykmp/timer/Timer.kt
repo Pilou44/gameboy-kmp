@@ -8,10 +8,16 @@ class Timer(private val bus: Bus) {
 
     private var timaCycleCount = 0
 
+    private var timaOverflowPending = false
+    private var timaOverflowCycles = 0
+
     init {
         bus.onDivReset = {
             cycleCount = 0
             timaCycleCount = 0
+        }
+        bus.canWriteOnTima = {
+            !timaOverflowPending
         }
     }
 
@@ -42,16 +48,27 @@ class Timer(private val bus: Bus) {
             bus.incDiv()
         }
 
+        // Handle pending TIMA overflow (delayed by 4 cycles after overflow)
+        if (timaOverflowPending) {
+            timaOverflowCycles -= cycles
+            if (timaOverflowCycles <= 0) {
+                timaOverflowPending = false
+                tima = tma
+                bus.setIF(bus.iF or 0x04)
+            }
+        }
+
         if (timerActivated) {
             timaCycleCount += cycles
             while (timaCycleCount >= timerPeriod) {
                 timaCycleCount -= timerPeriod
                 val nextTimaValue = tima + 1
-                tima = if (nextTimaValue > 0xFF) {
-                    bus.setIF(bus.iF or 0x04)
-                    tma
+                if (nextTimaValue > 0xFF) {
+                    tima = 0x00              // write succeeds: pending is still false here
+                    timaOverflowPending = true
+                    timaOverflowCycles = 4
                 } else {
-                    nextTimaValue and 0xFF
+                    tima = nextTimaValue and 0xFF
                 }
             }
         }
