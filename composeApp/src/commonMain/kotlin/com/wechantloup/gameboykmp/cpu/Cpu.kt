@@ -467,7 +467,6 @@ class Cpu(
         return when {
             reg != 6 -> 4
             opcode in 0x40..0x7F -> 8  // BIT b, (HL) — lecture seule
-            // TODO: write_timing — non-BIT (HL) ops need an extra onMachineCycleTick between read and write
             else -> 8                   // toutes les autres opérations sur (HL)
         }
     }
