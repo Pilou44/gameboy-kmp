@@ -167,11 +167,24 @@ class Cpu(
 
             /* --- I/O loads --- */
             0xE0 -> { bus.write(0xFF00 + fetch(), registers.a); 12 }
-            0xF0 -> { registers.a = bus.read(0xFF00 + fetch()); 12 }
+            0xF0 -> {
+                val value = fetch()
+                onMachineCycleTick()
+                registers.a = bus.read(0xFF00 + value)
+                8
+            }
             0xE2 -> { bus.write(0xFF00 + registers.c, registers.a); 8 }
             0xF2 -> { registers.a = bus.read(0xFF00 + registers.c); 8 }
             0xEA -> { bus.write(fetch16(), registers.a); 16 }
-            0xFA -> { registers.a = bus.read(fetch16()); 16 }
+            0xFA -> {
+                val low = fetch()
+                onMachineCycleTick()
+                val high = fetch()
+                onMachineCycleTick()
+                val address = (high shl 8) or low
+                registers.a = bus.read(address)
+                8
+            }
 
             /* --- 8-bit arithmetic: register --- */
             in 0x80..0x87 -> add(opcode)
@@ -333,7 +346,11 @@ class Cpu(
             0xFB -> { imeScheduled = true; 4 }
 
             /* --- CB prefix --- */
-            0xCB -> executeCb(fetch())
+            0xCB -> {
+                val code = fetch()
+                onMachineCycleTick()
+                executeCb(code)
+            }
 
             else -> TODO("Opcode 0x${opcode.toString(16).uppercase()} not implemented at PC=0x${(registers.pc - 1).toString(16)}")
         }
@@ -418,9 +435,10 @@ class Cpu(
             }
         }
         return when {
-            reg != 6 -> 8
-            opcode in 0x40..0x7F -> 12  // BIT b, (HL) — lecture seule
-            else -> 16                   // toutes les autres opérations sur (HL)
+            reg != 6 -> 4
+            opcode in 0x40..0x7F -> 8  // BIT b, (HL) — lecture seule
+            // TODO: write_timing — non-BIT (HL) ops need an extra onMachineCycleTick between read and write
+            else -> 12                   // toutes les autres opérations sur (HL)
         }
     }
 

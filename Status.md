@@ -45,7 +45,7 @@ E1 E1 E1 0411
 7F8F4AAF  
 
 ## Mem timing NOK
-01: 01  
+01: OK  
 02: 01  
 03: 01  
 
