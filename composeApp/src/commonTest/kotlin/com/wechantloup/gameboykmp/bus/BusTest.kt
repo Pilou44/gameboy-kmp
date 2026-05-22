@@ -1,11 +1,17 @@
 package com.wechantloup.gameboykmp.bus
 
 import com.wechantloup.gameboykmp.cartridge.RomRamCartridge
+import dev.mokkery.mock
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class BusTest {
-    val cartridge = RomRamCartridge(ByteArray(0x7FFF))
+    val cartridge = RomRamCartridge(
+        rom = ByteArray(0x7FFF),
+        romName = "name",
+        scope = mock(),
+        withBattery = false,
+    )
 
     @Test
     fun testWriteAndRead() {

@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.mokkery)
 }
 
 // Détection de l'OS au moment du build pour les natives LWJGL
@@ -59,6 +60,7 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+            implementation(libs.mokkery)
         }
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
