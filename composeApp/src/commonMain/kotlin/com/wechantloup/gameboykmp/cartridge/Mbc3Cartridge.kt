@@ -1,5 +1,6 @@
 package com.wechantloup.gameboykmp.cartridge
 
+import com.wechantloup.gameboykmp.logger.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
@@ -23,7 +24,12 @@ class Mbc3Cartridge(
     override val isSaving: StateFlow<Boolean> = _isSaving
 
     private val cartridgeSave: Mbc3CartridgeSave = SaveManager.load(romName)
-        ?.let { Mbc3CartridgeSave(it) }
+        ?.let {
+            Mbc3CartridgeSave(it)
+        }?.also {
+            Logger.debug("MBC3", "load rtcOffset=${it.rtcOffset}")
+            Logger.debug("MBC3", "load haltRtcTime=${it.haltRtcTime}")
+        }
         ?: Mbc3CartridgeSave()
     private val ram: IntArray
         get() = cartridgeSave.ram
@@ -207,6 +213,8 @@ class Mbc3Cartridge(
         saveJob?.cancel()
         saveJob = scope.launch(Dispatchers.IO) {
             delay(DEBOUNCE_DURATION_MS) // debounce: wait for writes to settle before persisting
+            Logger.debug("MBC3", "save rtcOffset=$rtcOffset")
+            Logger.debug("MBC3", "save haltRtcTime=${haltRtcTime.epochSeconds}")
             SaveManager.save(romName, cartridgeSave.toIntArray())
             _isSaving.value = false
         }
