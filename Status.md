@@ -46,7 +46,7 @@ E1 E1 E1 0411
 
 ## Mem timing NOK
 01: OK  
-02: 01  
+02: OK  
 03: 01  
 
 ## DMG sound NOK

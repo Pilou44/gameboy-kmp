@@ -122,7 +122,12 @@ class Cpu(
             0x1E -> { registers.e = fetch(); 8 }
             0x26 -> { registers.h = fetch(); 8 }
             0x2E -> { registers.l = fetch(); 8 }
-            0x36 -> { bus.write(registers.hl, fetch()); 12 }  // LD (HL), n
+            0x36 -> {
+                val value = fetch()
+                onMachineCycleTick()
+                bus.write(registers.hl, value)
+                8
+            }  // LD (HL), n
             0x3E -> { registers.a = fetch(); 8 }
 
             /* --- 8-bit loads: register to register (0x40–0x7F, 0x76=HALT handled above) --- */
@@ -166,7 +171,12 @@ class Cpu(
             0x1A -> { registers.a = bus.read(registers.de); 8 }
 
             /* --- I/O loads --- */
-            0xE0 -> { bus.write(0xFF00 + fetch(), registers.a); 12 }
+            0xE0 -> {
+                val value = fetch()
+                onMachineCycleTick()
+                bus.write(0xFF00 + value, registers.a)
+                8
+            }
             0xF0 -> {
                 val value = fetch()
                 onMachineCycleTick()
@@ -175,7 +185,15 @@ class Cpu(
             }
             0xE2 -> { bus.write(0xFF00 + registers.c, registers.a); 8 }
             0xF2 -> { registers.a = bus.read(0xFF00 + registers.c); 8 }
-            0xEA -> { bus.write(fetch16(), registers.a); 16 }
+            0xEA -> {
+                val low = fetch()
+                onMachineCycleTick()
+                val high = fetch()
+                onMachineCycleTick()
+                val value = (high shl 8) or low
+                bus.write(value, registers.a)
+                8
+            }
             0xFA -> {
                 val low = fetch()
                 onMachineCycleTick()
