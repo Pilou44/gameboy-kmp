@@ -379,6 +379,7 @@ class Cpu(
         when (opcode and 0xF8) {
             0x00 -> {  // RLC r
                 var v = getRegister(reg)
+                if (reg == 6) onMachineCycleTick()
                 val bit7 = (v shr 7) and 1
                 v = ((v shl 1) or bit7) and 0xFF
                 setRegister(reg, v)
@@ -386,6 +387,7 @@ class Cpu(
             }
             0x08 -> {  // RRC r
                 var v = getRegister(reg)
+                if (reg == 6) onMachineCycleTick()
                 val bit0 = v and 1
                 v = (v ushr 1) or (bit0 shl 7)
                 setRegister(reg, v)
@@ -393,6 +395,7 @@ class Cpu(
             }
             0x10 -> {  // RL r
                 var v = getRegister(reg)
+                if (reg == 6) onMachineCycleTick()
                 val bit7 = (v shr 7) and 1
                 val oldC = if (registers.flagC) 1 else 0
                 v = ((v shl 1) or oldC) and 0xFF
@@ -401,6 +404,7 @@ class Cpu(
             }
             0x18 -> {  // RR r
                 var v = getRegister(reg)
+                if (reg == 6) onMachineCycleTick()
                 val bit0 = v and 1
                 val oldC = if (registers.flagC) 1 else 0
                 v = (v ushr 1) or (oldC shl 7)
@@ -409,6 +413,7 @@ class Cpu(
             }
             0x20 -> {  // SLA r
                 var v = getRegister(reg)
+                if (reg == 6) onMachineCycleTick()
                 val bit7 = (v shr 7) and 1
                 v = (v shl 1) and 0xFF
                 setRegister(reg, v)
@@ -416,6 +421,7 @@ class Cpu(
             }
             0x28 -> {  // SRA r (arithmetic shift, sign extends)
                 var v = getRegister(reg)
+                if (reg == 6) onMachineCycleTick()
                 val bit0 = v and 1
                 val bit7 = v and 0x80
                 v = (v ushr 1) or bit7
@@ -424,12 +430,14 @@ class Cpu(
             }
             0x30 -> {  // SWAP r
                 var v = getRegister(reg)
+                if (reg == 6) onMachineCycleTick()
                 v = ((v and 0x0F) shl 4) or ((v and 0xF0) shr 4)
                 setRegister(reg, v)
                 registers.flagZ = v == 0; registers.flagN = false; registers.flagH = false; registers.flagC = false
             }
             0x38 -> {  // SRL r (logical shift)
                 var v = getRegister(reg)
+                if (reg == 6) onMachineCycleTick()
                 val bit0 = v and 1
                 v = v ushr 1
                 setRegister(reg, v)
@@ -444,11 +452,15 @@ class Cpu(
                 }
                 opcode in 0x80..0xBF -> {  // RES b, r
                     val bit = (opcode - 0x80) shr 3
-                    setRegister(reg, getRegister(reg) and (1 shl bit).inv())
+                    val value = getRegister(reg)
+                    if (reg == 6) onMachineCycleTick()
+                    setRegister(reg, value and (1 shl bit).inv())
                 }
                 else -> {  // SET b, r (0xC0..0xFF)
                     val bit = (opcode - 0xC0) shr 3
-                    setRegister(reg, getRegister(reg) or (1 shl bit))
+                    val value = getRegister(reg)
+                    if (reg == 6) onMachineCycleTick()
+                    setRegister(reg, value or (1 shl bit))
                 }
             }
         }
@@ -456,7 +468,7 @@ class Cpu(
             reg != 6 -> 4
             opcode in 0x40..0x7F -> 8  // BIT b, (HL) — lecture seule
             // TODO: write_timing — non-BIT (HL) ops need an extra onMachineCycleTick between read and write
-            else -> 12                   // toutes les autres opérations sur (HL)
+            else -> 8                   // toutes les autres opérations sur (HL)
         }
     }
 
@@ -564,22 +576,24 @@ class Cpu(
 
     private fun inc(registerCode: Int): Int {
         val old = getRegister(registerCode)
+        if (registerCode == 6) onMachineCycleTick()
         val value = (old + 1) and 0xFF
         setRegister(registerCode, value)
         registers.flagZ = value == 0
         registers.flagN = false
         registers.flagH = (old and 0x0F) == 0x0F
-        return if (registerCode == 6) 12 else 4
+        return if (registerCode == 6) 8 else 4
     }
 
     private fun dec(registerCode: Int): Int {
         val old = getRegister(registerCode)
+        if (registerCode == 6) onMachineCycleTick()
         val value = (old - 1) and 0xFF
         setRegister(registerCode, value)
         registers.flagZ = value == 0
         registers.flagN = true
         registers.flagH = (old and 0x0F) == 0x00
-        return if (registerCode == 6) 12 else 4
+        return if (registerCode == 6) 8 else 4
     }
 
     private fun daa(): Int {
