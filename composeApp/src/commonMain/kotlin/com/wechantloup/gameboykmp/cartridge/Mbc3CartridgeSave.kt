@@ -1,7 +1,9 @@
 package com.wechantloup.gameboykmp.cartridge
 
+import kotlin.time.Clock
+
 data class Mbc3CartridgeSave(
-    var rtcOffset: Long = 0,
+    var rtcOffset: Long = Clock.System.now().epochSeconds,
     var haltRtcTime: Long = 0,
     var isRtcHalted: Boolean = false,
     var carry: Boolean = false,
