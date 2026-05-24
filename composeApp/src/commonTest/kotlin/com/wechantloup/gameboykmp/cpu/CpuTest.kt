@@ -1,7 +1,7 @@
 package com.wechantloup.gameboykmp.cpu
 
-import com.wechantloup.gameboykmp.cartridge.RomRamCartridge
 import com.wechantloup.gameboykmp.bus.Bus
+import com.wechantloup.gameboykmp.cartridge.RomRamCartridge
 import dev.mokkery.mock
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -1540,10 +1540,7 @@ class CpuTest {
         bus.setIF(0x01)  // IF: V-Blank pending
         cpu.step()
         assertFalse(cpu.isHalted)
-        // TODO: verify DMG behavior - does HALT exit consume 1 M-cycle before resuming execution?
-        // Current implementation resumes immediately (PC=0xC001 after NOP), adjust if needed.
-//        assertEquals(0xC000, cpu.registers.pc)  // pas de saut car IME false
-        assertEquals(0xC001, cpu.registers.pc)
+        assertEquals(0xC000, cpu.registers.pc)  // pas de saut car IME false
 
         // Priority: Timer (bit 2) et V-Blank (bit 0) pending -> V-Blank traité en premier
         cpu.reset()
