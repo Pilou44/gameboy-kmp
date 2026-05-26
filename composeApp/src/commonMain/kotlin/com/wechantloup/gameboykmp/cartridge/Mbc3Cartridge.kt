@@ -192,6 +192,17 @@ class Mbc3Cartridge(
     private fun advanceRtc(effectiveNowMs: Long): RtcSnapshot {
         val elapsedSeconds = (effectiveNowMs - cartridgeSave.lastTickMs) / 1000
 
+        if (elapsedSeconds == 0L) {
+            return RtcSnapshot(
+                seconds = cartridgeSave.rawSeconds,
+                minutes = cartridgeSave.rawMinutes,
+                hours = cartridgeSave.rawHours,
+                days = cartridgeSave.rawDays,
+                carry = cartridgeSave.carry,
+                isHalted = cartridgeSave.isRtcHalted,
+            )
+        }
+
         var seconds = cartridgeSave.rawSeconds.toLong() + elapsedSeconds
         val minuteCarry = seconds / 60
         seconds %= 60
