@@ -41,6 +41,7 @@ class GameBoyViewModel : ViewModel() {
     private var timer: Timer? = null
     private var ppu: Ppu? = null
     private var apu: Apu? = null
+    var frameCycles = 0
 
     init {
         viewModelScope.launch {
@@ -104,13 +105,12 @@ class GameBoyViewModel : ViewModel() {
                 }
 
                 // Run for 1 frame (70224 cycles)
-                var frameCycles = 0
+                frameCycles = 0
                 while (frameCycles < 70224) {
                     val cycles = cpu.step()
                     repeat(cycles / 4) {
                         onMachineCycleTick()
                     }
-                    frameCycles += cycles
                 }
 
                 frameStartMark += frameDuration
@@ -142,6 +142,7 @@ class GameBoyViewModel : ViewModel() {
         ppu?.step(4) // TODO Always 4, useless parameter
         timer?.step(4) // TODO Always 4, useless parameter
         apu?.step(4) // TODO Always 4, useless parameter
+        frameCycles += 4
     }
 
     private fun currentTimeMark(): ValueTimeMark {
