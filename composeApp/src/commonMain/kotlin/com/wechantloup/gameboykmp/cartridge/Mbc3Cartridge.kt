@@ -29,13 +29,13 @@ class Mbc3Cartridge(
         get() = cartridgeSave.ram
     private val carry: Boolean
         get() = cartridgeSave.carry
-    private val rtcOffset: Long
-        get() = cartridgeSave.rtcOffset
+    private val rtcOffsetMs: Long
+        get() = cartridgeSave.rtcOffsetMs
 
     private val isRtcHalted: Boolean
         get() = cartridgeSave.isRtcHalted
     private val haltRtcTime: Instant
-        get() = Instant.fromEpochSeconds(cartridgeSave.haltRtcTime)
+        get() = Instant.fromEpochMilliseconds(cartridgeSave.haltRtcTimeMs)
 
     private var latchedSeconds = 0
     private var latchedMinutes = 0
@@ -126,25 +126,30 @@ class Mbc3Cartridge(
 
     private fun writeRtc(value: Int) {
         val currentTime = if (isRtcHalted) haltRtcTime else Clock.System.now()
-        val currentSeconds = currentTime.epochSeconds
-        val gameRtcSeconds = currentSeconds - rtcOffset
+        val currentMilliseconds = currentTime.toEpochMilliseconds()
+        val gameRtcMilliseconds = currentMilliseconds - rtcOffsetMs
+        val wholeMilliseconds = gameRtcMilliseconds % 1000
+        val gameRtcSeconds = gameRtcMilliseconds / 1000
         when (ramBank) {
             0x08 -> {
                 val newSeconds = value and 0xFF
                 val newGameRtcSeconds = (gameRtcSeconds / 60) * 60 + newSeconds
-                cartridgeSave.rtcOffset = currentSeconds - newGameRtcSeconds
+                val newGameRtcMilliseconds = newGameRtcSeconds * 1000 + wholeMilliseconds
+                cartridgeSave.rtcOffsetMs = currentMilliseconds - newGameRtcMilliseconds
             }
             0x09 -> {
                 val newMinutes = value and 0xFF
                 val seconds = gameRtcSeconds % 60
                 val newGameRtcSeconds = ((gameRtcSeconds / 60 / 60) * 60 + newMinutes) * 60 + seconds
-                cartridgeSave.rtcOffset = currentSeconds - newGameRtcSeconds
+                val newGameRtcMilliseconds = newGameRtcSeconds * 1000 + wholeMilliseconds
+                cartridgeSave.rtcOffsetMs = currentMilliseconds - newGameRtcMilliseconds
             }
             0x0A -> {
                 val newHours = value and 0xFF
                 val secondsMinutes = gameRtcSeconds % 3600
                 val newGameRtcSeconds = ((gameRtcSeconds / 24 / 60 / 60) * 24 + newHours) * 3600 + secondsMinutes
-                cartridgeSave.rtcOffset = currentSeconds - newGameRtcSeconds
+                val newGameRtcMilliseconds = newGameRtcSeconds * 1000 + wholeMilliseconds
+                cartridgeSave.rtcOffsetMs = currentMilliseconds - newGameRtcMilliseconds
             }
             0x0B -> {
                 val newDaysLow = value and 0xFF
@@ -152,7 +157,8 @@ class Mbc3Cartridge(
                 val days = gameRtcSeconds / 24 / 60 / 60
                 val newDays = (days.toInt() and 0x100) or newDaysLow
                 val newGameRtcSeconds = newDays * 24 * 3600 + secondsMinutesHours
-                cartridgeSave.rtcOffset = currentSeconds - newGameRtcSeconds
+                val newGameRtcMilliseconds = newGameRtcSeconds * 1000 + wholeMilliseconds
+                cartridgeSave.rtcOffsetMs = currentMilliseconds - newGameRtcMilliseconds
             }
             0x0C -> {
                 val newDaysHigh = (value and 0x01) shl 8
@@ -160,7 +166,8 @@ class Mbc3Cartridge(
                 val days = gameRtcSeconds / 24 / 60 / 60
                 val newDays = (days.toInt() and 0xFF) or newDaysHigh
                 val newGameRtcSeconds = newDays * 24 * 3600 + secondsMinutesHours
-                cartridgeSave.rtcOffset = currentSeconds - newGameRtcSeconds
+                val newGameRtcMilliseconds = newGameRtcSeconds * 1000 + wholeMilliseconds
+                cartridgeSave.rtcOffsetMs = currentMilliseconds - newGameRtcMilliseconds
 
                 cartridgeSave.carry = (value and 0x80) != 0
 
@@ -175,18 +182,18 @@ class Mbc3Cartridge(
         if (halt == isRtcHalted) return
 
         if (halt) {
-            cartridgeSave.haltRtcTime = Clock.System.now().epochSeconds
+            cartridgeSave.haltRtcTimeMs = Clock.System.now().toEpochMilliseconds()
         } else {
             val now = Clock.System.now()
-            val duration = (now - haltRtcTime).inWholeSeconds
-            cartridgeSave.rtcOffset += duration
+            val duration = (now - haltRtcTime).inWholeMilliseconds
+            cartridgeSave.rtcOffsetMs += duration
         }
         cartridgeSave.isRtcHalted = halt
     }
 
     private fun latch() {
         val currentTime = if (isRtcHalted) haltRtcTime else Clock.System.now()
-        val gameRtcSeconds = currentTime.epochSeconds - rtcOffset
+        val gameRtcSeconds = (currentTime.toEpochMilliseconds() - rtcOffsetMs) / 1000
         latchedSeconds = (gameRtcSeconds % 60).toInt() and 0xFF
         latchedMinutes = ((gameRtcSeconds / 60) % 60).toInt() and 0xFF
         latchedHours = ((gameRtcSeconds / 60 / 60) % 24).toInt() and 0xFF
