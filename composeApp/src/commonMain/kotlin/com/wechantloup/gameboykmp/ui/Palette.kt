@@ -39,5 +39,14 @@ enum class Palette(
             0xFF484848.toInt(),
             0xFF181818.toInt(),
         )
+    ),
+    DOC_BOY_TEST(
+        displayName = "True pocket",
+        colors = listOf(
+            0xFFFFFEFF.toInt(),
+            0xFFACA9AC.toInt(),
+            0xFF525452.toInt(),
+            0xFF000000.toInt(),
+        )
     );
 }

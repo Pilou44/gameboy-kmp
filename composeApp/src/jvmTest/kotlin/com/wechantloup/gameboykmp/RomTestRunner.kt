@@ -6,6 +6,7 @@ import javax.imageio.ImageIO
 import java.awt.image.BufferedImage
 import java.io.File
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertNotNull
 
 class RomTestRunner {
@@ -19,12 +20,12 @@ class RomTestRunner {
 
         viewModel.loadRom(romBytes, "dmg-acid2")
 
-        Thread.sleep(10_000) // 10 seconds, adjust as needed
+        Thread.sleep(1_000)
 
         val frameBuffer = viewModel.stateFlow.value.frameBuffer
         assertNotNull(frameBuffer)
 
-        val palette = Palette.TRUE_POCKET
+        val palette = Palette.DOC_BOY_TEST
         val imageBuffer = frameBuffer
             .map {
                 palette.colors[it]
@@ -32,6 +33,14 @@ class RomTestRunner {
             .toIntArray()
 
         imageBuffer.toPng("build/test-results/dmg-acid2-output.png")
+
+        val reference = ImageIO
+            .read(
+                ClassLoader.getSystemResourceAsStream("references/acid/dmg-acid2.png")
+            )
+            .getRGB(0, 0, 160, 144, null, 0, 160)
+
+        assertContentEquals(reference, imageBuffer)
     }
 }
 
