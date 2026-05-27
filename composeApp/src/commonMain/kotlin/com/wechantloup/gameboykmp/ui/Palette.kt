@@ -41,7 +41,7 @@ enum class Palette(
         )
     ),
     DOC_BOY_TEST(
-        displayName = "True pocket",
+        displayName = "DocBoy Test",
         colors = listOf(
             0xFFFFFEFF.toInt(),
             0xFFACA9AC.toInt(),

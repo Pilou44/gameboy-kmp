@@ -11,6 +11,39 @@ import kotlin.test.assertNotNull
 
 class RomTestRunner {
     @Test
+    fun `acid-which`() {
+        val rom = ClassLoader
+            .getSystemResourceAsStream("roms/acid/which.gb")
+        val romBytes = requireNotNull(rom?.readBytes())
+
+        val viewModel = GameBoyViewModel()
+
+        viewModel.loadRom(romBytes, "which")
+
+        Thread.sleep(1_000)
+
+        val frameBuffer = viewModel.stateFlow.value.frameBuffer
+        assertNotNull(frameBuffer)
+
+        val palette = Palette.DOC_BOY_TEST
+        val imageBuffer = frameBuffer
+            .map {
+                palette.colors[it]
+            }
+            .toIntArray()
+
+        imageBuffer.toPng("build/test-results/which.png")
+
+        val reference = ImageIO
+            .read(
+                ClassLoader.getSystemResourceAsStream("references/acid/which.png")
+            )
+            .getRGB(0, 0, 160, 144, null, 0, 160)
+
+        assertContentEquals(reference, imageBuffer)
+    }
+
+    @Test
     fun `acid-dmg-acid2`() {
         val rom = ClassLoader
             .getSystemResourceAsStream("roms/acid/dmg-acid2.gb")
@@ -42,6 +75,10 @@ class RomTestRunner {
 
         assertContentEquals(reference, imageBuffer)
     }
+}
+
+prvate fun runTest(romPath: String) {
+
 }
 
 private fun IntArray.toPng(outputPath: String) {
