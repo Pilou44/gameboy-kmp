@@ -22,6 +22,61 @@ class RomTestRunner {
     }
 
     @Test
+    fun `blarrg_cpu_instrs_01`() {
+        runTest("blarrg/cpu_instrs/01-special.gb", 3_000)
+    }
+
+    @Test
+    fun `blarrg_cpu_instrs_02`() {
+        runTest("blarrg/cpu_instrs/02-interrupts.gb", 1_000)
+    }
+
+    @Test
+    fun `blarrg_cpu_instrs_03`() {
+        runTest("blarrg/cpu_instrs/03-op_sp,hl.gb", 3_000)
+    }
+
+    @Test
+    fun `blarrg_cpu_instrs_04`() {
+        runTest("blarrg/cpu_instrs/04-op_r,imm.gb", 3_000)
+    }
+
+    @Test
+    fun `blarrg_cpu_instrs_05`() {
+        runTest("blarrg/cpu_instrs/05-op_rp.gb", 4_000)
+    }
+
+    @Test
+    fun `blarrg_cpu_instrs_06`() {
+        runTest("blarrg/cpu_instrs/06-ld_r,r.gb", 1_000)
+    }
+
+    @Test
+    fun `blarrg_cpu_instrs_07`() {
+        runTest("blarrg/cpu_instrs/07-jr,jp,call,ret,rst.gb", 1_000)
+    }
+
+    @Test
+    fun `blarrg_cpu_instrs_08`() {
+        runTest("blarrg/cpu_instrs/08-misc_instrs.gb", 1_000)
+    }
+
+    @Test
+    fun `blarrg_cpu_instrs_09`() {
+        runTest("blarrg/cpu_instrs/09-op_r,r.gb", 5_000)
+    }
+
+    @Test
+    fun `blarrg_cpu_instrs_10`() {
+        runTest("blarrg/cpu_instrs/10-bit_ops.gb", 5_000)
+    }
+
+    @Test
+    fun `blarrg_cpu_instrs_11`() {
+        runTest("blarrg/cpu_instrs/11-op_a,(hl).gb", 5_000)
+    }
+
+    @Test
     fun `blarrg_halt_bug`() {
         runTest("blarrg/halt_bug.gb", 2_000)
     }
