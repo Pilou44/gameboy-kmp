@@ -20,7 +20,11 @@ class Cpu(
 
         if (pending != 0) {
             // Wake from HALT regardless of IME
-            isHalted = false
+            if (isHalted) {
+                isHalted = false
+                if (!ime) return 4  // IME=false: just wake, execute next instruction on next step
+                // IME=true: fall through to service interrupt immediately
+            }
 
             if (ime) {
                 ime = false
@@ -96,9 +100,8 @@ class Cpu(
 
             0x76 -> {
                 val pending = bus.ie and bus.iF and 0x1F
-                if (!ime && pending != 0) {
-                    // Halt bug: don't halt, next fetch will read PC twice
-                    haltBug = true
+                if (pending != 0) {
+                    haltBug = true  // halt bug regardless of IME state
                 } else {
                     isHalted = true
                 }
