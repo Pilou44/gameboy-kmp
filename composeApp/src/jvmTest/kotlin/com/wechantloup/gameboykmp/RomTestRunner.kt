@@ -12,73 +12,54 @@ import kotlin.test.assertNotNull
 class RomTestRunner {
     @Test
     fun `acid-which`() {
-        val rom = ClassLoader
-            .getSystemResourceAsStream("roms/acid/which.gb")
-        val romBytes = requireNotNull(rom?.readBytes())
-
-        val viewModel = GameBoyViewModel()
-
-        viewModel.loadRom(romBytes, "which")
-
-        Thread.sleep(1_000)
-
-        val frameBuffer = viewModel.stateFlow.value.frameBuffer
-        assertNotNull(frameBuffer)
-
-        val palette = Palette.DOC_BOY_TEST
-        val imageBuffer = frameBuffer
-            .map {
-                palette.colors[it]
-            }
-            .toIntArray()
-
-        imageBuffer.toPng("build/test-results/which.png")
-
-        val reference = ImageIO
-            .read(
-                ClassLoader.getSystemResourceAsStream("references/acid/which.png")
-            )
-            .getRGB(0, 0, 160, 144, null, 0, 160)
-
-        assertContentEquals(reference, imageBuffer)
+        runTest("acid/which.gb", 200)
     }
 
     @Test
     fun `acid-dmg-acid2`() {
-        val rom = ClassLoader
-            .getSystemResourceAsStream("roms/acid/dmg-acid2.gb")
-        val romBytes = requireNotNull(rom?.readBytes())
-
-        val viewModel = GameBoyViewModel()
-
-        viewModel.loadRom(romBytes, "dmg-acid2")
-
-        Thread.sleep(1_000)
-
-        val frameBuffer = viewModel.stateFlow.value.frameBuffer
-        assertNotNull(frameBuffer)
-
-        val palette = Palette.DOC_BOY_TEST
-        val imageBuffer = frameBuffer
-            .map {
-                palette.colors[it]
-            }
-            .toIntArray()
-
-        imageBuffer.toPng("build/test-results/dmg-acid2-output.png")
-
-        val reference = ImageIO
-            .read(
-                ClassLoader.getSystemResourceAsStream("references/acid/dmg-acid2.png")
-            )
-            .getRGB(0, 0, 160, 144, null, 0, 160)
-
-        assertContentEquals(reference, imageBuffer)
+        runTest("acid/dmg-acid2.gb", 200)
     }
 }
 
-prvate fun runTest(romPath: String) {
+private fun runTest(romPath: String, duration: Long) {
+    val romName = romPath.substring(
+        romPath.lastIndexOf('/') + 1,
+        romPath.lastIndexOf('.'),
+    )
+    val pngPath = romPath.substring(
+        0,
+        romPath.lastIndexOf('.'),
+    ) + ".png"
 
+    val rom = ClassLoader
+        .getSystemResourceAsStream("roms/$romPath")
+    val romBytes = requireNotNull(rom?.readBytes())
+
+    val viewModel = GameBoyViewModel()
+
+    viewModel.loadRom(romBytes, romName)
+
+    Thread.sleep(duration)
+
+    val frameBuffer = viewModel.stateFlow.value.frameBuffer
+    assertNotNull(frameBuffer)
+
+    val palette = Palette.DOC_BOY_TEST
+    val imageBuffer = frameBuffer
+        .map {
+            palette.colors[it]
+        }
+        .toIntArray()
+
+    imageBuffer.toPng("build/test-results/$romName.png")
+
+    val reference = ImageIO
+        .read(
+            ClassLoader.getSystemResourceAsStream("references/$pngPath")
+        )
+        .getRGB(0, 0, 160, 144, null, 0, 160)
+
+    assertContentEquals(reference, imageBuffer)
 }
 
 private fun IntArray.toPng(outputPath: String) {
