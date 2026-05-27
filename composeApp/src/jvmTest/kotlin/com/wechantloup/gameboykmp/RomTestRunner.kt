@@ -1,5 +1,6 @@
 package com.wechantloup.gameboykmp
 
+import com.wechantloup.gameboykmp.logger.Logger
 import com.wechantloup.gameboykmp.ui.GameBoyViewModel
 import com.wechantloup.gameboykmp.ui.Palette
 import javax.imageio.ImageIO
@@ -19,6 +20,21 @@ class RomTestRunner {
     fun `acid-dmg-acid2`() {
         runTest("acid/dmg-acid2.gb", 200)
     }
+
+    @Test
+    fun `blarrg_halt_bug`() {
+        runTest("blarrg/halt_bug.gb", 2_000)
+    }
+
+    @Test
+    fun `blarrg_instr_timing`() {
+        runTest("blarrg/instr_timing.gb", 1_000)
+    }
+
+    @Test
+    fun `blarrg_interrupt_time`() {
+        runTest("blarrg/interrupt_time.gb", 1_000)
+    }
 }
 
 private fun runTest(romPath: String, duration: Long) {
@@ -30,6 +46,7 @@ private fun runTest(romPath: String, duration: Long) {
         0,
         romPath.lastIndexOf('.'),
     ) + ".png"
+    Logger.debug("TEST", pngPath)
 
     val rom = ClassLoader
         .getSystemResourceAsStream("roms/$romPath")
