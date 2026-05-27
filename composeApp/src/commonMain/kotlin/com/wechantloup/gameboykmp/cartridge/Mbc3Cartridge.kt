@@ -203,17 +203,20 @@ class Mbc3Cartridge(
             )
         }
 
+        val secondsThreshold = if (cartridgeSave.rawSeconds < 60) 60L else 64L
         var seconds = cartridgeSave.rawSeconds.toLong() + elapsedSeconds
-        val minuteCarry = seconds / 60
-        seconds %= 60
+        val minuteCarry = seconds / secondsThreshold
+        seconds %= secondsThreshold
 
+        val minutesThreshold = if (cartridgeSave.rawMinutes < 60) 60L else 64L
         var minutes = cartridgeSave.rawMinutes.toLong() + minuteCarry
-        val hourCarry = minutes / 60
-        minutes %= 60
+        val hourCarry = minutes / minutesThreshold
+        minutes %= minutesThreshold
 
+        val hoursThreshold = if (cartridgeSave.rawHours < 24) 24L else 32L
         var hours = cartridgeSave.rawHours.toLong() + hourCarry
-        val dayCarry = hours / 24
-        hours %= 24
+        val dayCarry = hours / hoursThreshold
+        hours %= hoursThreshold
 
         var days = cartridgeSave.rawDays.toLong() + dayCarry
         val newCarry = cartridgeSave.carry || days > 511
