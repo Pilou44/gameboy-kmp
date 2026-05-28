@@ -90,6 +90,36 @@ class RomTestRunner {
     fun `blarrg-interrupt_time`() {
         runTest("blarrg/interrupt_time.gb", 1_000)
     }
+
+    @Test
+    fun `blarrg-mem_timing-01-read_timing`() {
+        runTest("blarrg/mem_timing/01-read_timing.gb", 500)
+    }
+
+    @Test
+    fun `blarrg-mem_timing-02-write_timing`() {
+        runTest("blarrg/mem_timing/02-write_timing.gb", 500)
+    }
+
+    @Test
+    fun `blarrg-mem_timing-03-modify_timing`() {
+        runTest("blarrg/mem_timing/03-modify_timing.gb", 500)
+    }
+
+    @Test
+    fun `blarrg-mem_timing-2-01-read_timing`() {
+        runTest("blarrg/mem_timing-2/01-read_timing.gb", 500)
+    }
+
+    @Test
+    fun `blarrg-mem_timing-2-02-write_timing`() {
+        runTest("blarrg/mem_timing-2/02-write_timing.gb", 500)
+    }
+
+    @Test
+    fun `blarrg-mem_timing-2-03-modify_timing`() {
+        runTest("blarrg/mem_timing-2/03-modify_timing.gb", 500)
+    }
 }
 
 private fun runTest(romPath: String, duration: Long) {
