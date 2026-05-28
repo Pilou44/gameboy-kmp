@@ -120,6 +120,46 @@ class RomTestRunner {
     fun `blarrg-mem_timing-2-03-modify_timing`() {
         runTest("blarrg/mem_timing-2/03-modify_timing.gb", 500)
     }
+
+    @Test
+    fun `blarrg-oam_bug-1-lcd_sync`() {
+        runTest("blarrg/oam_bug/1-lcd_sync.gb", 1_000)
+    }
+
+    @Test
+    fun `blarrg-oam_bug-2-causes`() {
+        runTest("blarrg/oam_bug/2-causes.gb", 1_000)
+    }
+
+    @Test
+    fun `blarrg-oam_bug-3-non_causes`() {
+        runTest("blarrg/oam_bug/3-non_causes.gb", 2_000)
+    }
+
+    @Test
+    fun `blarrg-oam_bug-4-scanline_timing`() {
+        runTest("blarrg/oam_bug/4-scanline_timing.gb", 1_000)
+    }
+
+    @Test
+    fun `blarrg-oam_bug-5-timing_bug`() {
+        runTest("blarrg/oam_bug/5-timing_bug.gb", 1_000)
+    }
+
+    @Test
+    fun `blarrg-oam_bug-6-timing_no_bug`() {
+        runTest("blarrg/oam_bug/6-timing_no_bug.gb", 2_000)
+    }
+
+    @Test
+    fun `blarrg-oam_bug-7-timing_effect`() {
+        runTest("blarrg/oam_bug/7-timing_effect.gb", 7_000)
+    }
+
+    @Test
+    fun `blarrg-oam_bug-8-instr_effect`() {
+        runTest("blarrg/oam_bug/8-instr_effect.gb", 1_000)
+    }
 }
 
 private fun runTest(romPath: String, duration: Long) {
