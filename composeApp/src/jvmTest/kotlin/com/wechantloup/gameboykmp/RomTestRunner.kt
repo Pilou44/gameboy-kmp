@@ -178,12 +178,12 @@ class RomTestRunner {
 
     @Test
     fun `blarrg-dmg_sound-04-sweep`() {
-        runTest("blarrg/dmg_sound/04-sweep.gb", 1_000)
+        runTest("blarrg/dmg_sound/04-sweep.gb", 2_000)
     }
 
     @Test
     fun `blarrg-dmg_sound-05-sweep_details`() {
-        runTest("blarrg/dmg_sound/05-sweep_details.gb", 1_000)
+        runTest("blarrg/dmg_sound/05-sweep_details.gb", 2_000)
     }
 
     @Test
@@ -198,7 +198,7 @@ class RomTestRunner {
 
     @Test
     fun `blarrg-dmg_sound-08-len_ctr_during_power`() {
-        runTest("blarrg/dmg_sound/08-len_ctr_during_power.gb", 1_000)
+        runTest("blarrg/dmg_sound/08-len_ctr_during_power.gb", 2_000)
     }
 
     @Test
@@ -208,7 +208,7 @@ class RomTestRunner {
 
     @Test
     fun `blarrg-dmg_sound-10-wave_trigger_while_on`() {
-        runTest("blarrg/dmg_sound/10-wave_trigger_while_on.gb", 1_000)
+        runTest("blarrg/dmg_sound/10-wave_trigger_while_on.gb", 4_000)
     }
 
     @Test
@@ -217,8 +217,8 @@ class RomTestRunner {
     }
 
     @Test
-    fun `blarrg-12-wave_write_while_on`() {
-        runTest("blarrg/dmg_sound/12-wave_write_while_on.gb", 1_000)
+    fun `blarrg-dmg_sound-12-wave_write_while_on`() {
+        runTest("blarrg/dmg_sound/12-wave_write_while_on.gb", 4_000)
     }
 }
 
