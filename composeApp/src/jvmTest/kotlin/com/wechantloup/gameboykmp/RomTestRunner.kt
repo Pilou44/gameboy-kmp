@@ -160,6 +160,66 @@ class RomTestRunner {
     fun `blarrg-oam_bug-8-instr_effect`() {
         runTest("blarrg/oam_bug/8-instr_effect.gb", 1_000)
     }
+
+    @Test
+    fun `blarrg-dmg_sound-01-registers`() {
+        runTest("blarrg/dmg_sound/01-registers.gb", 1_000)
+    }
+
+    @Test
+    fun `blarrg-dmg_sound-02-len_ctr`() {
+        runTest("blarrg/dmg_sound/02-len_ctr.gb", 10_000)
+    }
+
+    @Test
+    fun `blarrg-dmg_sound-03-trigger`() {
+        runTest("blarrg/dmg_sound/03-trigger.gb", 17_000)
+    }
+
+    @Test
+    fun `blarrg-dmg_sound-04-sweep`() {
+        runTest("blarrg/dmg_sound/04-sweep.gb", 1_000)
+    }
+
+    @Test
+    fun `blarrg-dmg_sound-05-sweep_details`() {
+        runTest("blarrg/dmg_sound/05-sweep_details.gb", 1_000)
+    }
+
+    @Test
+    fun `blarrg-dmg_sound-06-overflow_on_trigger`() {
+        runTest("blarrg/dmg_sound/06-overflow_on_trigger.gb", 1_000)
+    }
+
+    @Test
+    fun `blarrg-dmg_sound-07-len_sweep_period_sync`() {
+        runTest("blarrg/dmg_sound/07-len_sweep_period_sync.gb", 1_000)
+    }
+
+    @Test
+    fun `blarrg-dmg_sound-08-len_ctr_during_power`() {
+        runTest("blarrg/dmg_sound/08-len_ctr_during_power.gb", 1_000)
+    }
+
+    @Test
+    fun `blarrg-dmg_sound-09-wave_read_while_on`() {
+        runTest("blarrg/dmg_sound/09-wave_read_while_on.gb", 1_000)
+    }
+
+    @Test
+    fun `blarrg-dmg_sound-10-wave_trigger_while_on`() {
+        runTest("blarrg/dmg_sound/10-wave_trigger_while_on.gb", 1_000)
+    }
+
+    @Test
+    fun `blarrg-dmg_sound-11-regs_after_power`() {
+        runTest("blarrg/dmg_sound/11-regs_after_power.gb", 1_000)
+    }
+
+    @Test
+    fun `blarrg-12-wave_write_while_on`() {
+        runTest("blarrg/dmg_sound/12-wave_write_while_on.gb", 1_000)
+    }
 }
 
 private fun runTest(romPath: String, duration: Long) {
