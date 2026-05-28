@@ -22,72 +22,72 @@ class RomTestRunner {
     }
 
     @Test
-    fun `blarrg_cpu_instrs_01`() {
+    fun `blarrg-cpu_instrs-01`() {
         runTest("blarrg/cpu_instrs/01-special.gb", 3_000)
     }
 
     @Test
-    fun `blarrg_cpu_instrs_02`() {
+    fun `blarrg-cpu_instrs-02`() {
         runTest("blarrg/cpu_instrs/02-interrupts.gb", 1_000)
     }
 
     @Test
-    fun `blarrg_cpu_instrs_03`() {
+    fun `blarrg-cpu_instrs-03`() {
         runTest("blarrg/cpu_instrs/03-op_sp,hl.gb", 3_000)
     }
 
     @Test
-    fun `blarrg_cpu_instrs_04`() {
+    fun `blarrg-cpu_instrs-04`() {
         runTest("blarrg/cpu_instrs/04-op_r,imm.gb", 3_000)
     }
 
     @Test
-    fun `blarrg_cpu_instrs_05`() {
+    fun `blarrg-cpu_instrs-05`() {
         runTest("blarrg/cpu_instrs/05-op_rp.gb", 4_000)
     }
 
     @Test
-    fun `blarrg_cpu_instrs_06`() {
+    fun `blarrg-cpu_instrs-06`() {
         runTest("blarrg/cpu_instrs/06-ld_r,r.gb", 1_000)
     }
 
     @Test
-    fun `blarrg_cpu_instrs_07`() {
+    fun `blarrg-cpu_instrs-07`() {
         runTest("blarrg/cpu_instrs/07-jr,jp,call,ret,rst.gb", 1_000)
     }
 
     @Test
-    fun `blarrg_cpu_instrs_08`() {
+    fun `blarrg-cpu_instrs-08`() {
         runTest("blarrg/cpu_instrs/08-misc_instrs.gb", 1_000)
     }
 
     @Test
-    fun `blarrg_cpu_instrs_09`() {
-        runTest("blarrg/cpu_instrs/09-op_r,r.gb", 5_000)
+    fun `blarrg-cpu_instrs-09`() {
+        runTest("blarrg/cpu_instrs/09-op_r,r.gb", 10_000)
     }
 
     @Test
-    fun `blarrg_cpu_instrs_10`() {
-        runTest("blarrg/cpu_instrs/10-bit_ops.gb", 5_000)
+    fun `blarrg-cpu_instrs-10`() {
+        runTest("blarrg/cpu_instrs/10-bit_ops.gb", 14_000)
     }
 
     @Test
-    fun `blarrg_cpu_instrs_11`() {
-        runTest("blarrg/cpu_instrs/11-op_a,(hl).gb", 5_000)
+    fun `blarrg-cpu_instrs-11`() {
+        runTest("blarrg/cpu_instrs/11-op_a,(hl).gb", 18_000)
     }
 
     @Test
-    fun `blarrg_halt_bug`() {
+    fun `blarrg-halt_bug`() {
         runTest("blarrg/halt_bug.gb", 2_000)
     }
 
     @Test
-    fun `blarrg_instr_timing`() {
+    fun `blarrg-instr_timing`() {
         runTest("blarrg/instr_timing.gb", 1_000)
     }
 
     @Test
-    fun `blarrg_interrupt_time`() {
+    fun `blarrg-interrupt_time`() {
         runTest("blarrg/interrupt_time.gb", 1_000)
     }
 }
