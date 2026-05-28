@@ -1,5 +1,7 @@
 package com.wechantloup.gameboykmp
 
+import com.wechantloup.gameboykmp.joypad.JoypadButton
+import com.wechantloup.gameboykmp.joypad.JoypadEvent
 import com.wechantloup.gameboykmp.logger.Logger
 import com.wechantloup.gameboykmp.ui.GameBoyViewModel
 import com.wechantloup.gameboykmp.ui.Palette
@@ -220,9 +222,59 @@ class RomTestRunner {
     fun `blarrg-dmg_sound-12-wave_write_while_on`() {
         runTest("blarrg/dmg_sound/12-wave_write_while_on.gb", 4_000)
     }
+
+    @Test
+    fun `ax6-rtc3test-basic_tests`() {
+        runTest(
+            romPath = "ax6/rtc3test.gb",
+            duration = 12_000,
+            commands = listOf(
+                JoypadEvent.Pressed(JoypadButton.A),
+                JoypadEvent.Released(JoypadButton.A),
+            ),
+            captureNameSuffix = "_basic_tests"
+        )
+    }
+
+    @Test
+    fun `ax6-rtc3test-range_tests`() {
+        runTest(
+            romPath = "ax6/rtc3test.gb",
+            duration = 8_000,
+            commands = listOf(
+                JoypadEvent.Pressed(JoypadButton.DOWN),
+                JoypadEvent.Released(JoypadButton.DOWN),
+                JoypadEvent.Pressed(JoypadButton.A),
+                JoypadEvent.Released(JoypadButton.A),
+            ),
+            captureNameSuffix = "_range_tests"
+        )
+    }
+
+    @Test
+    fun `ax6-rtc3test-sub-second_writes`() {
+        runTest(
+            romPath = "ax6/rtc3test.gb",
+            duration = 14_000,
+            commands = listOf(
+                JoypadEvent.Pressed(JoypadButton.DOWN),
+                JoypadEvent.Released(JoypadButton.DOWN),
+                JoypadEvent.Pressed(JoypadButton.DOWN),
+                JoypadEvent.Released(JoypadButton.DOWN),
+                JoypadEvent.Pressed(JoypadButton.A),
+                JoypadEvent.Released(JoypadButton.A),
+            ),
+            captureNameSuffix = "_sub-second_writes"
+        )
+    }
 }
 
-private fun runTest(romPath: String, duration: Long) {
+private fun runTest(
+    romPath: String,
+    duration: Long,
+    commands: List<JoypadEvent> = emptyList(),
+    captureNameSuffix: String = "",
+) {
     val romName = romPath.substring(
         romPath.lastIndexOf('/') + 1,
         romPath.lastIndexOf('.'),
@@ -241,6 +293,15 @@ private fun runTest(romPath: String, duration: Long) {
 
     viewModel.loadRom(romBytes, romName)
 
+    if (commands.isNotEmpty()) {
+        Thread.sleep(500)
+        val buttonChannel = viewModel.buttonChannel
+        commands.forEach { event ->
+            buttonChannel.trySend(event)
+            Thread.sleep(20)
+        }
+    }
+
     Thread.sleep(duration)
 
     val frameBuffer = viewModel.stateFlow.value.frameBuffer
@@ -253,7 +314,7 @@ private fun runTest(romPath: String, duration: Long) {
         }
         .toIntArray()
 
-    imageBuffer.toPng("build/test-results/$romName.png")
+    imageBuffer.toPng("build/test-results/$romName$captureNameSuffix.png")
 
     val reference = ImageIO
         .read(
