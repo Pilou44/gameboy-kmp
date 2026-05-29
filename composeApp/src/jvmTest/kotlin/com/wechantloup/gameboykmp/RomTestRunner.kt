@@ -276,7 +276,7 @@ class RomTestRunner {
     fun `ax6-rtc3test-basic_tests`() {
         runTest(
             romPath = "ax6/rtc3test.gb",
-            duration = 12_000,
+            duration = 13_000,
             commands = listOf(
                 JoypadEvent.Pressed(JoypadButton.A),
                 JoypadEvent.Released(JoypadButton.A),
@@ -290,7 +290,7 @@ class RomTestRunner {
     fun `ax6-rtc3test-range_tests`() {
         runTest(
             romPath = "ax6/rtc3test.gb",
-            duration = 8_000,
+            duration = 9_000,
             commands = listOf(
                 JoypadEvent.Pressed(JoypadButton.DOWN),
                 JoypadEvent.Released(JoypadButton.DOWN),
@@ -306,7 +306,7 @@ class RomTestRunner {
     fun `ax6-rtc3test-sub-second_writes`() {
         runTest(
             romPath = "ax6/rtc3test.gb",
-            duration = 15_000,
+            duration = 18_000,
             commands = listOf(
                 JoypadEvent.Pressed(JoypadButton.DOWN),
                 JoypadEvent.Released(JoypadButton.DOWN),
@@ -348,6 +348,7 @@ class RomTestRunner {
     fun `mooneye-acceptance-boot_div-dmgABCmgb`() {
         runTest("mooneye/acceptance/boot_div-dmgABCmgb.gb", 1_000)
     }
+
     @Test
     @Order(51)
     fun `mooneye-acceptance-boot_hwio-dmgABCmgb`() {
@@ -365,6 +366,7 @@ class RomTestRunner {
     fun `mooneye-acceptance-call_cc_timing`() {
         runTest("mooneye/acceptance/call_cc_timing.gb", 1_000)
     }
+
     @Test
     @Order(54)
     fun `mooneye-acceptance-call_cc_timing2`() {
@@ -478,6 +480,7 @@ class RomTestRunner {
     fun `mooneye-acceptance-oam_dma-basic`() {
         runTest("mooneye/acceptance/oam_dma/basic.gb", 1_000)
     }
+
     @Test
     @Order(73)
     fun `mooneye-acceptance-oam_dma-reg_read`() {
@@ -516,389 +519,386 @@ class RomTestRunner {
 
     @Test
     @Order(79)
+    fun `mooneye-acceptance-ppu-hblank_ly_scx_timing-GS`() {
+        runTest("mooneye/acceptance/ppu/hblank_ly_scx_timing-GS.gb", 1_000)
+    }
+
+    @Test
+    @Order(80)
+    fun `mooneye-acceptance-ppu-intr_1_2_timing-GS`() {
+        runTest("mooneye/acceptance/ppu/intr_1_2_timing-GS.gb", 1_000)
+    }
+
+    @Test
+    @Order(81)
+    fun `mooneye-acceptance-ppu-intr_2_0_timing`() {
+        runTest("mooneye/acceptance/ppu/intr_2_0_timing.gb", 1_000)
+    }
+
+    @Test
+    @Order(82)
+    fun `mooneye-acceptance-ppu-intr_2_mode0_timing`() {
+        runTest("mooneye/acceptance/ppu/intr_2_mode0_timing.gb", 1_000)
+    }
+
+    @Test
+    @Order(83)
+    fun `mooneye-acceptance-ppu-intr_2_mode0_timing_sprites`() {
+        runTest("mooneye/acceptance/ppu/intr_2_mode0_timing_sprites.gb", 1_000)
+    }
+
+    @Test
+    @Order(84)
+    fun `mooneye-acceptance-ppu-intr_2_mode3_timing`() {
+        runTest("mooneye/acceptance/ppu/intr_2_mode3_timing.gb", 1_000)
+    }
+
+    @Test
+    @Order(85)
+    fun `mooneye-acceptance-ppu-intr_2_oam_ok_timing`() {
+        runTest("mooneye/acceptance/ppu/intr_2_oam_ok_timing.gb", 1_000)
+    }
+
+    @Test
+    @Order(86)
+    fun `mooneye-acceptance-ppu-lcdon_timing-GS`() {
+        runTest("mooneye/acceptance/ppu/lcdon_timing-GS.gb", 1_000)
+    }
+
+    @Test
+    @Order(87)
+    fun `mooneye-acceptance-ppu-lcdon_write_timing-GS`() {
+        runTest("mooneye/acceptance/ppu/lcdon_write_timing-GS.gb", 1_000)
+    }
+
+    @Test
+    @Order(88)
+    fun `mooneye-acceptance-ppu-stat_irq_blocking`() {
+        runTest("mooneye/acceptance/ppu/stat_irq_blocking.gb", 1_000)
+    }
+
+    @Test
+    @Order(89)
+    fun `mooneye-acceptance-ppu-stat_lyc_onoff`() {
+        runTest("mooneye/acceptance/ppu/stat_lyc_onoff.gb", 1_000)
+    }
+
+    @Test
+    @Order(90)
+    fun `mooneye-acceptance-ppu-vblank_stat_intr-GS`() {
+        runTest("mooneye/acceptance/ppu/vblank_stat_intr-GS.gb", 1_000)
+    }
+
+    @Test
+    @Order(91)
     fun `mooneye-acceptance-push_timing`() {
         runTest("mooneye/acceptance/push_timing.gb", 1_000)
     }
 
     @Test
-    @Order(80)
+    @Order(92)
     fun `mooneye-acceptance-rapid_di_ei`() {
         runTest("mooneye/acceptance/rapid_di_ei.gb", 1_000)
     }
 
     @Test
-    @Order(81)
-    fun `mooneye-acceptance-ret_cc_timing`() {
-        runTest("mooneye/acceptance/ret_cc_timing.gb", 1_000)
-    }
-
-    @Test
-    @Order(82)
-    fun `mooneye-acceptance-ret_timing`() {
-        runTest("mooneye/acceptance/ret_timing.gb", 1_000)
-    }
-
-    @Test
-    @Order(83)
+    @Order(93)
     fun `mooneye-acceptance-reti_intr_timing`() {
         runTest("mooneye/acceptance/reti_intr_timing.gb", 1_000)
     }
 
     @Test
-    @Order(84)
+    @Order(94)
     fun `mooneye-acceptance-reti_timing`() {
         runTest("mooneye/acceptance/reti_timing.gb", 1_000)
     }
 
     @Test
-    @Order(85)
+    @Order(95)
+    fun `mooneye-acceptance-ret_cc_timing`() {
+        runTest("mooneye/acceptance/ret_cc_timing.gb", 1_000)
+    }
+
+    @Test
+    @Order(96)
+    fun `mooneye-acceptance-ret_timing`() {
+        runTest("mooneye/acceptance/ret_timing.gb", 1_000)
+    }
+
+    @Test
+    @Order(97)
     fun `mooneye-acceptance-rst_timing`() {
         runTest("mooneye/acceptance/rst_timing.gb", 1_000)
     }
 
     @Test
-    @Order(86)
+    @Order(98)
     fun `mooneye-acceptance-serial-boot_sclk_align-dmgABCmgb`() {
         runTest("mooneye/acceptance/serial/boot_sclk_align-dmgABCmgb.gb", 1_000)
     }
 
     @Test
-    @Order(87)
+    @Order(99)
     fun `mooneye-acceptance-timer-div_write`() {
         runTest("mooneye/acceptance/timer/div_write.gb", 1_000)
     }
 
     @Test
-    @Order(88)
+    @Order(100)
     fun `mooneye-acceptance-timer-rapid_toggle`() {
         runTest("mooneye/acceptance/timer/rapid_toggle.gb", 1_000)
     }
 
     @Test
-    @Order(89)
+    @Order(101)
     fun `mooneye-acceptance-timer-tim00`() {
         runTest("mooneye/acceptance/timer/tim00.gb", 1_000)
     }
 
     @Test
-    @Order(90)
+    @Order(102)
     fun `mooneye-acceptance-timer-tim00_div_trigger`() {
         runTest("mooneye/acceptance/timer/tim00_div_trigger.gb", 1_000)
     }
 
     @Test
-    @Order(91)
+    @Order(103)
     fun `mooneye-acceptance-timer-tim01`() {
         runTest("mooneye/acceptance/timer/tim01.gb", 1_000)
     }
 
     @Test
-    @Order(92)
+    @Order(104)
     fun `mooneye-acceptance-timer-tim01_div_trigger`() {
         runTest("mooneye/acceptance/timer/tim01_div_trigger.gb", 1_000)
     }
 
     @Test
-    @Order(93)
+    @Order(105)
     fun `mooneye-acceptance-timer-tim10`() {
         runTest("mooneye/acceptance/timer/tim10.gb", 1_000)
     }
 
     @Test
-    @Order(94)
+    @Order(106)
     fun `mooneye-acceptance-timer-tim10_div_trigger`() {
         runTest("mooneye/acceptance/timer/tim10_div_trigger.gb", 1_000)
     }
 
     @Test
-    @Order(95)
+    @Order(107)
     fun `mooneye-acceptance-timer-tim11`() {
         runTest("mooneye/acceptance/timer/tim11.gb", 1_000)
     }
 
     @Test
-    @Order(96)
+    @Order(108)
     fun `mooneye-acceptance-timer-tim11_div_trigger`() {
         runTest("mooneye/acceptance/timer/tim11_div_trigger.gb", 1_000)
     }
 
     @Test
-    @Order(97)
+    @Order(109)
     fun `mooneye-acceptance-timer-tima_reload`() {
         runTest("mooneye/acceptance/timer/tima_reload.gb", 1_000)
     }
 
     @Test
-    @Order(98)
+    @Order(110)
     fun `mooneye-acceptance-timer-tima_write_reloading`() {
         runTest("mooneye/acceptance/timer/tima_write_reloading.gb", 1_000)
     }
 
     @Test
-    @Order(99)
+    @Order(111)
     fun `mooneye-acceptance-timer-tma_write_reloading`() {
         runTest("mooneye/acceptance/timer/tma_write_reloading.gb", 1_000)
     }
 
     @Test
-    @Order(100)
-    fun `mooneye-acceptance-unused_hwio-C`() {
-        runTest("mooneye/acceptance/unused_hwio-C.gb", 1_000)
-    }
-
-    @Test
-    @Order(101)
+    @Order(112)
     fun `mooneye-emulator-only-mbc1-bits_bank1`() {
-        runTest("mooneye/emulator-only/mbc1/bits_bank1.gb", 1_000)
+        runTest("mooneye/emulator-only/mbc1/bits_bank1.gb", 2_000)
     }
 
     @Test
-    @Order(102)
+    @Order(113)
     fun `mooneye-emulator-only-mbc1-bits_bank2`() {
-        runTest("mooneye/emulator-only/mbc1/bits_bank2.gb", 1_000)
+        runTest("mooneye/emulator-only/mbc1/bits_bank2.gb", 2_000)
     }
 
     @Test
-    @Order(103)
+    @Order(114)
     fun `mooneye-emulator-only-mbc1-bits_mode`() {
-        runTest("mooneye/emulator-only/mbc1/bits_mode.gb", 1_000)
+        runTest("mooneye/emulator-only/mbc1/bits_mode.gb", 2_000)
     }
 
     @Test
-    @Order(104)
+    @Order(115)
     fun `mooneye-emulator-only-mbc1-bits_ramg`() {
-        runTest("mooneye/emulator-only/mbc1/bits_ramg.gb", 1_000)
+        runTest("mooneye/emulator-only/mbc1/bits_ramg.gb", 2_000)
     }
 
     @Test
-    @Order(105)
+    @Order(116)
     fun `mooneye-emulator-only-mbc1-multicart_rom_8Mb`() {
         runTest("mooneye/emulator-only/mbc1/multicart_rom_8Mb.gb", 1_000)
     }
 
     @Test
-    @Order(106)
-    fun `mooneye-emulator-only-mbc1-ram_64Kb`() {
-        runTest("mooneye/emulator-only/mbc1/ram_64Kb.gb", 1_000)
+    @Order(117)
+    fun `mooneye-emulator-only-mbc1-ram_256kb`() {
+        runTest("mooneye/emulator-only/mbc1/ram_256kb.gb", 1_000)
     }
 
     @Test
-    @Order(107)
-    fun `mooneye-emulator-only-mbc1-ram_256Kb`() {
-        runTest("mooneye/emulator-only/mbc1/ram_256Kb.gb", 1_000)
+    @Order(118)
+    fun `mooneye-emulator-only-mbc1-ram_64kb`() {
+        runTest("mooneye/emulator-only/mbc1/ram_64kb.gb", 1_000)
     }
 
     @Test
-    @Order(108)
+    @Order(119)
     fun `mooneye-emulator-only-mbc1-rom_16Mb`() {
         runTest("mooneye/emulator-only/mbc1/rom_16Mb.gb", 1_000)
     }
 
     @Test
-    @Order(109)
+    @Order(120)
     fun `mooneye-emulator-only-mbc1-rom_1Mb`() {
         runTest("mooneye/emulator-only/mbc1/rom_1Mb.gb", 1_000)
     }
 
     @Test
-    @Order(110)
+    @Order(121)
     fun `mooneye-emulator-only-mbc1-rom_2Mb`() {
         runTest("mooneye/emulator-only/mbc1/rom_2Mb.gb", 1_000)
     }
 
     @Test
-    @Order(111)
+    @Order(122)
     fun `mooneye-emulator-only-mbc1-rom_4Mb`() {
         runTest("mooneye/emulator-only/mbc1/rom_4Mb.gb", 1_000)
     }
 
     @Test
-    @Order(112)
-    fun `mooneye-emulator-only-mbc1-rom_512Kb`() {
-        runTest("mooneye/emulator-only/mbc1/rom_512Kb.gb", 1_000)
+    @Order(123)
+    fun `mooneye-emulator-only-mbc1-rom_512kb`() {
+        runTest("mooneye/emulator-only/mbc1/rom_512kb.gb", 1_000)
     }
 
     @Test
-    @Order(113)
+    @Order(124)
+    fun `mooneye-emulator-only-mbc1-rom_8Mb`() {
+        runTest("mooneye/emulator-only/mbc1/rom_8Mb.gb", 1_000)
+    }
+
+    @Test
+    @Order(125)
     fun `mooneye-emulator-only-mbc2-bits_ramg`() {
         runTest("mooneye/emulator-only/mbc2/bits_ramg.gb", 1_000)
     }
 
     @Test
-    @Order(114)
+    @Order(126)
     fun `mooneye-emulator-only-mbc2-bits_romb`() {
         runTest("mooneye/emulator-only/mbc2/bits_romb.gb", 1_000)
     }
 
     @Test
-    @Order(115)
+    @Order(127)
     fun `mooneye-emulator-only-mbc2-bits_unused`() {
         runTest("mooneye/emulator-only/mbc2/bits_unused.gb", 1_000)
     }
 
     @Test
-    @Order(116)
+    @Order(128)
     fun `mooneye-emulator-only-mbc2-ram`() {
         runTest("mooneye/emulator-only/mbc2/ram.gb", 1_000)
     }
 
     @Test
-    @Order(117)
+    @Order(129)
     fun `mooneye-emulator-only-mbc2-rom_1Mb`() {
         runTest("mooneye/emulator-only/mbc2/rom_1Mb.gb", 1_000)
     }
 
     @Test
-    @Order(118)
+    @Order(130)
+    fun `mooneye-emulator-only-mbc2-rom_2Mb`() {
+        runTest("mooneye/emulator-only/mbc2/rom_2Mb.gb", 1_000)
+    }
+
+    @Test
+    @Order(131)
+    fun `mooneye-emulator-only-mbc2-rom_512kb`() {
+        runTest("mooneye/emulator-only/mbc2/rom_512kb.gb", 1_000)
+    }
+
+    @Test
+    @Order(132)
     fun `mooneye-emulator-only-mbc5-rom_16Mb`() {
         runTest("mooneye/emulator-only/mbc5/rom_16Mb.gb", 1_000)
     }
 
     @Test
-    @Order(119)
+    @Order(133)
     fun `mooneye-emulator-only-mbc5-rom_1Mb`() {
         runTest("mooneye/emulator-only/mbc5/rom_1Mb.gb", 1_000)
     }
 
     @Test
-    @Order(120)
+    @Order(134)
     fun `mooneye-emulator-only-mbc5-rom_2Mb`() {
         runTest("mooneye/emulator-only/mbc5/rom_2Mb.gb", 1_000)
     }
 
     @Test
-    @Order(121)
+    @Order(135)
     fun `mooneye-emulator-only-mbc5-rom_32Mb`() {
         runTest("mooneye/emulator-only/mbc5/rom_32Mb.gb", 1_000)
     }
 
     @Test
-    @Order(122)
+    @Order(136)
     fun `mooneye-emulator-only-mbc5-rom_4Mb`() {
         runTest("mooneye/emulator-only/mbc5/rom_4Mb.gb", 1_000)
     }
 
     @Test
-    @Order(123)
-    fun `mooneye-emulator-only-mbc5-rom_512Kb`() {
-        runTest("mooneye/emulator-only/mbc5/rom_512Kb.gb", 1_000)
+    @Order(137)
+    fun `mooneye-emulator-only-mbc5-rom_512kb`() {
+        runTest("mooneye/emulator-only/mbc5/rom_512kb.gb", 1_000)
     }
 
     @Test
-    @Order(124)
+    @Order(138)
     fun `mooneye-emulator-only-mbc5-rom_64Mb`() {
         runTest("mooneye/emulator-only/mbc5/rom_64Mb.gb", 1_000)
     }
 
     @Test
-    @Order(125)
+    @Order(139)
     fun `mooneye-emulator-only-mbc5-rom_8Mb`() {
         runTest("mooneye/emulator-only/mbc5/rom_8Mb.gb", 1_000)
     }
 
     @Test
-    @Order(126)
-    fun `mooneye-misc-boot_hwio-C`() {
-        runTest("mooneye/misc/boot_hwio-C.gb", 1_000)
-    }
-
-    @Test
-    @Order(127)
-    fun `mooneye-misc-boot_regs-A`() {
-        runTest("mooneye/misc/boot_regs-A.gb", 1_000)
-    }
-
-    @Test
-    @Order(128)
-    fun `mooneye-misc-boot_regs-cgb`() {
-        runTest("mooneye/misc/boot_regs-cgb.gb", 1_000)
-    }
-
-    @Test
-    @Order(129)
-    fun `mooneye-misc-boot_regs-dmgABCX`() {
-        runTest("mooneye/misc/boot_regs-dmgABCX.gb", 1_000)
-    }
-
-    @Test
-    @Order(130)
-    fun `mooneye-misc-bits-unused_hwio-C`() {
-        runTest("mooneye/misc/bits/unused_hwio-C.gb", 1_000)
-    }
-
-    @Test
-    @Order(131)
-    fun `mooneye-misc-ppu-blocking_bgpi_increase`() {
-        runTest("mooneye/misc/ppu/blocking_bgpi_increase.gb", 1_000)
-    }
-
-    @Test
-    @Order(132)
-    fun `mooneye-misc-ppu-hblank_ly_scx_timing-GS`() {
-        runTest("mooneye/misc/ppu/hblank_ly_scx_timing-GS.gb", 1_000)
-    }
-
-    @Test
-    @Order(133)
-    fun `mooneye-misc-ppu-intr_1_2_timing-GS`() {
-        runTest("mooneye/misc/ppu/intr_1_2_timing-GS.gb", 1_000)
-    }
-
-    @Test
-    @Order(134)
-    fun `mooneye-misc-ppu-intr_2_0_timing`() {
-        runTest("mooneye/misc/ppu/intr_2_0_timing.gb", 1_000)
-    }
-    @Test
-    @Order(135)
-    fun `mooneye-misc-ppu-intr_2_mode0_timing`() {
-        runTest("mooneye/misc/ppu/intr_2_mode0_timing.gb", 1_000)
-    }
-    @Test
-    @Order(136)
-    fun `mooneye-misc-ppu-intr_2_mode3_timing`() {
-        runTest("mooneye/misc/ppu/intr_2_mode3_timing.gb", 1_000)
-    }
-
-    @Test
-    @Order(137)
-    fun `mooneye-misc-ppu-intr_2_oam_ok_timing`() {
-        runTest("mooneye/misc/ppu/intr_2_oam_ok_timing.gb", 1_000)
-    }
-
-    @Test
-    @Order(138)
-    fun `mooneye-misc-ppu-lcdon_timing-GS`() {
-        runTest("mooneye/misc/ppu/lcdon_timing-GS.gb", 1_000)
-    }
-    @Test
-    @Order(139)
-    fun `mooneye-misc-ppu-lcdon_write_timing-GS`() {
-        runTest("mooneye/misc/ppu/lcdon_write_timing-GS.gb", 1_000)
-    }
-
-    @Test
     @Order(140)
-    fun `mooneye-misc-ppu-stat_irq_blocking`() {
-        runTest("mooneye/misc/ppu/stat_irq_blocking.gb", 1_000)
+    fun `mooneye-manual-only-sprite_priority`() {
+        runTest("mooneye/manual-only/sprite_priority.gb", 1_000)
     }
 
     @Test
     @Order(141)
-    fun `mooneye-misc-ppu-stat_lyc_onoff`() {
-        runTest("mooneye/misc/ppu/stat_lyc_onoff.gb", 1_000)
+    fun `mooneye-misc-boot_div-cgbABCDE`() {
+        runTest("mooneye/misc/boot_div-cgbABCDE.gb", 1_000)
     }
 
     @Test
     @Order(142)
-    fun `mooneye-misc-ppu-vblank_stat_intr-GS`() {
-        runTest("mooneye/misc/ppu/vblank_stat_intr-GS.gb", 1_000)
-    }
-
-    @Test
-    @Order(143)
-    fun `mooneye-utils-dump_boot_hwio`() {
-        runTest("mooneye/utils/dump_boot_hwio.gb", 1_000)
+    fun `mooneye-misc-boot_regs-cgb`() {
+        runTest("mooneye/misc/boot_regs-cgb.gb", 1_000)
     }
 
     companion object {
@@ -1007,9 +1007,9 @@ class RomTestRunner {
                     }
             } catch (e: Exception) {
                 resultFile.appendText("""
-                <tr><th class='test'>$romName</th>
+                <tr><th class='test'>$romPath</th>
                   <td class='INFO'>No reference</td>
-                  <td class='FAIL'>FAIL<br>Unknown error</td>
+                  <td class='FAIL'>FAIL<br>${e.message}</td>
                 </tr>
                 """.trimIndent())
                 fail("Unknown error", e)
