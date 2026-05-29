@@ -319,6 +319,588 @@ class RomTestRunner {
         )
     }
 
+    @Test
+    @Order(46)
+    fun `mooneye-acceptance-add_sp_e_timing`() {
+        runTest("mooneye/acceptance/add_sp_e_timing.gb", 1_000)
+    }
+
+    @Test
+    @Order(47)
+    fun `mooneye-acceptance-bits-mem_oam`() {
+        runTest("mooneye/acceptance/bits/mem_oam.gb", 1_000)
+    }
+
+    @Test
+    @Order(48)
+    fun `mooneye-acceptance-bits-reg_f`() {
+        runTest("mooneye/acceptance/bits/reg_f.gb", 1_000)
+    }
+
+    @Test
+    @Order(49)
+    fun `mooneye-acceptance-bits-unused_hwio-GS`() {
+        runTest("mooneye/acceptance/bits/unused_hwio-GS.gb", 1_000)
+    }
+
+    @Test
+    @Order(50)
+    fun `mooneye-acceptance-boot_div-dmgABCmgb`() {
+        runTest("mooneye/acceptance/boot_div-dmgABCmgb.gb", 1_000)
+    }
+    @Test
+    @Order(51)
+    fun `mooneye-acceptance-boot_hwio-dmgABCmgb`() {
+        runTest("mooneye/acceptance/boot_hwio-dmgABCmgb.gb", 1_000)
+    }
+
+    @Test
+    @Order(52)
+    fun `mooneye-acceptance-boot_regs-dmgABC`() {
+        runTest("mooneye/acceptance/boot_regs-dmgABC.gb", 1_000)
+    }
+
+    @Test
+    @Order(53)
+    fun `mooneye-acceptance-call_cc_timing`() {
+        runTest("mooneye/acceptance/call_cc_timing.gb", 1_000)
+    }
+    @Test
+    @Order(54)
+    fun `mooneye-acceptance-call_cc_timing2`() {
+        runTest("mooneye/acceptance/call_cc_timing2.gb", 1_000)
+    }
+
+    @Test
+    @Order(55)
+    fun `mooneye-acceptance-call_timing`() {
+        runTest("mooneye/acceptance/call_timing.gb", 1_000)
+    }
+
+    @Test
+    @Order(56)
+    fun `mooneye-acceptance-call_timing2`() {
+        runTest("mooneye/acceptance/call_timing2.gb", 1_000)
+    }
+
+    @Test
+    @Order(57)
+    fun `mooneye-acceptance-div_timing`() {
+        runTest("mooneye/acceptance/div_timing.gb", 1_000)
+    }
+
+    @Test
+    @Order(58)
+    fun `mooneye-acceptance-di_timing-GS`() {
+        runTest("mooneye/acceptance/di_timing-GS.gb", 1_000)
+    }
+
+    @Test
+    @Order(59)
+    fun `mooneye-acceptance-ei_sequence`() {
+        runTest("mooneye/acceptance/ei_sequence.gb", 1_000)
+    }
+
+    @Test
+    @Order(60)
+    fun `mooneye-acceptance-ei_timing`() {
+        runTest("mooneye/acceptance/ei_timing.gb", 1_000)
+    }
+
+    @Test
+    @Order(61)
+    fun `mooneye-acceptance-halt_ime0_ei`() {
+        runTest("mooneye/acceptance/halt_ime0_ei.gb", 1_000)
+    }
+
+    @Test
+    @Order(62)
+    fun `mooneye-acceptance-halt_ime0_nointr_timing`() {
+        runTest("mooneye/acceptance/halt_ime0_nointr_timing.gb", 1_000)
+    }
+
+    @Test
+    @Order(63)
+    fun `mooneye-acceptance-halt_ime1_timing`() {
+        runTest("mooneye/acceptance/halt_ime1_timing.gb", 1_000)
+    }
+
+    @Test
+    @Order(64)
+    fun `mooneye-acceptance-halt_ime1_timing2-GS`() {
+        runTest("mooneye/acceptance/halt_ime1_timing2-GS.gb", 1_000)
+    }
+
+    @Test
+    @Order(65)
+    fun `mooneye-acceptance-if_ie_registers`() {
+        runTest("mooneye/acceptance/if_ie_registers.gb", 1_000)
+    }
+
+    @Test
+    @Order(66)
+    fun `mooneye-acceptance-instr-daa`() {
+        runTest("mooneye/acceptance/instr/daa.gb", 1_000)
+    }
+
+    @Test
+    @Order(67)
+    fun `mooneye-acceptance-interrupts-ie_push`() {
+        runTest("mooneye/acceptance/interrupts/ie_push.gb", 1_000)
+    }
+
+    @Test
+    @Order(68)
+    fun `mooneye-acceptance-intr_timing`() {
+        runTest("mooneye/acceptance/intr_timing.gb", 1_000)
+    }
+
+    @Test
+    @Order(69)
+    fun `mooneye-acceptance-jp_cc_timing`() {
+        runTest("mooneye/acceptance/jp_cc_timing.gb", 1_000)
+    }
+
+    @Test
+    @Order(70)
+    fun `mooneye-acceptance-jp_timing`() {
+        runTest("mooneye/acceptance/jp_timing.gb", 1_000)
+    }
+
+    @Test
+    @Order(71)
+    fun `mooneye-acceptance-ld_hl_sp_e_timing`() {
+        runTest("mooneye/acceptance/ld_hl_sp_e_timing.gb", 1_000)
+    }
+
+    @Test
+    @Order(72)
+    fun `mooneye-acceptance-oam_dma-basic`() {
+        runTest("mooneye/acceptance/oam_dma/basic.gb", 1_000)
+    }
+    @Test
+    @Order(73)
+    fun `mooneye-acceptance-oam_dma-reg_read`() {
+        runTest("mooneye/acceptance/oam_dma/reg_read.gb", 1_000)
+    }
+
+    @Test
+    @Order(74)
+    fun `mooneye-acceptance-oam_dma-sources-GS`() {
+        runTest("mooneye/acceptance/oam_dma/sources-GS.gb", 1_000)
+    }
+
+    @Test
+    @Order(75)
+    fun `mooneye-acceptance-oam_dma_restart`() {
+        runTest("mooneye/acceptance/oam_dma_restart.gb", 1_000)
+    }
+
+    @Test
+    @Order(76)
+    fun `mooneye-acceptance-oam_dma_start`() {
+        runTest("mooneye/acceptance/oam_dma_start.gb", 1_000)
+    }
+
+    @Test
+    @Order(77)
+    fun `mooneye-acceptance-oam_dma_timing`() {
+        runTest("mooneye/acceptance/oam_dma_timing.gb", 1_000)
+    }
+
+    @Test
+    @Order(78)
+    fun `mooneye-acceptance-pop_timing`() {
+        runTest("mooneye/acceptance/pop_timing.gb", 1_000)
+    }
+
+    @Test
+    @Order(79)
+    fun `mooneye-acceptance-push_timing`() {
+        runTest("mooneye/acceptance/push_timing.gb", 1_000)
+    }
+
+    @Test
+    @Order(80)
+    fun `mooneye-acceptance-rapid_di_ei`() {
+        runTest("mooneye/acceptance/rapid_di_ei.gb", 1_000)
+    }
+
+    @Test
+    @Order(81)
+    fun `mooneye-acceptance-ret_cc_timing`() {
+        runTest("mooneye/acceptance/ret_cc_timing.gb", 1_000)
+    }
+
+    @Test
+    @Order(82)
+    fun `mooneye-acceptance-ret_timing`() {
+        runTest("mooneye/acceptance/ret_timing.gb", 1_000)
+    }
+
+    @Test
+    @Order(83)
+    fun `mooneye-acceptance-reti_intr_timing`() {
+        runTest("mooneye/acceptance/reti_intr_timing.gb", 1_000)
+    }
+
+    @Test
+    @Order(84)
+    fun `mooneye-acceptance-reti_timing`() {
+        runTest("mooneye/acceptance/reti_timing.gb", 1_000)
+    }
+
+    @Test
+    @Order(85)
+    fun `mooneye-acceptance-rst_timing`() {
+        runTest("mooneye/acceptance/rst_timing.gb", 1_000)
+    }
+
+    @Test
+    @Order(86)
+    fun `mooneye-acceptance-serial-boot_sclk_align-dmgABCmgb`() {
+        runTest("mooneye/acceptance/serial/boot_sclk_align-dmgABCmgb.gb", 1_000)
+    }
+
+    @Test
+    @Order(87)
+    fun `mooneye-acceptance-timer-div_write`() {
+        runTest("mooneye/acceptance/timer/div_write.gb", 1_000)
+    }
+
+    @Test
+    @Order(88)
+    fun `mooneye-acceptance-timer-rapid_toggle`() {
+        runTest("mooneye/acceptance/timer/rapid_toggle.gb", 1_000)
+    }
+
+    @Test
+    @Order(89)
+    fun `mooneye-acceptance-timer-tim00`() {
+        runTest("mooneye/acceptance/timer/tim00.gb", 1_000)
+    }
+
+    @Test
+    @Order(90)
+    fun `mooneye-acceptance-timer-tim00_div_trigger`() {
+        runTest("mooneye/acceptance/timer/tim00_div_trigger.gb", 1_000)
+    }
+
+    @Test
+    @Order(91)
+    fun `mooneye-acceptance-timer-tim01`() {
+        runTest("mooneye/acceptance/timer/tim01.gb", 1_000)
+    }
+
+    @Test
+    @Order(92)
+    fun `mooneye-acceptance-timer-tim01_div_trigger`() {
+        runTest("mooneye/acceptance/timer/tim01_div_trigger.gb", 1_000)
+    }
+
+    @Test
+    @Order(93)
+    fun `mooneye-acceptance-timer-tim10`() {
+        runTest("mooneye/acceptance/timer/tim10.gb", 1_000)
+    }
+
+    @Test
+    @Order(94)
+    fun `mooneye-acceptance-timer-tim10_div_trigger`() {
+        runTest("mooneye/acceptance/timer/tim10_div_trigger.gb", 1_000)
+    }
+
+    @Test
+    @Order(95)
+    fun `mooneye-acceptance-timer-tim11`() {
+        runTest("mooneye/acceptance/timer/tim11.gb", 1_000)
+    }
+
+    @Test
+    @Order(96)
+    fun `mooneye-acceptance-timer-tim11_div_trigger`() {
+        runTest("mooneye/acceptance/timer/tim11_div_trigger.gb", 1_000)
+    }
+
+    @Test
+    @Order(97)
+    fun `mooneye-acceptance-timer-tima_reload`() {
+        runTest("mooneye/acceptance/timer/tima_reload.gb", 1_000)
+    }
+
+    @Test
+    @Order(98)
+    fun `mooneye-acceptance-timer-tima_write_reloading`() {
+        runTest("mooneye/acceptance/timer/tima_write_reloading.gb", 1_000)
+    }
+
+    @Test
+    @Order(99)
+    fun `mooneye-acceptance-timer-tma_write_reloading`() {
+        runTest("mooneye/acceptance/timer/tma_write_reloading.gb", 1_000)
+    }
+
+    @Test
+    @Order(100)
+    fun `mooneye-acceptance-unused_hwio-C`() {
+        runTest("mooneye/acceptance/unused_hwio-C.gb", 1_000)
+    }
+
+    @Test
+    @Order(101)
+    fun `mooneye-emulator-only-mbc1-bits_bank1`() {
+        runTest("mooneye/emulator-only/mbc1/bits_bank1.gb", 1_000)
+    }
+
+    @Test
+    @Order(102)
+    fun `mooneye-emulator-only-mbc1-bits_bank2`() {
+        runTest("mooneye/emulator-only/mbc1/bits_bank2.gb", 1_000)
+    }
+
+    @Test
+    @Order(103)
+    fun `mooneye-emulator-only-mbc1-bits_mode`() {
+        runTest("mooneye/emulator-only/mbc1/bits_mode.gb", 1_000)
+    }
+
+    @Test
+    @Order(104)
+    fun `mooneye-emulator-only-mbc1-bits_ramg`() {
+        runTest("mooneye/emulator-only/mbc1/bits_ramg.gb", 1_000)
+    }
+
+    @Test
+    @Order(105)
+    fun `mooneye-emulator-only-mbc1-multicart_rom_8Mb`() {
+        runTest("mooneye/emulator-only/mbc1/multicart_rom_8Mb.gb", 1_000)
+    }
+
+    @Test
+    @Order(106)
+    fun `mooneye-emulator-only-mbc1-ram_64Kb`() {
+        runTest("mooneye/emulator-only/mbc1/ram_64Kb.gb", 1_000)
+    }
+
+    @Test
+    @Order(107)
+    fun `mooneye-emulator-only-mbc1-ram_256Kb`() {
+        runTest("mooneye/emulator-only/mbc1/ram_256Kb.gb", 1_000)
+    }
+
+    @Test
+    @Order(108)
+    fun `mooneye-emulator-only-mbc1-rom_16Mb`() {
+        runTest("mooneye/emulator-only/mbc1/rom_16Mb.gb", 1_000)
+    }
+
+    @Test
+    @Order(109)
+    fun `mooneye-emulator-only-mbc1-rom_1Mb`() {
+        runTest("mooneye/emulator-only/mbc1/rom_1Mb.gb", 1_000)
+    }
+
+    @Test
+    @Order(110)
+    fun `mooneye-emulator-only-mbc1-rom_2Mb`() {
+        runTest("mooneye/emulator-only/mbc1/rom_2Mb.gb", 1_000)
+    }
+
+    @Test
+    @Order(111)
+    fun `mooneye-emulator-only-mbc1-rom_4Mb`() {
+        runTest("mooneye/emulator-only/mbc1/rom_4Mb.gb", 1_000)
+    }
+
+    @Test
+    @Order(112)
+    fun `mooneye-emulator-only-mbc1-rom_512Kb`() {
+        runTest("mooneye/emulator-only/mbc1/rom_512Kb.gb", 1_000)
+    }
+
+    @Test
+    @Order(113)
+    fun `mooneye-emulator-only-mbc2-bits_ramg`() {
+        runTest("mooneye/emulator-only/mbc2/bits_ramg.gb", 1_000)
+    }
+
+    @Test
+    @Order(114)
+    fun `mooneye-emulator-only-mbc2-bits_romb`() {
+        runTest("mooneye/emulator-only/mbc2/bits_romb.gb", 1_000)
+    }
+
+    @Test
+    @Order(115)
+    fun `mooneye-emulator-only-mbc2-bits_unused`() {
+        runTest("mooneye/emulator-only/mbc2/bits_unused.gb", 1_000)
+    }
+
+    @Test
+    @Order(116)
+    fun `mooneye-emulator-only-mbc2-ram`() {
+        runTest("mooneye/emulator-only/mbc2/ram.gb", 1_000)
+    }
+
+    @Test
+    @Order(117)
+    fun `mooneye-emulator-only-mbc2-rom_1Mb`() {
+        runTest("mooneye/emulator-only/mbc2/rom_1Mb.gb", 1_000)
+    }
+
+    @Test
+    @Order(118)
+    fun `mooneye-emulator-only-mbc5-rom_16Mb`() {
+        runTest("mooneye/emulator-only/mbc5/rom_16Mb.gb", 1_000)
+    }
+
+    @Test
+    @Order(119)
+    fun `mooneye-emulator-only-mbc5-rom_1Mb`() {
+        runTest("mooneye/emulator-only/mbc5/rom_1Mb.gb", 1_000)
+    }
+
+    @Test
+    @Order(120)
+    fun `mooneye-emulator-only-mbc5-rom_2Mb`() {
+        runTest("mooneye/emulator-only/mbc5/rom_2Mb.gb", 1_000)
+    }
+
+    @Test
+    @Order(121)
+    fun `mooneye-emulator-only-mbc5-rom_32Mb`() {
+        runTest("mooneye/emulator-only/mbc5/rom_32Mb.gb", 1_000)
+    }
+
+    @Test
+    @Order(122)
+    fun `mooneye-emulator-only-mbc5-rom_4Mb`() {
+        runTest("mooneye/emulator-only/mbc5/rom_4Mb.gb", 1_000)
+    }
+
+    @Test
+    @Order(123)
+    fun `mooneye-emulator-only-mbc5-rom_512Kb`() {
+        runTest("mooneye/emulator-only/mbc5/rom_512Kb.gb", 1_000)
+    }
+
+    @Test
+    @Order(124)
+    fun `mooneye-emulator-only-mbc5-rom_64Mb`() {
+        runTest("mooneye/emulator-only/mbc5/rom_64Mb.gb", 1_000)
+    }
+
+    @Test
+    @Order(125)
+    fun `mooneye-emulator-only-mbc5-rom_8Mb`() {
+        runTest("mooneye/emulator-only/mbc5/rom_8Mb.gb", 1_000)
+    }
+
+    @Test
+    @Order(126)
+    fun `mooneye-misc-boot_hwio-C`() {
+        runTest("mooneye/misc/boot_hwio-C.gb", 1_000)
+    }
+
+    @Test
+    @Order(127)
+    fun `mooneye-misc-boot_regs-A`() {
+        runTest("mooneye/misc/boot_regs-A.gb", 1_000)
+    }
+
+    @Test
+    @Order(128)
+    fun `mooneye-misc-boot_regs-cgb`() {
+        runTest("mooneye/misc/boot_regs-cgb.gb", 1_000)
+    }
+
+    @Test
+    @Order(129)
+    fun `mooneye-misc-boot_regs-dmgABCX`() {
+        runTest("mooneye/misc/boot_regs-dmgABCX.gb", 1_000)
+    }
+
+    @Test
+    @Order(130)
+    fun `mooneye-misc-bits-unused_hwio-C`() {
+        runTest("mooneye/misc/bits/unused_hwio-C.gb", 1_000)
+    }
+
+    @Test
+    @Order(131)
+    fun `mooneye-misc-ppu-blocking_bgpi_increase`() {
+        runTest("mooneye/misc/ppu/blocking_bgpi_increase.gb", 1_000)
+    }
+
+    @Test
+    @Order(132)
+    fun `mooneye-misc-ppu-hblank_ly_scx_timing-GS`() {
+        runTest("mooneye/misc/ppu/hblank_ly_scx_timing-GS.gb", 1_000)
+    }
+
+    @Test
+    @Order(133)
+    fun `mooneye-misc-ppu-intr_1_2_timing-GS`() {
+        runTest("mooneye/misc/ppu/intr_1_2_timing-GS.gb", 1_000)
+    }
+
+    @Test
+    @Order(134)
+    fun `mooneye-misc-ppu-intr_2_0_timing`() {
+        runTest("mooneye/misc/ppu/intr_2_0_timing.gb", 1_000)
+    }
+    @Test
+    @Order(135)
+    fun `mooneye-misc-ppu-intr_2_mode0_timing`() {
+        runTest("mooneye/misc/ppu/intr_2_mode0_timing.gb", 1_000)
+    }
+    @Test
+    @Order(136)
+    fun `mooneye-misc-ppu-intr_2_mode3_timing`() {
+        runTest("mooneye/misc/ppu/intr_2_mode3_timing.gb", 1_000)
+    }
+
+    @Test
+    @Order(137)
+    fun `mooneye-misc-ppu-intr_2_oam_ok_timing`() {
+        runTest("mooneye/misc/ppu/intr_2_oam_ok_timing.gb", 1_000)
+    }
+
+    @Test
+    @Order(138)
+    fun `mooneye-misc-ppu-lcdon_timing-GS`() {
+        runTest("mooneye/misc/ppu/lcdon_timing-GS.gb", 1_000)
+    }
+    @Test
+    @Order(139)
+    fun `mooneye-misc-ppu-lcdon_write_timing-GS`() {
+        runTest("mooneye/misc/ppu/lcdon_write_timing-GS.gb", 1_000)
+    }
+
+    @Test
+    @Order(140)
+    fun `mooneye-misc-ppu-stat_irq_blocking`() {
+        runTest("mooneye/misc/ppu/stat_irq_blocking.gb", 1_000)
+    }
+
+    @Test
+    @Order(141)
+    fun `mooneye-misc-ppu-stat_lyc_onoff`() {
+        runTest("mooneye/misc/ppu/stat_lyc_onoff.gb", 1_000)
+    }
+
+    @Test
+    @Order(142)
+    fun `mooneye-misc-ppu-vblank_stat_intr-GS`() {
+        runTest("mooneye/misc/ppu/vblank_stat_intr-GS.gb", 1_000)
+    }
+
+    @Test
+    @Order(143)
+    fun `mooneye-utils-dump_boot_hwio`() {
+        runTest("mooneye/utils/dump_boot_hwio.gb", 1_000)
+    }
+
     companion object {
         private const val TEST_RESULTS_PATH = "build/test-results"
         private const val TEST_RESULTS_HTML_FILE = "test-results.html"
