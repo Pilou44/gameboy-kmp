@@ -56,7 +56,7 @@ kotlin {
             implementation(libs.kotlinx.coroutinesCore)
             implementation(libs.russholf.multiplatform.settings)
             implementation(libs.kotlinx.serialization.json)
-            implementation("io.github.vinceglb:filekit-dialogs-compose:0.14.1")
+            implementation(libs.filekit.dialogs.compose)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -74,8 +74,14 @@ kotlin {
         }
         jvmTest.dependencies {
             implementation(libs.kotlin.test)
+            implementation(libs.junit.jupiter.api)
+            runtimeOnly(libs.junit.jupiter.engine)
         }
     }
+}
+
+tasks.named<Test>("jvmTest") {
+    useJUnitPlatform()
 }
 
 android {
