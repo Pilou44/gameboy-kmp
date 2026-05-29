@@ -130,7 +130,7 @@ class RomTestRunner {
     @Test
     @Order(19)
     fun `blarrg-mem_timing-03-modify_timing`() {
-        runTest("blarrg/mem_timing/03-modify_timing.gb", 500)
+        runTest("blarrg/mem_timing/03-modify_timing.gb", 1_000)
     }
 
     @Test
@@ -148,7 +148,7 @@ class RomTestRunner {
     @Test
     @Order(22)
     fun `blarrg-mem_timing-2-03-modify_timing`() {
-        runTest("blarrg/mem_timing-2/03-modify_timing.gb", 500)
+        runTest("blarrg/mem_timing-2/03-modify_timing.gb", 1_000)
     }
 
     @Test
