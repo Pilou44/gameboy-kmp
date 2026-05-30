@@ -78,12 +78,17 @@ class Bus(
             val p1 = internalRam[0xFF00]
             // Bits 0-3 are active-low: 0=pressed, 1=released
             // Bit 5 selects direction keys, bit 4 selects action buttons
-            return when {
+            val result = when {
                 p1 and 0x20 == 0 -> (p1 and 0xF0) or (joypadState shr 4 and 0x0F)  // directions
                 p1 and 0x10 == 0 -> (p1 and 0xF0) or (joypadState and 0x0F)         // buttons
                 else -> p1 or 0x0F
             }
+            result or 0xC0 // bits 7-6 always read as 1
         }
+        0xFF02 -> internalRam[0xFF02] or 0x7E  // SC: unused bits always read as 1 on DMG
+        0xFF03, in 0xFF08..0xFF0E -> 0xFF  // Unused I/O registers, always read 0xFF on DMG
+        0xFF07 -> internalRam[0xFF07] or 0xF8  // TAC: bits 7-3 always read as 1 on DMG
+        in 0xFF4C..0xFF7F -> 0xFF  // GBC registers and unused I/O, always read 0xFF on DMG
         in 0x0000..0x7FFF -> cartridge.readRom(address)
         in 0x8000..0x9FFF -> readVram(address - 0x8000)
         in 0xA000..0xBFFF -> cartridge.readRam(address - 0xA000)
@@ -338,9 +343,11 @@ class Bus(
          * Without it, LCDC=0 (LCD off) and games that poll LY==144 loop forever.
          */
         private fun initPostBootRegisters(ram: IntArray) {
+            ram[0xFF04] = 0xAB  // DIV
             ram[0xFF05] = 0x00  // TIMA
             ram[0xFF06] = 0x00  // TMA
             ram[0xFF07] = 0x00  // TAC
+            ram[0xFF0F] = 0x01  // IF — VBlank pending after boot ROM
             ram[0xFF10] = 0x80  // NR10
             ram[0xFF11] = 0xBF  // NR11
             ram[0xFF12] = 0xF3  // NR12
