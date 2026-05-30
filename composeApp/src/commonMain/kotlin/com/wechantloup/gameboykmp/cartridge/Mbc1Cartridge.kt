@@ -1,5 +1,6 @@
 package com.wechantloup.gameboykmp.cartridge
 
+import com.wechantloup.gameboykmp.logger.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
@@ -44,7 +45,11 @@ class Mbc1Cartridge(
     private var bankingMode = 0  // 0=ROM banking, 1=RAM banking
     private val ram = IntArray(0x8000)  // 32KB max
         .also { ram ->
-            if (withBattery) { SaveManager.load(romName)?.copyInto(ram) }
+            try {
+                SaveManager.load(romName)?.copyInto(ram)
+            } catch (e: Exception) {
+                Logger.error("Mbc1Cartridge", "Can't load save", e)
+            }
         }
 
     private var saveJob: Job? = null

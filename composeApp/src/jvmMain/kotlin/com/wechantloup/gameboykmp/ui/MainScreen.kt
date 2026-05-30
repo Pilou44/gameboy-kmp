@@ -155,6 +155,7 @@ private fun Commands(
     modifier: Modifier = Modifier,
 ) {
     val coroutineScope = rememberCoroutineScope()
+    val currentDirectoryPath = remember { mutableStateOf<String?>(null) }
     Column(
         modifier = modifier
             .focusProperties { canFocus = false }
@@ -163,7 +164,7 @@ private fun Commands(
         Button(
             onClick = {
                 coroutineScope.launch {
-                    val rom = pickRom()
+                    val rom = pickRom(currentDirectoryPath)
                     rom?.let {
                         loadRom(
                             it.readBytes(),
@@ -256,11 +257,13 @@ private suspend fun startAudio(audioSamplesChannel: Channel<FloatArray>) {
     }
 }
 
-private suspend fun pickRom(): File? {
+private suspend fun pickRom(
+    currentDirectoryPath: MutableState<String?>,
+): File? {
     return withContext(Dispatchers.IO) {
         var rom: File? = null
         invokeAndWait {
-            val chooser = JFileChooser().apply {
+            val chooser = JFileChooser(currentDirectoryPath.value).apply {
                 fileSelectionMode = JFileChooser.FILES_ONLY
                 dialogTitle = "Pick ROM"
                 fileFilter = FileNameExtensionFilter("Game Boy ROM (*.gb, *.gbc)", "gb", "gbc")
@@ -268,6 +271,7 @@ private suspend fun pickRom(): File? {
             val result = chooser.showOpenDialog(null)
 
             if (result == JFileChooser.APPROVE_OPTION) {
+                currentDirectoryPath.value = chooser.selectedFile.path
                 rom = chooser.selectedFile.absoluteFile
             }
         }

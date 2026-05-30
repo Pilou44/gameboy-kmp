@@ -1,5 +1,6 @@
 package com.wechantloup.gameboykmp.cartridge
 
+import com.wechantloup.gameboykmp.logger.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
@@ -24,7 +25,13 @@ class Mbc2Cartridge(
 
     private val ram = IntArray(0x200) // 512 entries
         .also { ram ->
-            if (withBattery) { SaveManager.load(romName)?.copyInto(ram) }
+            if (withBattery) {
+                try {
+                    SaveManager.load(romName)?.copyInto(ram)
+                } catch (e: Exception) {
+                    Logger.error("Mbc2Cartridge", "Can't load save", e)
+                }
+            }
         }
 
     override fun readRom(address: Int): Int {

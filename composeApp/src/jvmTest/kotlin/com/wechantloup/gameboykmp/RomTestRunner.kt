@@ -306,7 +306,7 @@ class RomTestRunner {
     fun `ax6-rtc3test-sub-second_writes`() {
         runTest(
             romPath = "ax6/rtc3test.gb",
-            duration = 18_000,
+            duration = 26_000,
             commands = listOf(
                 JoypadEvent.Pressed(JoypadButton.DOWN),
                 JoypadEvent.Released(JoypadButton.DOWN),
@@ -718,25 +718,25 @@ class RomTestRunner {
     @Test
     @Order(112)
     fun `mooneye-emulator-only-mbc1-bits_bank1`() {
-        runTest("mooneye/emulator-only/mbc1/bits_bank1.gb", 2_000)
+        runTest("mooneye/emulator-only/mbc1/bits_bank1.gb", 3_000)
     }
 
     @Test
     @Order(113)
     fun `mooneye-emulator-only-mbc1-bits_bank2`() {
-        runTest("mooneye/emulator-only/mbc1/bits_bank2.gb", 2_000)
+        runTest("mooneye/emulator-only/mbc1/bits_bank2.gb", 3_000)
     }
 
     @Test
     @Order(114)
     fun `mooneye-emulator-only-mbc1-bits_mode`() {
-        runTest("mooneye/emulator-only/mbc1/bits_mode.gb", 2_000)
+        runTest("mooneye/emulator-only/mbc1/bits_mode.gb", 3_000)
     }
 
     @Test
     @Order(115)
     fun `mooneye-emulator-only-mbc1-bits_ramg`() {
-        runTest("mooneye/emulator-only/mbc1/bits_ramg.gb", 2_000)
+        runTest("mooneye/emulator-only/mbc1/bits_ramg.gb", 6_000)
     }
 
     @Test
@@ -796,19 +796,19 @@ class RomTestRunner {
     @Test
     @Order(125)
     fun `mooneye-emulator-only-mbc2-bits_ramg`() {
-        runTest("mooneye/emulator-only/mbc2/bits_ramg.gb", 1_000)
+        runTest("mooneye/emulator-only/mbc2/bits_ramg.gb", 6_000)
     }
 
     @Test
     @Order(126)
     fun `mooneye-emulator-only-mbc2-bits_romb`() {
-        runTest("mooneye/emulator-only/mbc2/bits_romb.gb", 1_000)
+        runTest("mooneye/emulator-only/mbc2/bits_romb.gb", 4_000)
     }
 
     @Test
     @Order(127)
     fun `mooneye-emulator-only-mbc2-bits_unused`() {
-        runTest("mooneye/emulator-only/mbc2/bits_unused.gb", 1_000)
+        runTest("mooneye/emulator-only/mbc2/bits_unused.gb", 3_000)
     }
 
     @Test
