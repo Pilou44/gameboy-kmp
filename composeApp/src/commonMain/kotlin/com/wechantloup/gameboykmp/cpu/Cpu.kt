@@ -52,11 +52,13 @@ class Cpu(
         if (isHalted) return 4
 
         val opcode = fetch()
-        val cycles = execute(opcode)
+
         if (imeScheduled) {
             ime = true
             imeScheduled = false
         }
+
+        val cycles = execute(opcode)
         return cycles
     }
 

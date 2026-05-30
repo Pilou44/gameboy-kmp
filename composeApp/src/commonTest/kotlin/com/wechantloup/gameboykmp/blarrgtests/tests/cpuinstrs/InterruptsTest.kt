@@ -23,7 +23,8 @@ class InterruptsTest {
         h.bus.write(0xFFFF, 0x04)  // IE = timer interrupt enabled
         h.step()  // EI
         h.bus.setIF(0x04)          // trigger timer interrupt
-        h.step()  // CPU handles interrupt → jumps to 0x0050
+        h.step()           // NOP at 0x0101 executes, IME activates
+        h.step()           // interrupt dispatched → PC jumps to 0x0050
         assertEquals(0x0050, h.cpu.registers.pc)
         assertEquals(0x00, h.bus.iF and 0x04, "IF bit 2 should be cleared after interrupt handled")
     }

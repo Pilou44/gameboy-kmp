@@ -1488,11 +1488,12 @@ class CpuTest {
         assertFalse(cpu.ime)
         bus.write(0xC000, 0xFB) // EI
         cpu.step()
+        cpu.step()
         assertTrue(cpu.ime)
-        bus.write(0xC001, 0xF3) // DI
+        bus.write(0xC002, 0xF3) // DI
         cpu.step()
         assertFalse(cpu.ime)
-        bus.write(0xC002, 0xD9) // RETI
+        bus.write(0xC003, 0xD9) // RETI
 
         // Simulate push of 0x1303
         bus.write((cpu.registers.sp - 1) and 0xFFFF, 0x13) // high byte
@@ -1540,9 +1541,7 @@ class CpuTest {
         bus.setIF(0x01)  // IF: V-Blank pending
         cpu.step()
         assertFalse(cpu.isHalted)
-        // TODO: verify DMG behavior - does HALT exit consume 1 M-cycle before resuming execution?
-        // Current implementation resumes immediately (PC=0xC001 after NOP), adjust if needed.
-//        assertEquals(0xC000, cpu.registers.pc)  // pas de saut car IME false
+        cpu.step()           // NOP at 0x0101 executes, IME activates
         assertEquals(0xC001, cpu.registers.pc)
 
         // Priority: Timer (bit 2) et V-Blank (bit 0) pending -> V-Blank traité en premier
