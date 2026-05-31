@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.StateFlow
 
 interface Cartridge {
     val isSaving: StateFlow<Boolean>
+    var romBank: Int
     fun readRom(address: Int): Int
     fun writeRom(address: Int, value: Int)
     fun readRam(address: Int): Int

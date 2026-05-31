@@ -17,6 +17,7 @@ class RomRamCartridge(
 ) : Cartridge {
     private val _isSaving = MutableStateFlow(false)
     override val isSaving: StateFlow<Boolean> = _isSaving
+    override var romBank = 0
 
     private val ram = IntArray(0x2000)  // 8KB max
         .also { ram ->

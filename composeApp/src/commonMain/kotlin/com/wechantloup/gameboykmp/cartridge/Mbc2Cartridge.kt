@@ -21,7 +21,7 @@ class Mbc2Cartridge(
     private var saveJob: Job? = null
 
     private var ramEnabled = false
-    private var romBank = 1
+    override var romBank = 1
 
     private val ram = IntArray(0x200) // 512 entries
         .also { ram ->

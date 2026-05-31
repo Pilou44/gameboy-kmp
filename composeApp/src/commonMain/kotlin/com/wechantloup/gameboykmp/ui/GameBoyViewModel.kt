@@ -98,34 +98,46 @@ class GameBoyViewModel : ViewModel() {
         val frameDuration = FRAME_DURATION_NS.toDuration(DurationUnit.NANOSECONDS)
         // Emulation loop
         emulationJob = viewModelScope.launch(Dispatchers.Default) {
-            while (true) {
-                while (isPaused) {
-                    delay(200)
-                    frameStartMark = currentTimeMark()
-                }
-
-                // Run for 1 frame (70224 cycles)
-                frameCycles = 0
-                while (frameCycles < 70224) {
-                    val cycles = cpu.step()
-                    repeat(cycles / 4) {
-                        onMachineCycleTick()
+            try {
+                while (true) {
+                    while (isPaused) {
+                        delay(200)
+                        frameStartMark = currentTimeMark()
                     }
-                }
 
-                frameStartMark += frameDuration
-                val remaining = frameStartMark.minus(currentTimeMark())
-                if (remaining.isPositive()) {
-                    delay(remaining)
-                } else {
-                    renderingIssueCount++
-                }
+                    // Run for 1 frame (70224 cycles)
+                    frameCycles = 0
+                    while (frameCycles < 70224) {
+                        val cycles = cpu.step()
+                        repeat(cycles / 4) {
+                            onMachineCycleTick()
+                        }
+                    }
 
-                if (frameCount % 60 == 0 && renderingIssueCount > 0) {
-                    Logger.error(TAG, "Rendering issue, $renderingIssueCount on last 60 taking too much time")
-                    renderingIssueCount = 0
+                    frameStartMark += frameDuration
+                    val remaining = frameStartMark.minus(currentTimeMark())
+                    if (remaining.isPositive()) {
+                        delay(remaining)
+                    } else {
+                        renderingIssueCount++
+                    }
+
+                    if (frameCount % 60 == 0 && renderingIssueCount > 0) {
+                        Logger.error(TAG, "Rendering issue, $renderingIssueCount on last 60 taking too much time")
+                        renderingIssueCount = 0
+                    }
+                    frameCount++
                 }
-                frameCount++
+            } catch (e: Throwable) {
+                Logger.error("CRASH",
+                    msg = "${e.message}\n" +
+                            "ROM bank: ${cartridge.romBank}\n" +
+                            "SP: 0x${cpu.registers.sp.toString(16)}, (SP)=0x${bus.read(cpu.registers.sp).toString(16)}, (SP+1)=0x${bus.read(cpu.registers.sp+1).toString(16)}\n" +
+                            "IME: ${cpu.ime}, IF: 0x${bus.iF.toString(16)}, IE: 0x${bus.ie.toString(16)}\n" +
+                            "LCDC: 0x${bus.read(0xFF40).toString(16)}",
+                    e,
+                )
+
             }
         }
     }

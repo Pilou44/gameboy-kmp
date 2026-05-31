@@ -39,7 +39,7 @@ class Mbc1Cartridge(
         fromHeader
     }
 
-    private var romBank = 1
+    override var romBank = 1
     private var ramBank = 0
     private var ramEnabled = false
     private var bankingMode = 0  // 0=ROM banking, 1=RAM banking

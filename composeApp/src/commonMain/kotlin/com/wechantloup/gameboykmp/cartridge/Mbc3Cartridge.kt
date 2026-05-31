@@ -1,5 +1,6 @@
 package com.wechantloup.gameboykmp.cartridge
 
+import com.wechantloup.gameboykmp.logger.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
@@ -39,7 +40,7 @@ class Mbc3Cartridge(
         isHalted = false
     )
 
-    private var romBank = 1
+    override var romBank = 1
     private var ramBank = 0
     private var ramEnabled = false
     private var lastWriteRom: Pair<Int, Int> = 0 to 0
@@ -71,6 +72,7 @@ class Mbc3Cartridge(
             }
             in 0x2000..0x3FFF -> {
                 romBank = (value and 0x7F).coerceAtLeast(1)
+                Logger.debug("MBC", "Bank switch to $romBank}")
             }
             in 0x4000..0x5FFF -> {
                 ramBank = value and 0x0F
