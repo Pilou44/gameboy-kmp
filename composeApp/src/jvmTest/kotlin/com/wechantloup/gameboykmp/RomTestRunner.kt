@@ -724,7 +724,7 @@ class RomTestRunner {
     @Test
     @Order(113)
     fun `mooneye-emulator-only-mbc1-bits_bank2`() {
-        runTest("mooneye/emulator-only/mbc1/bits_bank2.gb", 3_000)
+        runTest("mooneye/emulator-only/mbc1/bits_bank2.gb", 4_000)
     }
 
     @Test

@@ -88,6 +88,7 @@ class Bus(
         0xFF02 -> internalRam[0xFF02] or 0x7E  // SC: unused bits always read as 1 on DMG
         0xFF03, in 0xFF08..0xFF0E -> 0xFF  // Unused I/O registers, always read 0xFF on DMG
         0xFF07 -> internalRam[0xFF07] or 0xF8  // TAC: bits 7-3 always read as 1 on DMG
+        0xFF41 -> internalRam[0xFF41] or 0x80  // STAT: bit 7 always reads as 1 on DMG
         in 0xFF4C..0xFF7F -> 0xFF  // GBC registers and unused I/O, always read 0xFF on DMG
         in 0x0000..0x7FFF -> cartridge.readRom(address)
         in 0x8000..0x9FFF -> readVram(address - 0x8000)
