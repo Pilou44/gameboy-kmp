@@ -74,6 +74,7 @@ class Bus(
     val apuPoweredOn: Boolean get() = internalRam[0xFF26] and 0x80 != 0
 
     fun read(address: Int): Int = when (address) {
+        in 0xE000..0xFDFF -> read(address - 0x2000) // Echo RAM: 0xE000–0xFDFF == 0xC000–0xDDFF
         0xFF00 -> {
             val p1 = internalRam[0xFF00]
             // Bits 0-3 are active-low: 0=pressed, 1=released
@@ -102,6 +103,7 @@ class Bus(
     fun write(address: Int, value: Int) {
         val v = value and 0xFF
         when (address) {
+            in 0xE000..0xFDFF -> write(address - 0x2000, v) // Echo RAM: 0xE000–0xFDFF == 0xC000–0xDDFF
             0xFF04 -> {
                 internalRam[0xFF04] = 0
                 onDivReset?.invoke()
