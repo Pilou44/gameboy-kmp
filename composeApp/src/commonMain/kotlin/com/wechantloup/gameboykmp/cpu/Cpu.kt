@@ -34,6 +34,8 @@ class Cpu(
 
                 // Clear the bit in IF
                 bus.setIF(bus.iF and (1 shl bit).inv())
+                onMachineCycleTick()  // internal M-cycle 1
+                onMachineCycleTick()  // internal M-cycle 2
 
                 // Push current PC and jump to interrupt vector
                 push(registers.pc)
@@ -45,7 +47,7 @@ class Cpu(
                     4 -> 0x0060  // Joypad
                     else -> 0x0040
                 }
-                return 8
+                return 0
             }
         }
 
@@ -167,9 +169,14 @@ class Cpu(
                 registers.flagH = (registers.sp xor offset xor result) and 0x10 != 0
                 registers.flagC = (registers.sp xor offset xor result) and 0x100 != 0
                 registers.hl = result
-                8
+                onMachineCycleTick()
+                4
             }
-            0xF9 -> { registers.sp = registers.hl; 8 }        // LD SP, HL
+            0xF9 -> {
+                registers.sp = registers.hl        // LD SP, HL
+                onMachineCycleTick()
+                4
+            }
 
             /* --- LD (HL±), A / LD A, (HL±) --- */
             0x22 -> {
@@ -238,7 +245,7 @@ class Cpu(
                 4
             }
             0xF2 -> {
-                registers.a = bus.read(0xFF00 + registers.c);
+                registers.a = bus.read(0xFF00 + registers.c)
                 onMachineCycleTick()
                 4
             }
@@ -295,15 +302,47 @@ class Cpu(
             0x3D -> dec(7)
 
             /* --- 16-bit INC/DEC --- */
-            0x03 -> { registers.bc = (registers.bc + 1) and 0xFFFF; 8 }
-            0x13 -> { registers.de = (registers.de + 1) and 0xFFFF; 8 }
-            0x23 -> { registers.hl = (registers.hl + 1) and 0xFFFF; 8 }
-            0x33 -> { registers.sp = (registers.sp + 1) and 0xFFFF; 8 }
+            0x03 -> {
+                registers.bc = (registers.bc + 1) and 0xFFFF
+                onMachineCycleTick()
+                4
+            }
+            0x13 -> {
+                registers.de = (registers.de + 1) and 0xFFFF
+                onMachineCycleTick()
+                4
+            }
+            0x23 -> {
+                registers.hl = (registers.hl + 1) and 0xFFFF
+                onMachineCycleTick()
+                4
+            }
+            0x33 -> {
+                registers.sp = (registers.sp + 1) and 0xFFFF
+                onMachineCycleTick()
+                4
+            }
 
-            0x0B -> { registers.bc = (registers.bc - 1) and 0xFFFF; 8 }
-            0x1B -> { registers.de = (registers.de - 1) and 0xFFFF; 8 }
-            0x2B -> { registers.hl = (registers.hl - 1) and 0xFFFF; 8 }
-            0x3B -> { registers.sp = (registers.sp - 1) and 0xFFFF; 8 }
+            0x0B -> {
+                registers.bc = (registers.bc - 1) and 0xFFFF
+                onMachineCycleTick()
+                4
+            }
+            0x1B -> {
+                registers.de = (registers.de - 1) and 0xFFFF
+                onMachineCycleTick()
+                4
+            }
+            0x2B -> {
+                registers.hl = (registers.hl - 1) and 0xFFFF
+                onMachineCycleTick()
+                4
+            }
+            0x3B -> {
+                registers.sp = (registers.sp - 1) and 0xFFFF
+                onMachineCycleTick()
+                4
+            }
 
             /* --- ADD HL, rr --- */
             0x09 -> addHL(registers.bc)
@@ -320,7 +359,9 @@ class Cpu(
                 registers.flagH = (registers.sp xor offset xor result) and 0x10 != 0
                 registers.flagC = (registers.sp xor offset xor result) and 0x100 != 0
                 registers.sp = result
-                12
+                onMachineCycleTick()  // internal M-cycle 1
+                onMachineCycleTick()  // internal M-cycle 2
+                4
             }
 
             /* --- Rotate accumulator --- */
@@ -362,18 +403,48 @@ class Cpu(
             0x3F -> { registers.flagN = false; registers.flagH = false; registers.flagC = !registers.flagC; 4 }  // CCF
 
             /* --- Jumps --- */
-            0xC3 -> jp()
-            0xC2 -> jp(!registers.flagZ)
-            0xCA -> jp(registers.flagZ)
-            0xD2 -> jp(!registers.flagC)
-            0xDA -> jp(registers.flagC)
+            0xC3 -> {
+                jp()
+                4
+            }
+            0xC2 -> {
+                jp(!registers.flagZ)
+                4
+            }
+            0xCA -> {
+                jp(registers.flagZ)
+                4
+            }
+            0xD2 -> {
+                jp(!registers.flagC)
+                4
+            }
+            0xDA -> {
+                jp(registers.flagC)
+                4
+            }
             0xE9 -> { registers.pc = registers.hl; 4 }  // JP HL
 
-            0x18 -> jr()
-            0x20 -> jr(!registers.flagZ)
-            0x28 -> jr(registers.flagZ)
-            0x30 -> jr(!registers.flagC)
-            0x38 -> jr(registers.flagC)
+            0x18 -> {
+                jr()
+                4
+            }
+            0x20 -> {
+                jr(!registers.flagZ)
+                4
+            }
+            0x28 -> {
+                jr(registers.flagZ)
+                4
+            }
+            0x30 -> {
+                jr(!registers.flagC)
+                4
+            }
+            0x38 -> {
+                jr(registers.flagC)
+                4
+            }
 
             /* --- CALL / RET --- */
             0xCD -> { call(); 4 }
@@ -382,12 +453,34 @@ class Cpu(
             0xD4 -> { call(!registers.flagC); 4 }
             0xDC -> { call(registers.flagC); 4 }
 
-            0xC9 -> { registers.pc = pop(); 8 }
-            0xC0 -> ret(!registers.flagZ)
-            0xC8 -> ret(registers.flagZ)
-            0xD0 -> ret(!registers.flagC)
-            0xD8 -> ret(registers.flagC)
-            0xD9 -> { registers.pc = pop(); ime = true; 8 }  // RETI
+            0xC9 -> {
+                registers.pc = pop()
+                onMachineCycleTick()
+                4
+            }
+            0xC0 -> {
+                ret(!registers.flagZ)
+                4
+            }
+            0xC8 -> {
+                ret(registers.flagZ)
+                4
+            }
+            0xD0 -> {
+                ret(!registers.flagC)
+                4
+            }
+            0xD8 -> {
+                ret(registers.flagC)
+                4
+            }
+            0xD9 -> {
+                // RETI
+                registers.pc = pop()
+                onMachineCycleTick()
+                ime = true
+                4
+            }
 
             /* --- PUSH / POP --- */
             0xC5 -> { push(registers.bc); 4 }
@@ -606,7 +699,8 @@ class Cpu(
         registers.flagN = false
         registers.flagH = (hl and 0x0FFF) + (value and 0x0FFF) > 0x0FFF
         registers.flagC = result > 0xFFFF
-        return 8
+        onMachineCycleTick() // internal M-cycle (16-bit ALU)
+        return 4
     }
 
     private fun inc(registerCode: Int): Int {
@@ -661,22 +755,22 @@ class Cpu(
         registers.pc = vector
     }
 
-    private fun jp(condition: Boolean = true): Int {
+    private fun jp(condition: Boolean = true) {
         val value = fetch16()
 
-        if (!condition) return 4
+        if (!condition) return
 
         registers.pc = value
-        return 8
+        onMachineCycleTick()  // internal M-cycle (PC update)
     }
 
-    private fun jr(condition: Boolean = true): Int {
+    private fun jr(condition: Boolean = true) {
         val offset = fetch().toByte().toInt()
 
-        if (!condition) return 4
+        if (!condition) return
 
         registers.pc = (registers.pc + offset) and 0xFFFF
-        return 8
+        onMachineCycleTick()  // internal M-cycle (PC update)
     }
 
     private fun call(condition: Boolean = true) {
@@ -688,11 +782,12 @@ class Cpu(
         registers.pc = value
     }
 
-    private fun ret(condition: Boolean = true): Int {
-        if (!condition) return 8
+    private fun ret(condition: Boolean = true) {
+        onMachineCycleTick()  // condition check M-cycle (always)
+        if (!condition) return
 
         registers.pc = pop()
-        return 12
+        onMachineCycleTick()  // jump M-cycle
     }
 
     private fun fetch(): Int {
