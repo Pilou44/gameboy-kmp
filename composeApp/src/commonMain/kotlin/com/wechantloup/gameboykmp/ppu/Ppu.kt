@@ -15,9 +15,33 @@ class Ppu(
     private var modeClock = 0
     private var mode = 2
     private var windowLine = 0
+    private var lcdWasOn = true
 
     fun step(cycles: Int) {
         val lcdc = bus.read(0xFF40)
+
+        if (lcdc and 0x80 == 0) {
+            // LCD off
+            if (lcdWasOn) {
+                lcdWasOn = false
+                ly = 0
+                modeClock = 0
+                mode = 2
+                windowLine = 0
+
+                // fill scanline with white
+                frameBuffer.fill(0)
+                frameChannel.trySend(frameBuffer.copyOf())
+
+                bus.write(0xFF44, ly)
+
+                // set STAT mode bits to 0 (H-Blank) when LCD turns off
+                val stat = bus.read(0xFF41)
+                bus.write(0xFF41, stat and 0xFC)
+            }
+            return
+        }
+        lcdWasOn = true
 
         modeClock += cycles
 
@@ -119,11 +143,6 @@ class Ppu(
         // Reset BG color index buffer for this scanline before rendering
         for (x in 0 until 160) bgColorIndexBuffer[ly * 160 + x] = 0
 
-        if (lcdc and 0x80 == 0) {
-            // LCD off: fill scanline with white
-            for (x in 0 until 160) frameBuffer[ly * 160 + x] = 0
-            return
-        }
         if (lcdc and 0x01 != 0) renderBackground(lcdc)
         if (lcdc and 0x20 != 0) renderWindow(lcdc)
         if (lcdc and 0x02 != 0) renderSprites(lcdc)
