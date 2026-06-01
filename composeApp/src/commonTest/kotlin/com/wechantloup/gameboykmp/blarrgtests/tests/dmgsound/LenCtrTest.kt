@@ -12,10 +12,9 @@ class LenCtrTest {
      * Context for a single channel test, mirroring test_chan_common variables.
      * channel: 0=square1, 1=square2, 2=wave, 3=noise
      */
-    inner class ChannelTestContext(val channel: Int) {
+    class ChannelTestContext(val channel: Int) {
         val chanBase = channel * 5 + 0x10  // offset from 0xFF00
         val chanMask = 1 shl channel        // bit in NR52
-        val chanMaxLen = if (channel == 2) 256 else 64
 
         fun wchn(n: Int, data: Int, h: GameBoyTestHarness) {
             h.bus.write(0xFF00 + chanBase + n, data and 0xFF)
@@ -83,7 +82,6 @@ class LenCtrTest {
             // Wait for channel 2 (square 2) to turn off = length counter clocked
             var maxSteps = 100_000
             while (h.bus.read(0xFF26) and 0x02 != 0 && maxSteps-- > 0) {
-//                println("PC = 0x${h.cpu.registers.pc.toString(16)}")
                 h.stepCycles(4)
             }
         }
@@ -91,21 +89,13 @@ class LenCtrTest {
 
     private fun forAllChannels(block: ChannelTestContext.(GameBoyTestHarness) -> Unit) {
         for (channel in 0..3) {
-//            println("channel $channel - creating harness")
             val h = gameBoyTest {}
-//            println("channel $channel - APU on")
             h.bus.write(0xFF26, 0x80)
-//            println("channel $channel - NR51")
             h.bus.write(0xFF25, 0xFF)
-//            println("channel $channel - NR50")
             h.bus.write(0xFF24, 0x77)
-//            println("channel $channel - creating context")
             val ctx = ChannelTestContext(channel)
-//            println("channel $channel - enableDac")
             ctx.enableDac(h)
-//            println("channel $channel - calling block")
             ctx.block(h)
-//            println("channel $channel - done")
         }
     }
 
@@ -124,13 +114,9 @@ class LenCtrTest {
      */
     @Test
     fun `Length can be reloaded at any time`() = forAllChannels { h ->
-//        println("begin")
         begin(h)
-//        println("wchn")
         wchn(1, -10, h)
-//        println("stepCycles")
         stepCycles(h, 9)
-//        println("shouldBeAlmostOff")
         shouldBeAlmostOff(h)
     }
 

@@ -59,7 +59,7 @@ class Cpu(
         }
 
         val cycles = execute(opcode)
-        return cycles
+        return cycles - 4 // TODO fetch opcode
     }
 
     fun reset() {
@@ -76,7 +76,11 @@ class Cpu(
             3 -> registers.e
             4 -> registers.h
             5 -> registers.l
-            6 -> bus.read(registers.hl)  // (HL)
+            6 -> {
+                val value = bus.read(registers.hl) // (HL)
+                onMachineCycleTick()
+                value
+            }
             7 -> registers.a
             else -> throw IllegalArgumentException("Unknown register code: $code")
         }
@@ -90,7 +94,10 @@ class Cpu(
             3 -> registers.e = value
             4 -> registers.h = value
             5 -> registers.l = value
-            6 -> bus.write(registers.hl, value)  // (HL)
+            6 -> {
+                bus.write(registers.hl, value) // (HL)
+                onMachineCycleTick()
+            }
             7 -> registers.a = value
             else -> throw IllegalArgumentException("Unknown register code: $code")
         }
@@ -111,45 +118,43 @@ class Cpu(
             }
 
             0x10 -> {
-                fetch() // consume the 0x00 byte that always follows STOP
-                // STOP behavior on DMG: halt CPU until joypad interrupt (IF bit 4)
-                // Note: STOP also stops LCD and timer on real hardware, but this is not emulated
-                // as no commercial DMG game relies on this behavior
-                // TODO: implement full STOP behavior for Game Boy Color support (double speed mode switch)
+                // Consume the mandatory 0x00 operand by advancing PC only,
+                // without triggering an M-cycle tick (STOP costs 1 M-cycle on DMG)
+                registers.pc = (registers.pc + 1) and 0xFFFF
+                // TODO: implement full STOP behavior for GBC double-speed mode switch
                 if (bus.ie and 0x10 != 0) isHalted = true
-                4
+                4 // step() returns 4-4=0 → 1 M-cycle total (opcode fetch only)
             }
 
             /* --- 8-bit loads: immediate --- */
-            0x06 -> { registers.b = fetch(); 8 }
-            0x0E -> { registers.c = fetch(); 8 }
-            0x16 -> { registers.d = fetch(); 8 }
-            0x1E -> { registers.e = fetch(); 8 }
-            0x26 -> { registers.h = fetch(); 8 }
-            0x2E -> { registers.l = fetch(); 8 }
+            0x06 -> { registers.b = fetch(); 4 }
+            0x0E -> { registers.c = fetch(); 4 }
+            0x16 -> { registers.d = fetch(); 4 }
+            0x1E -> { registers.e = fetch(); 4 }
+            0x26 -> { registers.h = fetch(); 4 }
+            0x2E -> { registers.l = fetch(); 4 }
             0x36 -> {
                 val value = fetch()
-                onMachineCycleTick()
                 bus.write(registers.hl, value)
                 8
             }  // LD (HL), n
-            0x3E -> { registers.a = fetch(); 8 }
+            0x3E -> { registers.a = fetch(); 4 }
 
             /* --- 8-bit loads: register to register (0x40–0x7F, 0x76=HALT handled above) --- */
             in 0x40..0x7F -> load(opcode)
 
             /* --- 16-bit loads: immediate --- */
-            0x01 -> { registers.bc = fetch16(); 12 }
-            0x11 -> { registers.de = fetch16(); 12 }
-            0x21 -> { registers.hl = fetch16(); 12 }
-            0x31 -> { registers.sp = fetch16(); 12 }
+            0x01 -> { registers.bc = fetch16(); 4 }
+            0x11 -> { registers.de = fetch16(); 4 }
+            0x21 -> { registers.hl = fetch16(); 4 }
+            0x31 -> { registers.sp = fetch16(); 4 }
 
             /* --- 16-bit loads: special --- */
             0x08 -> {                                   // LD (nn), SP
                 val addr = fetch16()
                 bus.write(addr, registers.sp and 0xFF)
                 bus.write(addr + 1, (registers.sp shr 8) and 0xFF)
-                20
+                12
             }
             0xF8 -> {                                   // LD HL, SP+n
                 val offset = fetch().toByte().toInt()
@@ -159,7 +164,7 @@ class Cpu(
                 registers.flagH = (registers.sp xor offset xor result) and 0x10 != 0
                 registers.flagC = (registers.sp xor offset xor result) and 0x100 != 0
                 registers.hl = result
-                12
+                8
             }
             0xF9 -> { registers.sp = registers.hl; 8 }        // LD SP, HL
 
@@ -178,33 +183,23 @@ class Cpu(
             /* --- I/O loads --- */
             0xE0 -> {
                 val value = fetch()
-                onMachineCycleTick()
                 bus.write(0xFF00 + value, registers.a)
                 8
             }
             0xF0 -> {
                 val value = fetch()
-                onMachineCycleTick()
                 registers.a = bus.read(0xFF00 + value)
                 8
             }
             0xE2 -> { bus.write(0xFF00 + registers.c, registers.a); 8 }
             0xF2 -> { registers.a = bus.read(0xFF00 + registers.c); 8 }
             0xEA -> {
-                val low = fetch()
-                onMachineCycleTick()
-                val high = fetch()
-                onMachineCycleTick()
-                val value = (high shl 8) or low
+                val value = fetch16()
                 bus.write(value, registers.a)
                 8
             }
             0xFA -> {
-                val low = fetch()
-                onMachineCycleTick()
-                val high = fetch()
-                onMachineCycleTick()
-                val address = (high shl 8) or low
+                val address = fetch16()
                 registers.a = bus.read(address)
                 8
             }
@@ -274,7 +269,7 @@ class Cpu(
                 registers.flagH = (registers.sp xor offset xor result) and 0x10 != 0
                 registers.flagC = (registers.sp xor offset xor result) and 0x100 != 0
                 registers.sp = result
-                16
+                12
             }
 
             /* --- Rotate accumulator --- */
@@ -371,7 +366,6 @@ class Cpu(
             /* --- CB prefix --- */
             0xCB -> {
                 val code = fetch()
-                onMachineCycleTick()
                 executeCb(code)
             }
 
@@ -384,7 +378,6 @@ class Cpu(
         when (opcode and 0xF8) {
             0x00 -> {  // RLC r
                 var v = getRegister(reg)
-                if (reg == 6) onMachineCycleTick()
                 val bit7 = (v shr 7) and 1
                 v = ((v shl 1) or bit7) and 0xFF
                 setRegister(reg, v)
@@ -392,7 +385,6 @@ class Cpu(
             }
             0x08 -> {  // RRC r
                 var v = getRegister(reg)
-                if (reg == 6) onMachineCycleTick()
                 val bit0 = v and 1
                 v = (v ushr 1) or (bit0 shl 7)
                 setRegister(reg, v)
@@ -400,7 +392,6 @@ class Cpu(
             }
             0x10 -> {  // RL r
                 var v = getRegister(reg)
-                if (reg == 6) onMachineCycleTick()
                 val bit7 = (v shr 7) and 1
                 val oldC = if (registers.flagC) 1 else 0
                 v = ((v shl 1) or oldC) and 0xFF
@@ -409,7 +400,6 @@ class Cpu(
             }
             0x18 -> {  // RR r
                 var v = getRegister(reg)
-                if (reg == 6) onMachineCycleTick()
                 val bit0 = v and 1
                 val oldC = if (registers.flagC) 1 else 0
                 v = (v ushr 1) or (oldC shl 7)
@@ -418,7 +408,6 @@ class Cpu(
             }
             0x20 -> {  // SLA r
                 var v = getRegister(reg)
-                if (reg == 6) onMachineCycleTick()
                 val bit7 = (v shr 7) and 1
                 v = (v shl 1) and 0xFF
                 setRegister(reg, v)
@@ -426,7 +415,6 @@ class Cpu(
             }
             0x28 -> {  // SRA r (arithmetic shift, sign extends)
                 var v = getRegister(reg)
-                if (reg == 6) onMachineCycleTick()
                 val bit0 = v and 1
                 val bit7 = v and 0x80
                 v = (v ushr 1) or bit7
@@ -435,14 +423,12 @@ class Cpu(
             }
             0x30 -> {  // SWAP r
                 var v = getRegister(reg)
-                if (reg == 6) onMachineCycleTick()
                 v = ((v and 0x0F) shl 4) or ((v and 0xF0) shr 4)
                 setRegister(reg, v)
                 registers.flagZ = v == 0; registers.flagN = false; registers.flagH = false; registers.flagC = false
             }
             0x38 -> {  // SRL r (logical shift)
                 var v = getRegister(reg)
-                if (reg == 6) onMachineCycleTick()
                 val bit0 = v and 1
                 v = v ushr 1
                 setRegister(reg, v)
@@ -458,22 +444,16 @@ class Cpu(
                 opcode in 0x80..0xBF -> {  // RES b, r
                     val bit = (opcode - 0x80) shr 3
                     val value = getRegister(reg)
-                    if (reg == 6) onMachineCycleTick()
                     setRegister(reg, value and (1 shl bit).inv())
                 }
                 else -> {  // SET b, r (0xC0..0xFF)
                     val bit = (opcode - 0xC0) shr 3
                     val value = getRegister(reg)
-                    if (reg == 6) onMachineCycleTick()
                     setRegister(reg, value or (1 shl bit))
                 }
             }
         }
-        return when {
-            reg != 6 -> 4
-            opcode in 0x40..0x7F -> 8  // BIT b, (HL) — lecture seule
-            else -> 8                   // toutes les autres opérations sur (HL)
-        }
+        return 4
     }
 
     private fun add(code: Int, withCarry: Boolean = false): Int {
@@ -486,7 +466,7 @@ class Cpu(
         registers.flagN = false
         registers.flagH = (a and 0x0F) + (b and 0x0F) + carry > 0x0F
         registers.flagC = result > 0xFF
-        return if (code and 0x07 == 6) 8 else 4
+        return 4
     }
 
     private fun addImmediate(n: Int, withCarry: Boolean = false): Int {
@@ -498,7 +478,7 @@ class Cpu(
         registers.flagN = false
         registers.flagH = (a and 0x0F) + (n and 0x0F) + carry > 0x0F
         registers.flagC = result > 0xFF
-        return 8
+        return 4
     }
 
     private fun sub(code: Int, withCarry: Boolean = false, storeResult: Boolean = true): Int {
@@ -511,7 +491,7 @@ class Cpu(
         registers.flagN = true
         registers.flagH = (a and 0x0F) < (b and 0x0F) + carry
         registers.flagC = a < b + carry
-        return if (code and 0x07 == 6) 8 else 4
+        return 4
     }
 
     private fun subImmediate(n: Int, withCarry: Boolean = false, storeResult: Boolean = true): Int {
@@ -523,49 +503,49 @@ class Cpu(
         registers.flagN = true
         registers.flagH = (a and 0x0F) < (n and 0x0F) + carry
         registers.flagC = a < n + carry
-        return 8
+        return 4
     }
 
     private fun and8(code: Int): Int {
         val result = registers.a and getRegister(code and 0x07)
         registers.a = result and 0xFF
         registers.flagZ = result == 0; registers.flagN = false; registers.flagH = true; registers.flagC = false
-        return if (code and 0x07 == 6) 8 else 4
+        return 4
     }
 
     private fun andImmediate(n: Int): Int {
         val result = registers.a and n
         registers.a = result and 0xFF
         registers.flagZ = result == 0; registers.flagN = false; registers.flagH = true; registers.flagC = false
-        return 8
+        return 4
     }
 
     private fun or8(code: Int): Int {
         val result = registers.a or getRegister(code and 0x07)
         registers.a = result and 0xFF
         registers.flagZ = result == 0; registers.flagN = false; registers.flagH = false; registers.flagC = false
-        return if (code and 0x07 == 6) 8 else 4
+        return 4
     }
 
     private fun orImmediate(n: Int): Int {
         val result = registers.a or n
         registers.a = result and 0xFF
         registers.flagZ = result == 0; registers.flagN = false; registers.flagH = false; registers.flagC = false
-        return 8
+        return 4
     }
 
     private fun xor8(code: Int): Int {
         val result = registers.a xor getRegister(code and 0x07)
         registers.a = result and 0xFF
         registers.flagZ = result == 0; registers.flagN = false; registers.flagH = false; registers.flagC = false
-        return if (code and 0x07 == 6) 8 else 4
+        return 4
     }
 
     private fun xorImmediate(n: Int): Int {
         val result = registers.a xor n
         registers.a = result and 0xFF
         registers.flagZ = result == 0; registers.flagN = false; registers.flagH = false; registers.flagC = false
-        return 8
+        return 4
     }
 
     private fun addHL(value: Int): Int {
@@ -580,24 +560,22 @@ class Cpu(
 
     private fun inc(registerCode: Int): Int {
         val old = getRegister(registerCode)
-        if (registerCode == 6) onMachineCycleTick()
         val value = (old + 1) and 0xFF
         setRegister(registerCode, value)
         registers.flagZ = value == 0
         registers.flagN = false
         registers.flagH = (old and 0x0F) == 0x0F
-        return if (registerCode == 6) 8 else 4
+        return 4
     }
 
     private fun dec(registerCode: Int): Int {
         val old = getRegister(registerCode)
-        if (registerCode == 6) onMachineCycleTick()
         val value = (old - 1) and 0xFF
         setRegister(registerCode, value)
         registers.flagZ = value == 0
         registers.flagN = true
         registers.flagH = (old and 0x0F) == 0x00
-        return if (registerCode == 6) 8 else 4
+        return 4
     }
 
     private fun daa(): Int {
@@ -624,7 +602,7 @@ class Cpu(
         val src = code and 0x07
         val dst = (code and 0x38) shr 3
         setRegister(dst, getRegister(src))
-        return if ((code and 0x07 == 6) || (code and 0x38 shr 3 == 6)) 8 else 4
+        return 4
     }
 
     private fun rst(vector: Int): Int {
@@ -636,29 +614,29 @@ class Cpu(
     private fun jp(condition: Boolean = true): Int {
         val value = fetch16()
 
-        if (!condition) return 12
+        if (!condition) return 4
 
         registers.pc = value
-        return 16
+        return 8
     }
 
     private fun jr(condition: Boolean = true): Int {
         val offset = fetch().toByte().toInt()
 
-        if (!condition) return 8
+        if (!condition) return 4
 
         registers.pc = (registers.pc + offset) and 0xFFFF
-        return 12
+        return 8
     }
 
     private fun call(condition: Boolean = true): Int {
         val value = fetch16()
 
-        if (!condition) return 12
+        if (!condition) return 4
 
         push(registers.pc)
         registers.pc = value
-        return 24
+        return 16
     }
 
     private fun ret(condition: Boolean = true): Int {
@@ -675,6 +653,7 @@ class Cpu(
         } else {
             registers.pc = (registers.pc + 1) and 0xFFFF
         }
+        onMachineCycleTick()
         return data
     }
 

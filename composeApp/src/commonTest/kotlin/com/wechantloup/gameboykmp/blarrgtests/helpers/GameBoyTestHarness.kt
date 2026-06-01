@@ -19,6 +19,9 @@ class GameBoyTestHarness {
     val ppu = Ppu(bus)
     val apu = Apu(bus)
 
+    private var totalCycles = 0
+    private var cycleDebt = 0
+
     /**
      * Run [n] full emulation steps.
      * Each step ticks all components in the same order as the production loop.
@@ -36,21 +39,17 @@ class GameBoyTestHarness {
         ppu.step(4)
         timer.step(4)
         apu.step(4)
+        totalCycles += 4
     }
 
-    private var cycleDebt = 0
-
     fun stepCycles(targetCycles: Int) {
-        var elapsed = -cycleDebt
+        val target = totalCycles + targetCycles - cycleDebt
         cycleDebt = 0
-        while (elapsed < targetCycles) {
-            val cycles = cpu.step()
-            repeat(cycles / 4) {
-                step1()
-            }
-            elapsed += cycles
+        while (totalCycles < target) {
+            val remaining = cpu.step()
+            repeat(remaining / 4) { step1() }
         }
-        cycleDebt = elapsed - targetCycles
+        cycleDebt = totalCycles - target
     }
 
     fun parkCpu() {
