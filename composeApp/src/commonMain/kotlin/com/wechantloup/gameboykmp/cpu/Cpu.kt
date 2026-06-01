@@ -45,7 +45,7 @@ class Cpu(
                     4 -> 0x0060  // Joypad
                     else -> 0x0040
                 }
-                return 20
+                return 8
             }
         }
 
@@ -136,7 +136,8 @@ class Cpu(
             0x36 -> {
                 val value = fetch()
                 bus.write(registers.hl, value)
-                8
+                onMachineCycleTick()
+                4
             }  // LD (HL), n
             0x3E -> { registers.a = fetch(); 4 }
 
@@ -153,8 +154,10 @@ class Cpu(
             0x08 -> {                                   // LD (nn), SP
                 val addr = fetch16()
                 bus.write(addr, registers.sp and 0xFF)
+                onMachineCycleTick()
                 bus.write(addr + 1, (registers.sp shr 8) and 0xFF)
-                12
+                onMachineCycleTick()
+                4
             }
             0xF8 -> {                                   // LD HL, SP+n
                 val offset = fetch().toByte().toInt()
@@ -169,39 +172,87 @@ class Cpu(
             0xF9 -> { registers.sp = registers.hl; 8 }        // LD SP, HL
 
             /* --- LD (HL±), A / LD A, (HL±) --- */
-            0x22 -> { bus.write(registers.hl, registers.a); registers.hl = (registers.hl + 1) and 0xFFFF; 8 }
-            0x32 -> { bus.write(registers.hl, registers.a); registers.hl = (registers.hl - 1) and 0xFFFF; 8 }
-            0x2A -> { registers.a = bus.read(registers.hl); registers.hl = (registers.hl + 1) and 0xFFFF; 8 }
-            0x3A -> { registers.a = bus.read(registers.hl); registers.hl = (registers.hl - 1) and 0xFFFF; 8 }
+            0x22 -> {
+                bus.write(registers.hl, registers.a)
+                onMachineCycleTick()
+                registers.hl = (registers.hl + 1) and 0xFFFF
+                4
+            }
+            0x32 -> {
+                bus.write(registers.hl, registers.a)
+                onMachineCycleTick()
+                registers.hl = (registers.hl - 1) and 0xFFFF
+                4
+            }
+            0x2A -> {
+                registers.a = bus.read(registers.hl)
+                onMachineCycleTick()
+                registers.hl = (registers.hl + 1) and 0xFFFF
+                4
+            }
+            0x3A -> {
+                registers.a = bus.read(registers.hl)
+                onMachineCycleTick()
+                registers.hl = (registers.hl - 1) and 0xFFFF
+                4
+            }
 
             /* --- LD (BC/DE), A / LD A, (BC/DE) --- */
-            0x02 -> { bus.write(registers.bc, registers.a); 8 }
-            0x12 -> { bus.write(registers.de, registers.a); 8 }
-            0x0A -> { registers.a = bus.read(registers.bc); 8 }
-            0x1A -> { registers.a = bus.read(registers.de); 8 }
+            0x02 -> {
+                bus.write(registers.bc, registers.a)
+                onMachineCycleTick()
+                4
+            }
+            0x12 -> {
+                bus.write(registers.de, registers.a)
+                onMachineCycleTick()
+                4
+            }
+            0x0A -> {
+                registers.a = bus.read(registers.bc)
+                onMachineCycleTick()
+                4
+            }
+            0x1A -> {
+                registers.a = bus.read(registers.de)
+                onMachineCycleTick()
+                4
+            }
 
             /* --- I/O loads --- */
             0xE0 -> {
                 val value = fetch()
                 bus.write(0xFF00 + value, registers.a)
-                8
+                onMachineCycleTick()
+                4
             }
             0xF0 -> {
                 val value = fetch()
                 registers.a = bus.read(0xFF00 + value)
-                8
+                onMachineCycleTick()
+                4
             }
-            0xE2 -> { bus.write(0xFF00 + registers.c, registers.a); 8 }
-            0xF2 -> { registers.a = bus.read(0xFF00 + registers.c); 8 }
+            0xE2 -> {
+                bus.write(0xFF00 + registers.c, registers.a)
+                onMachineCycleTick()
+                4
+            }
+            0xF2 -> {
+                registers.a = bus.read(0xFF00 + registers.c);
+                onMachineCycleTick()
+                4
+            }
             0xEA -> {
                 val value = fetch16()
                 bus.write(value, registers.a)
-                8
+                onMachineCycleTick()
+                4
             }
             0xFA -> {
                 val address = fetch16()
                 registers.a = bus.read(address)
-                8
+                onMachineCycleTick()
+                4
             }
 
             /* --- 8-bit arithmetic: register --- */
@@ -325,39 +376,39 @@ class Cpu(
             0x38 -> jr(registers.flagC)
 
             /* --- CALL / RET --- */
-            0xCD -> call()
-            0xC4 -> call(!registers.flagZ)
-            0xCC -> call(registers.flagZ)
-            0xD4 -> call(!registers.flagC)
-            0xDC -> call(registers.flagC)
+            0xCD -> { call(); 4 }
+            0xC4 -> { call(!registers.flagZ); 4 }
+            0xCC -> { call(registers.flagZ); 4 }
+            0xD4 -> { call(!registers.flagC); 4 }
+            0xDC -> { call(registers.flagC); 4 }
 
-            0xC9 -> { registers.pc = pop(); 16 }
+            0xC9 -> { registers.pc = pop(); 8 }
             0xC0 -> ret(!registers.flagZ)
             0xC8 -> ret(registers.flagZ)
             0xD0 -> ret(!registers.flagC)
             0xD8 -> ret(registers.flagC)
-            0xD9 -> { registers.pc = pop(); ime = true; 16 }  // RETI
+            0xD9 -> { registers.pc = pop(); ime = true; 8 }  // RETI
 
             /* --- PUSH / POP --- */
-            0xC5 -> { push(registers.bc); 16 }
-            0xD5 -> { push(registers.de); 16 }
-            0xE5 -> { push(registers.hl); 16 }
-            0xF5 -> { push(registers.af); 16 }
+            0xC5 -> { push(registers.bc); 4 }
+            0xD5 -> { push(registers.de); 4 }
+            0xE5 -> { push(registers.hl); 4 }
+            0xF5 -> { push(registers.af); 4 }
 
-            0xC1 -> { registers.bc = pop(); 12 }
-            0xD1 -> { registers.de = pop(); 12 }
-            0xE1 -> { registers.hl = pop(); 12 }
-            0xF1 -> { registers.af = pop(); 12 }
+            0xC1 -> { registers.bc = pop(); 4 }
+            0xD1 -> { registers.de = pop(); 4 }
+            0xE1 -> { registers.hl = pop(); 4 }
+            0xF1 -> { registers.af = pop(); 4 }
 
             /* --- RST --- */
-            0xC7 -> rst(0x00)
-            0xCF -> rst(0x08)
-            0xD7 -> rst(0x10)
-            0xDF -> rst(0x18)
-            0xE7 -> rst(0x20)
-            0xEF -> rst(0x28)
-            0xF7 -> rst(0x30)
-            0xFF -> rst(0x38)
+            0xC7 -> { rst(0x00); 4 }
+            0xCF -> { rst(0x08); 4 }
+            0xD7 -> { rst(0x10); 4 }
+            0xDF -> { rst(0x18); 4 }
+            0xE7 -> { rst(0x20); 4 }
+            0xEF -> { rst(0x28); 4 }
+            0xF7 -> { rst(0x30); 4 }
+            0xFF -> { rst(0x38); 4 }
 
             /* --- Interrupts --- */
             0xF3 -> { ime = false; 4 }
@@ -367,13 +418,14 @@ class Cpu(
             0xCB -> {
                 val code = fetch()
                 executeCb(code)
+                4
             }
 
             else -> TODO("Opcode 0x${opcode.toString(16).uppercase()} not implemented at PC=0x${(registers.pc - 1).toString(16)}")
         }
     }
 
-    private fun executeCb(opcode: Int): Int {
+    private fun executeCb(opcode: Int) {
         val reg = opcode and 0x07
         when (opcode and 0xF8) {
             0x00 -> {  // RLC r
@@ -453,7 +505,6 @@ class Cpu(
                 }
             }
         }
-        return 4
     }
 
     private fun add(code: Int, withCarry: Boolean = false): Int {
@@ -605,10 +656,9 @@ class Cpu(
         return 4
     }
 
-    private fun rst(vector: Int): Int {
+    private fun rst(vector: Int) {
         push(registers.pc)
         registers.pc = vector
-        return 16
     }
 
     private fun jp(condition: Boolean = true): Int {
@@ -629,21 +679,20 @@ class Cpu(
         return 8
     }
 
-    private fun call(condition: Boolean = true): Int {
+    private fun call(condition: Boolean = true) {
         val value = fetch16()
 
-        if (!condition) return 4
+        if (!condition) return
 
         push(registers.pc)
         registers.pc = value
-        return 16
     }
 
     private fun ret(condition: Boolean = true): Int {
         if (!condition) return 8
 
         registers.pc = pop()
-        return 20
+        return 12
     }
 
     private fun fetch(): Int {
@@ -664,17 +713,22 @@ class Cpu(
     }
 
     private fun push(address: Int) {
+        onMachineCycleTick()  // internal M-cycle (stack pointer prep)
         registers.sp = (registers.sp - 1) and 0xFFFF
         bus.write(registers.sp, (address shr 8) and 0xFF)
+        onMachineCycleTick()  // write high byte
         registers.sp = (registers.sp - 1) and 0xFFFF
         bus.write(registers.sp, address and 0xFF)
+        onMachineCycleTick()  // write low byte
     }
 
     private fun pop(): Int {
         val low = bus.read(registers.sp)
         registers.sp = (registers.sp + 1) and 0xFFFF
+        onMachineCycleTick()  // read low byte
         val high = bus.read(registers.sp)
         registers.sp = (registers.sp + 1) and 0xFFFF
+        onMachineCycleTick()  // read high byte
         return (high shl 8) or low
     }
 
