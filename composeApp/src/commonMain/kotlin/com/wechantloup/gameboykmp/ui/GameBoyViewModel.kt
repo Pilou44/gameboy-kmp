@@ -107,10 +107,7 @@ class GameBoyViewModel : ViewModel() {
                 // Run for 1 frame (70224 cycles)
                 frameCycles = 0
                 while (frameCycles < 70224) {
-                    val cycles = cpu.step()
-                    repeat(cycles / 4) {
-                        onMachineCycleTick()
-                    }
+                    cpu.step()
                 }
 
                 frameStartMark += frameDuration

@@ -28,10 +28,7 @@ class GameBoyTestHarness {
      */
     fun step(n: Int = 1) {
         repeat(n) {
-            val cycles = cpu.step()
-            repeat(cycles / 4) {
-                step1()
-            }
+            cpu.step()
         }
     }
 
@@ -46,8 +43,7 @@ class GameBoyTestHarness {
         val target = totalCycles + targetCycles - cycleDebt
         cycleDebt = 0
         while (totalCycles < target) {
-            val remaining = cpu.step()
-            repeat(remaining / 4) { step1() }
+            cpu.step()
         }
         cycleDebt = totalCycles - target
     }
