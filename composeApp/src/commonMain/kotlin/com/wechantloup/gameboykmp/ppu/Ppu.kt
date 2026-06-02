@@ -40,8 +40,10 @@ class Ppu(
                 bus.write(0xFF41, stat and 0xFC)
             }
             return
+        } else if (!lcdWasOn) {
+            lcdWasOn = true
+            updateStat(mode)
         }
-        lcdWasOn = true
 
         modeClock += cycles
 
