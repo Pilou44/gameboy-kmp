@@ -1,6 +1,7 @@
 package com.wechantloup.gameboykmp.cpu
 
 import com.wechantloup.gameboykmp.bus.Bus
+import com.wechantloup.gameboykmp.logger.Logger
 
 class Cpu(
     private val bus: Bus,
@@ -36,13 +37,24 @@ class Cpu(
                 // Find highest priority interrupt (lowest bit)
                 val bit = pending.countTrailingZeroBits()
 
+                Logger.debug("CPU", "INT dispatch bit=$bit pc=0x${registers.pc.toString(16)}")
+
                 // Clear the bit in IF
                 bus.setIF(bus.iF and (1 shl bit).inv())
                 onMachineCycleTick()  // internal M-cycle 1
                 onMachineCycleTick()  // internal M-cycle 2
 
-                // Push current PC and jump to interrupt vector
-                push(registers.pc)
+                // Write PC to stack manually — intentionally NOT using push(),
+                // which adds an extra internal M-cycle suited for the PUSH instruction
+                // but not for interrupt dispatch.
+                registers.sp = (registers.sp - 1) and 0xFFFF
+                bus.write(registers.sp, (registers.pc shr 8) and 0xFF)
+                onMachineCycleTick()  // M-cycle 3: write PCH
+
+                registers.sp = (registers.sp - 1) and 0xFFFF
+                bus.write(registers.sp, registers.pc and 0xFF)
+                onMachineCycleTick()  // M-cycle 4: write PCL
+
                 registers.pc = when (bit) {
                     0 -> 0x0040  // V-Blank
                     1 -> 0x0048  // LCD STAT
@@ -51,6 +63,7 @@ class Cpu(
                     4 -> 0x0060  // Joypad
                     else -> 0x0040
                 }
+                onMachineCycleTick()  // M-cycle 5: jump to vector
                 return
             }
         }
@@ -117,7 +130,7 @@ class Cpu(
 
             0x76 -> {
                 val pending = bus.ie and bus.iF and 0x1F
-                if (pending != 0) {
+                if (pending != 0 && !ime) {
                     haltBug = true  // halt bug regardless of IME state
                 } else {
                     isHalted = true

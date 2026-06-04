@@ -102,6 +102,7 @@ class GameBoyViewModel : ViewModel() {
             var hasLogged5EDC = false
             var hasLogged334 = false
             var hasLoggedHandler = false
+            var has330 = false
 
             while (true) {
                 while (isPaused) {
@@ -133,6 +134,12 @@ class GameBoyViewModel : ViewModel() {
                     }
 
                     val ceeaBefore = bus.read(0xCEEA)
+
+                    if (cpu.registers.pc == 0x330 && !has330) {
+                        has330 = true
+                        Logger.debug(TAG, "First 0x330 at frameCycles=$frameCycles")
+                    }
+
                     cpu.step()
                     val ceeaAfter = bus.read(0xCEEA)
                     if (ceeaAfter != ceeaBefore) {
@@ -142,7 +149,7 @@ class GameBoyViewModel : ViewModel() {
                     }
 
                     if (cpu.registers.pc == 0x0040 && pcBefore != 0x0040) {
-                        Logger.debug(TAG, "VBlank ISR dispatched at frame $frameCount")
+                        Logger.debug(TAG, "VBlank ISR dispatched at frame $frameCount, frameCycles = $frameCycles")
                         if (!hasLoggedHandler) {
                             hasLoggedHandler = true
                             val bytes = (0..15).joinToString(" ") {
