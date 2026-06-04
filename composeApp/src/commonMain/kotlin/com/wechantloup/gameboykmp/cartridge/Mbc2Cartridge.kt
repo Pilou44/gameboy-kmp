@@ -23,6 +23,26 @@ class Mbc2Cartridge(
     private var ramEnabled = false
     private var romBank = 1
 
+    private val romBankCount: Int = run {
+        val fromHeader = when (rom[0x0148].toInt() and 0xFF) {
+            0x00 -> 2
+            0x01 -> 4
+            0x02 -> 8
+            0x03 -> 16
+            0x04 -> 32
+            0x05 -> 64
+            0x06 -> 128
+            0x07 -> 256
+            0x08 -> 512
+            else -> throw IllegalStateException("Unknown ROM size byte at 0x0148")
+        }
+        val fromSize = rom.size / 0x4000
+        require(fromHeader == fromSize) {
+            "ROM size mismatch: header says $fromHeader banks but file has $fromSize banks"
+        }
+        fromHeader
+    }
+
     private val ram = IntArray(0x200) // 512 entries
         .also { ram ->
             if (withBattery) {
@@ -40,7 +60,8 @@ class Mbc2Cartridge(
                 rom[address].toInt() and 0xFF
             }
             in 0x4000..0x7FFF -> {
-                rom[romBank * 0x4000 + (address - 0x4000)].toInt() and 0xFF
+                val maskedBank = romBank and (romBankCount - 1)
+                rom[maskedBank * 0x4000 + (address - 0x4000)].toInt() and 0xFF
             }
             else -> throw IllegalArgumentException("Bad address")
         }
