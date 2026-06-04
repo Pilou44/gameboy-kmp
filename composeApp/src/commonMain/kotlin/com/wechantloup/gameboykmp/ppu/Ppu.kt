@@ -16,7 +16,6 @@ class Ppu(
     private var mode = 2
     private var windowLine = 0
     private var lcdWasOn = true
-    private var lastStatIrq = false
 
     fun step(cycles: Int) {
         val lcdc = bus.read(0xFF40)
@@ -116,31 +115,30 @@ class Ppu(
     private fun updateStat(newMode: Int) {
         val stat = bus.read(0xFF41)
         bus.write(0xFF41, (stat and 0xFC) or (newMode and 0x03))
-        checkStatIrq()
+
+        // Trigger STAT IRQ if the corresponding enable bit is set
+        val irqBit = when (newMode) {
+            0 -> 0x08  // H-Blank
+            1 -> 0x10  // V-Blank
+            2 -> 0x20  // OAM
+            else -> 0
+        }
+        if (irqBit != 0 && stat and irqBit != 0) {
+            bus.setIF(bus.iF or 0x02)
+        }
     }
 
     private fun checkLyc() {
         val lyc = bus.read(0xFF45)
         val stat = bus.read(0xFF41)
         if (ly == lyc) {
-            bus.write(0xFF41, stat or 0x04)
+            bus.write(0xFF41, stat or 0x04)  // Set coincidence flag
+            if (stat and 0x40 != 0) {        // LYC=LY interrupt enabled?
+                bus.setIF(bus.iF or 0x02)
+            }
         } else {
             bus.write(0xFF41, stat and 0x04.inv())
         }
-        checkStatIrq()
-    }
-
-    private fun checkStatIrq() {
-        val stat = bus.read(0xFF41)
-        val mode = stat and 0x03
-        val irq = (mode == 0 && stat and 0x08 != 0) ||  // HBlank INT
-                (mode == 1 && stat and 0x10 != 0) ||  // VBlank INT
-                (mode == 2 && stat and 0x20 != 0) ||  // OAM INT
-                (stat and 0x04 != 0 && stat and 0x40 != 0)  // LYC=LY INT
-        if (!lastStatIrq && irq) {
-            bus.setIF(bus.iF or 0x02)  // Rising edge only
-        }
-        lastStatIrq = irq
     }
 
     private fun renderScanline(lcdc: Int) {
