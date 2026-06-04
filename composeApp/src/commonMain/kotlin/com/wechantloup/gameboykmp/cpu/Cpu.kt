@@ -1,7 +1,6 @@
 package com.wechantloup.gameboykmp.cpu
 
 import com.wechantloup.gameboykmp.bus.Bus
-import com.wechantloup.gameboykmp.logger.Logger
 
 class Cpu(
     private val bus: Bus,
@@ -36,8 +35,6 @@ class Cpu(
 
                 // Find highest priority interrupt (lowest bit)
                 val bit = pending.countTrailingZeroBits()
-
-                Logger.debug("CPU", "INT dispatch bit=$bit pc=0x${registers.pc.toString(16)}")
 
                 // Clear the bit in IF
                 bus.setIF(bus.iF and (1 shl bit).inv())

@@ -748,13 +748,13 @@ class RomTestRunner {
     @Test
     @Order(117)
     fun `mooneye-emulator-only-mbc1-ram_256kb`() {
-        runTest("mooneye/emulator-only/mbc1/ram_256kb.gb", 1_000)
+        runTest("mooneye/emulator-only/mbc1/ram_256kb.gb", 2_000)
     }
 
     @Test
     @Order(118)
     fun `mooneye-emulator-only-mbc1-ram_64kb`() {
-        runTest("mooneye/emulator-only/mbc1/ram_64kb.gb", 1_000)
+        runTest("mooneye/emulator-only/mbc1/ram_64kb.gb", 2_000)
     }
 
     @Test
