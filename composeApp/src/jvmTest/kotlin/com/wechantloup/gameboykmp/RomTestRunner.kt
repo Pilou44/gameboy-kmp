@@ -1005,7 +1005,7 @@ class RomTestRunner {
                     .also {
                         it.toPng("$TEST_RESULTS_PATH/$captureName")
                     }
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 resultFile.appendText("""
                 <tr><th class='test'>$romPath</th>
                   <td class='INFO'>No reference</td>
