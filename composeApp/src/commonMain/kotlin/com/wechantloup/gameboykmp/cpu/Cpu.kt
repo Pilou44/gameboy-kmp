@@ -534,14 +534,14 @@ class Cpu(
                 setRegister(reg, v)
                 registers.flagZ = v == 0; registers.flagN = false; registers.flagH = false; registers.flagC = bit0 != 0
             }
-            else -> when {
-                opcode in 0x40..0x7F -> {  // BIT b, r
+            else -> when (opcode) {
+                in 0x40..0x7F -> {  // BIT b, r
                     val bit = (opcode - 0x40) shr 3
                     registers.flagZ = (getRegister(reg) shr bit) and 1 == 0
                     registers.flagN = false
                     registers.flagH = true
                 }
-                opcode in 0x80..0xBF -> {  // RES b, r
+                in 0x80..0xBF -> {  // RES b, r
                     val bit = (opcode - 0x80) shr 3
                     val value = getRegister(reg)
                     setRegister(reg, value and (1 shl bit).inv())

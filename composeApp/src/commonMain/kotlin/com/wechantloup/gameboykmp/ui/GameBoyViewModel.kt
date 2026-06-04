@@ -98,12 +98,6 @@ class GameBoyViewModel : ViewModel() {
         val frameDuration = FRAME_DURATION_NS.toDuration(DurationUnit.NANOSECONDS)
         // Emulation loop
         emulationJob = viewModelScope.launch(Dispatchers.Default) {
-            // TODO: remove debug flags after investigation
-            var hasLogged5EDC = false
-            var hasLogged334 = false
-            var hasLoggedHandler = false
-            var has330 = false
-
             while (true) {
                 while (isPaused) {
                     delay(200)
@@ -112,70 +106,8 @@ class GameBoyViewModel : ViewModel() {
 
                 // Run for 1 frame (70224 cycles)
                 frameCycles = 0
-                var stepCount = 0
                 while (frameCycles < 70224) {
-                    val pcBefore = cpu.registers.pc
-
-                    if (cpu.registers.pc == 0x5EDC && !hasLogged5EDC) {
-                        hasLogged5EDC = true
-                        val bytes = (0..7).joinToString(" ") {
-                            bus.read(0x5EDC + it).toString(16).padStart(2, '0')
-                        }
-                        Logger.debug(TAG, "Loop 0x5EDC: $bytes | DE=0x${cpu.registers.de.toString(16)}")
-                    }
-
-                    if (cpu.registers.pc == 0x334 && !hasLogged334) {
-                        hasLogged334 = true
-                        val r = cpu.registers
-                        val bytes = (0..3).joinToString(" ") {
-                            bus.read(0x334 + it).toString(16).padStart(2, '0')
-                        }
-                        Logger.debug(TAG, "Crash 0x334: $bytes | A=${r.a.toString(16)} BC=${r.bc.toString(16)} HL=${r.hl.toString(16)}")
-                    }
-
-                    val ceeaBefore = bus.read(0xCEEA)
-
-                    if (cpu.registers.pc == 0x330 && !has330) {
-                        has330 = true
-                        Logger.debug(TAG, "First 0x330 at frameCycles=$frameCycles")
-                    }
-
                     cpu.step()
-                    val ceeaAfter = bus.read(0xCEEA)
-                    if (ceeaAfter != ceeaBefore) {
-                        Logger.debug(TAG, "0xCEEA: $ceeaBefore → $ceeaAfter at PC=0x${
-                            cpu.registers.pc.toString(16)
-                        } frame=$frameCount")
-                    }
-
-                    if (cpu.registers.pc == 0x0040 && pcBefore != 0x0040) {
-                        Logger.debug(TAG, "VBlank ISR dispatched at frame $frameCount, frameCycles = $frameCycles")
-                        if (!hasLoggedHandler) {
-                            hasLoggedHandler = true
-                            val bytes = (0..15).joinToString(" ") {
-                                bus.read(0x0040 + it).toString(16).padStart(2, '0')
-                            }
-                            Logger.debug(TAG, "VBlank handler 0x0040: $bytes")
-                        }
-                    }
-
-                    stepCount++
-                    if (stepCount > 500_000) {
-                        Logger.error(TAG, "Infinite loop at PC=0x${
-                            cpu.registers.pc.toString(16).uppercase()
-                        }")
-                        break
-                    }
-                }
-
-                if (frameCount in 55..70) {
-                    Logger.debug(TAG, "Frame $frameCount: PC=0x${cpu.registers.pc.toString(16)} 0xCEEA=${bus.read(0xCEEA)}")
-                }
-
-                if (frameCount < 120) {
-                    Logger.debug(TAG, "Frame $frameCount end: PC=0x${
-                        cpu.registers.pc.toString(16).uppercase()
-                    } halted=${cpu.isHalted} ime=${cpu.ime}")
                 }
 
                 frameStartMark += frameDuration
