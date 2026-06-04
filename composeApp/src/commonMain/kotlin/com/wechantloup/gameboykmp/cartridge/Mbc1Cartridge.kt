@@ -39,6 +39,16 @@ class Mbc1Cartridge(
         fromHeader
     }
 
+    private val ramBankCount: Int = run {
+        when (rom[0x0149].toInt() and 0xFF) {
+            0x00 -> 0 // No RAM
+            0x01 -> 0 // Unused
+            0x02 -> 1 // 8kB
+            0x03 -> 4 // 32kB
+            else -> throw IllegalStateException("Unknown RAM size byte at 0x0149")
+        }
+    }
+
     private var romBank = 1
     private var ramBank = 0
     private var ramEnabled = false
@@ -101,15 +111,17 @@ class Mbc1Cartridge(
     }
 
     override fun readRam(address: Int): Int {
-        if (!ramEnabled) return 0xFF
+        if (!ramEnabled || ramBankCount == 0) return 0xFF
         val effectiveRamBank = if (bankingMode == 1) ramBank else 0
-        return ram[effectiveRamBank * 0x2000 + address]
+        val maskedBank = effectiveRamBank and (ramBankCount - 1)
+        return ram[maskedBank * 0x2000 + address]
     }
 
     override fun writeRam(address: Int, value: Int) {
-        if (!ramEnabled) return
+        if (!ramEnabled || ramBankCount == 0) return
         val effectiveRamBank = if (bankingMode == 1) ramBank else 0
-        ram[effectiveRamBank * 0x2000 + address] = value
+        val maskedBank = effectiveRamBank and (ramBankCount - 1)
+        ram[maskedBank * 0x2000 + address] = value
         onRamWritten()  // persist on every write
     }
 
