@@ -66,9 +66,10 @@ class Mbc1Cartridge(
                 rom[maskedBank * 0x4000 + address].toInt() and 0xFF
             }
             in 0x4000..0x7FFF -> {
-                // In ROM banking mode (mode 0), ramBank bits 0-1 become bits 5-6 of the ROM bank number,
-                // allowing access to all 128 banks (7 bits total: 5 from romBank + 2 from ramBank)
-                val bank = if (bankingMode == 0) romBank or (ramBank shl 5) else romBank
+                // BANK2 bits always contribute as bits 5-6 of the ROM bank number, regardless of banking mode.
+                // Combined with BANK1 (bits 0-4), this gives a 7-bit bank number (up to 128 banks).
+                // The mask ensures the bank number wraps within the actual ROM size.
+                val bank = romBank or (ramBank shl 5)
                 // romBankCount is always a power of 2 (2, 4, 8, 16...), so (romBankCount - 1) is a perfect bit mask.
                 // e.g. 64 banks → 64 - 1 = 63 = 0b00111111, masking any bank number to the valid range.
                 val maskedBank = bank and (romBankCount - 1)
