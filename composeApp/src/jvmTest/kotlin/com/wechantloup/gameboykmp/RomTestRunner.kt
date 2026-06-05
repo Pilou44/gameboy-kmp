@@ -940,7 +940,7 @@ class RomTestRunner {
             runs = initRuns()
             val timestamp: String = LocalDateTime.now()
                 .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
-            currentRun = TestRun(timestamp,hashMapOf())
+            currentRun = TestRun(timestamp,linkedMapOf())
 
             resultFile.writeText("""
                 <html><head><style>
@@ -990,6 +990,8 @@ class RomTestRunner {
             captureNameSuffix: String = "",
         ) {
             testCount++
+
+            val testName = testName.substringBeforeLast("(")
 
             val romName = romPath.substring(
                 romPath.lastIndexOf('/') + 1,
