@@ -70,7 +70,7 @@ class Bus(
 
     var onDivReset: (() -> Unit)? = null
     var onTacWrite: ((Int, Int) -> Unit)? = null
-    var canWriteOnTima: () -> Boolean = { true }
+    var onTimaWrite: () -> Unit = { }
 
     val apuPoweredOn: Boolean get() = internalRam[0xFF26] and 0x80 != 0
 
@@ -111,9 +111,8 @@ class Bus(
                 onApuDivReset?.invoke()
             }
             0xFF05 -> {
-                if (canWriteOnTima()) {
-                    internalRam[address] = v
-                }
+                internalRam[address] = v
+                onTimaWrite()
             }
             0xFF07 -> {
                 val oldTac = internalRam[0xFF07]

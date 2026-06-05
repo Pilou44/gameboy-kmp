@@ -18,9 +18,6 @@ class Timer(private val bus: Bus) {
             }
             cycleCount = 0
         }
-        bus.canWriteOnTima = {
-            !timaOverflowPending
-        }
         bus.onTacWrite = { oldTac, newTac ->
             val wasEnabled = oldTac and 0x04 != 0
             val isEnabled = newTac and 0x04 != 0
@@ -31,6 +28,11 @@ class Timer(private val bus: Bus) {
             val timerDisabled = wasEnabled && !isEnabled
             if ((frequencyChanged || timerDisabled) && (cycleCount and divBitMask(oldFrequency)) != 0) {
                 incrementTima()
+            }
+        }
+        bus.onTimaWrite = {
+            if (timaOverflowPending) {
+                timaOverflowPending = false
             }
         }
     }
