@@ -73,6 +73,7 @@ kotlin {
             runtimeOnly("org.lwjgl:lwjgl-glfw:${libs.versions.lwjgl.get()}:$lwjglNatives")
         }
         jvmTest.dependencies {
+            implementation(libs.kotlinx.serialization.json)
             implementation(libs.kotlin.test)
             implementation(libs.junit.jupiter.api)
             runtimeOnly(libs.junit.jupiter.engine)
