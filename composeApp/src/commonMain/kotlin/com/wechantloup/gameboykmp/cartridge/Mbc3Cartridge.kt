@@ -119,7 +119,7 @@ class Mbc3Cartridge(
     }
 
     override fun readRam(address: Int): Int {
-        if (!ramEnabled) return 0xFF
+        if (!ramEnabled || ramBankCount == 0) return 0xFF
         return when (ramBank) {
             in 0x00..0x07 -> {
                 val maskedBank = ramBank and (ramBankCount - 1)
@@ -131,7 +131,7 @@ class Mbc3Cartridge(
     }
 
     override fun writeRam(address: Int, value: Int) {
-        if (!ramEnabled) return
+        if (!ramEnabled || ramBankCount == 0) return
         when (ramBank) {
             in 0x00..0x07 -> {
                 val maskedBank = ramBank and (ramBankCount - 1)

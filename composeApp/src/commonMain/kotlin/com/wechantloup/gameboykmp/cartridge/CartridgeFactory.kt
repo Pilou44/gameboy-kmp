@@ -61,7 +61,22 @@ object CartridgeFactory {
                     CartridgeType.MBC3_TIMER_RAM_BATTERY,
                 ),
             )
-            else -> TODO("Cartridge type $type not yet implemented")
+
+            CartridgeType.MBC5,
+            CartridgeType.MBC5_RAM,
+            CartridgeType.MBC5_RAM_BATTERY,
+            CartridgeType.MBC5_RUMBLE,
+            CartridgeType.MBC5_RUMBLE_RAM,
+            CartridgeType.MBC5_RUMBLE_RAM_BATTERY,
+            -> Mbc5Cartridge(
+                rom = rom,
+                romName = romName,
+                scope = scope,
+                withBattery = type in setOf(
+                    CartridgeType.MBC5_RAM_BATTERY,
+                    CartridgeType.MBC5_RUMBLE_RAM_BATTERY,
+                ),
+            )
         }
     }
 }
