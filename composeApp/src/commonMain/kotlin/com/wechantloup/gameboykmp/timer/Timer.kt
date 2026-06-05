@@ -30,7 +30,14 @@ class Timer(private val bus: Bus) {
                 incrementTima()
             }
         }
+        bus.canWriteOnTima = {
+            // Allow write only if not in the reload M-cycle.
+            // timaOverflowCycles == 4 means the reload fires at the end of this very M-cycle;
+            // the CPU write must be ignored in that case (hardware behaviour).
+            !(timaOverflowPending && timaOverflowCycles <= 4)
+        }
         bus.onTimaWrite = {
+            // Only called when canWriteOnTima() returned true, i.e. we are in the cancel window.
             if (timaOverflowPending) {
                 timaOverflowPending = false
             }
@@ -100,7 +107,12 @@ class Timer(private val bus: Bus) {
         if (next > 0xFF) {
             tima = 0x00
             timaOverflowPending = true
-            timaOverflowCycles = 4
+            // 8 T-cycles (2 M-cycles) delay before reload.
+            // The timer step detects the falling edge one M-cycle late (it fires at the END of
+            // the M-cycle that contained the edge, while hardware fires at the START of the next).
+            // The hardware reload delay is 4 T-cycles from the actual edge = 4 cycles compensation
+            // for detection latency + 4 cycles hardware delay = 8 total from detection point.
+            timaOverflowCycles = 8
         } else {
             tima = next and 0xFF
         }
