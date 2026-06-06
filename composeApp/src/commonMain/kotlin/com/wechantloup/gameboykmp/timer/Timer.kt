@@ -14,7 +14,7 @@ class Timer(private val bus: Bus) {
             // Before resetting, check if the bit that clocks TIMA is currently 1.
             // If yes, forcing it to 0 is a falling edge → TIMA must increment now.
             if (timerActivated && isDivBitSet()) {
-                incrementTima()
+                incrementTima(overflowCycles = 4)
             }
             cycleCount = 0
         }
@@ -27,7 +27,7 @@ class Timer(private val bus: Bus) {
             val frequencyChanged = wasEnabled && isEnabled && oldFrequency != newFrequency
             val timerDisabled = wasEnabled && !isEnabled
             if ((frequencyChanged || timerDisabled) && (cycleCount and divBitMask(oldFrequency)) != 0) {
-                incrementTima()
+                incrementTima(overflowCycles = 4)
             }
         }
         bus.canWriteOnTima = {
@@ -41,6 +41,10 @@ class Timer(private val bus: Bus) {
             if (timaOverflowPending) {
                 timaOverflowPending = false
             }
+        }
+        bus.timaReadOverride = {
+            // Pendant le reload M-cycle : lire TIMA retourne TMA (hardware connecte les deux)
+            if (timaOverflowPending && timaOverflowCycles <= 4) tma else null
         }
     }
 
@@ -102,19 +106,14 @@ class Timer(private val bus: Bus) {
 
     private fun isDivBitSet(): Boolean = (cycleCount and divBitMask()) != 0
 
-    private fun incrementTima() {
-        val next = tima + 1
+    private fun incrementTima(overflowCycles: Int = 8) {
+        val next = bus.readRaw(TIMA_ADDR) + 1
         if (next > 0xFF) {
-            tima = 0x00
+            bus.writeRaw(TIMA_ADDR, 0x00)
             timaOverflowPending = true
-            // 8 T-cycles (2 M-cycles) delay before reload.
-            // The timer step detects the falling edge one M-cycle late (it fires at the END of
-            // the M-cycle that contained the edge, while hardware fires at the START of the next).
-            // The hardware reload delay is 4 T-cycles from the actual edge = 4 cycles compensation
-            // for detection latency + 4 cycles hardware delay = 8 total from detection point.
-            timaOverflowCycles = 8
+            timaOverflowCycles = overflowCycles
         } else {
-            tima = next and 0xFF
+            bus.writeRaw(TIMA_ADDR, next and 0xFF)
         }
     }
 
