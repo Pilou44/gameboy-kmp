@@ -1110,24 +1110,47 @@ class RomTestRunner {
         }
 
         private fun convertRunsToHtml() {
-            runsHtmlFile.writeText("<html><table>\n")
+            runsHtmlFile.writeText("""
+                <html><head><style>
+                    table { border-collapse: collapse }
+                    .emulator { position: sticky; top: 0px; }
+                    .test { position: sticky; left: 0px; }
+                    .tooltiptext { visibility: hidden; width: 200px; background-color: black; color: #fff; text-align: center; padding: 5px 0; border-radius: 6px; position: absolute; z-index: 1; left: 102%; }
+                    tr:hover .tooltiptext { visibility: visible; }
+                    td, th { border: #333 solid 1px; text-align: center; line-height: 1.5}
+                    .PASS { background-color: #6e2 }
+                    .FAIL { background-color: #e44 }
+                    .UNKNOWN { background-color: #fd6 }
+                    td {font-size:80%}
+                    th{background:#eee}
+                    th:first-child{text-align:right; padding-right:4px}
+                    .screenshot { width: 160; height: 144; }
+                    body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif}
+                    </style></head><body><table>
+            """.trimIndent())
 
             val headers = runs.testRuns.map { it.timeStamp }
-            runsHtmlFile.appendText("<tr><td>Test</td><td>${headers.joinToString("</td><td>")}</td></tr>")
+            runsHtmlFile.appendText("<tr><th style=\"text-align:left\">Test</th><th class='emulator'>${headers.joinToString("</th><th class='emulator'>")}</th></tr>\n")
 
             val testNames = runs.testRuns.flatMap { it.tests.keys }.distinct()
-            val lines = testNames.map { name ->
-                val values = mutableListOf(name)
-                runs.testRuns.forEach { run ->
-                    values.add(run.tests[name]?.name ?: "NOT RUN")
-                }
-                values.toList()
-            }
-            lines.forEach { line ->
-                runsHtmlFile.appendText("<tr><td>${line.joinToString("</td><td>")}</td></tr>")
-            }
 
-            runsHtmlFile.appendText("</table></html>")
+            testNames
+                .forEach { name ->
+                    runsHtmlFile.appendText("<tr><th class='test'>$name</th>")
+                    runs.testRuns.forEach { run ->
+                        val result = run.tests[name]
+                        val text = when (result) {
+                            TestStatus.PASS -> "<td class='PASS'>PASS</td>"
+                            TestStatus.FAIL -> "<td class='FAIL'>FAIL</td>"
+                            TestStatus.UNKNOWN -> "<td class='UNKNOWN'>UNKNOWN</td>"
+                            null -> "<td></td>"
+                        }
+                        runsHtmlFile.appendText(text)
+                    }
+                    runsHtmlFile.appendText("</tr>\n")
+                }
+
+            runsHtmlFile.appendText("</table></html>\n")
         }
     }
 }
