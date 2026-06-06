@@ -139,6 +139,7 @@ class GameBoyViewModel : ViewModel() {
         ppu?.step(4) // TODO Always 4, useless parameter
         timer?.step(4) // TODO Always 4, useless parameter
         apu?.step(4) // TODO Always 4, useless parameter
+        bus?.stepDma()
         frameCycles += 4
     }
 

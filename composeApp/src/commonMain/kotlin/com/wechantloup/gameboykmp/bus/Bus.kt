@@ -40,6 +40,12 @@ class Bus(
     @Volatile
     private var joypadState = 0xFF  // all buttons released
 
+    // --- DMA state ---
+    private var dmaCounter = 0       // counts down 161→0; 0 = inactive
+    private var dmaSourceBase = 0    // source address (sourceHighByte shl 8)
+
+    private val isDmaActive: Boolean get() = dmaCounter > 0
+
     /**
      * Callback invoked when the APU is powered off (NR52 bit 7: 1 -> 0).
      * The APU should register here to reset its channels' internal state.
@@ -76,6 +82,26 @@ class Bus(
 
     val apuPoweredOn: Boolean get() = internalRam[0xFF26] and 0x80 != 0
 
+    /**
+     * Advances the OAM DMA by one M-cycle.
+     * Must be called once per M-cycle from the emulation loop.
+     *
+     * Timing:
+     *   dmaCounter = 161 : setup tick — no byte copied yet
+     *   dmaCounter = 160 : copy byte 0
+     *   ...
+     *   dmaCounter =   1 : copy byte 159 → DMA done on next tick
+     */
+    fun stepDma() {
+        if (dmaCounter <= 0) return
+        if (dmaCounter < 161) {
+            val byteIndex = 160 - dmaCounter
+            // TODO: DMA reads should bypass CPU-facing locks for OAM-sourced transfers
+            oam[byteIndex] = read(dmaSourceBase + byteIndex)
+        }
+        dmaCounter--
+    }
+
     fun read(address: Int): Int = when (address) {
         in 0xE000..0xFDFF -> read(address - 0x2000) // Echo RAM: 0xE000–0xFDFF == 0xC000–0xDDFF
         0xFF00 -> {
@@ -98,7 +124,7 @@ class Bus(
         in 0x0000..0x7FFF -> cartridge.readRom(address)
         in 0x8000..0x9FFF -> readVram(address - 0x8000)
         in 0xA000..0xBFFF -> cartridge.readRam(address - 0xA000)
-        in 0xFE00..0xFE9F -> readOam(address - 0XFE00)
+        in 0xFE00..0xFE9F -> if (isDmaActive) 0xFF else readOam(address - 0xFE00)
         in 0xFF10..0xFF3F -> readApuRegister(address)
         0xFF0F -> internalRam[0xFF0F] or 0xE0  // IF: upper 3 bits always read as 1
         else -> internalRam[address]
@@ -196,7 +222,7 @@ class Bus(
             in 0x0000..0x7FFF -> cartridge.writeRom(address, v)
             in 0x8000..0x9FFF -> writeVram(address - 0x8000, v)
             in 0xA000..0xBFFF -> cartridge.writeRam(address - 0xA000, v)
-            in 0xFE00..0xFE9F -> writeOam(address - 0XFE00, v)
+            in 0xFE00..0xFE9F -> if (!isDmaActive) writeOam(address - 0xFE00, v)
             else -> internalRam[address] = v
         }
     }
@@ -330,12 +356,9 @@ class Bus(
     }
 
     private fun triggerDmaTransfer(sourceHighByte: Int) {
-        // OAM DMA: copies 160 bytes from (sourceHighByte * 0x100) to OAM (0xFE00-0xFE9F)
-        // TODO: DMA should block CPU access to non-HRAM memory for 160 microseconds (640 T-cycles)
-        val sourceBase = sourceHighByte shl 8
-        for (i in 0 until 0xA0) {
-            oam[i] = read(sourceBase + i)
-        }
+        internalRam[0xFF46] = sourceHighByte // store for readback at 0xFF46
+        dmaSourceBase = sourceHighByte shl 8
+        dmaCounter = 162 // 1 write tick (consumed immediately) + 1 setup + 160 transfers
     }
 
     fun incDiv() {
