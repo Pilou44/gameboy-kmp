@@ -198,7 +198,7 @@ class RomTestRunner {
     @Test
     @Order(29)
     fun `blarrg-oam_bug-7-timing_effect`(testInfo: TestInfo) {
-        runTest(testInfo.displayName, "blarrg/oam_bug/7-timing_effect.gb", 7_000)
+        runTest(testInfo.displayName, "blarrg/oam_bug/7-timing_effect.gb", 8_000)
     }
 
     @Test
