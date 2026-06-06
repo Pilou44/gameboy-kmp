@@ -23,8 +23,8 @@ class Cpu(
             if (isHalted) {
                 isHalted = false
                 if (!ime) {
-                    // IME=false: just wake, execute next instruction on next step
-                    onMachineCycleTick()
+                    // IME=false: just wake, no extra M-cycle consumed.
+                    // Next step() will fetch the instruction after HALT normally.
                     return
                 }
                 // IME=true: fall through to service interrupt immediately
