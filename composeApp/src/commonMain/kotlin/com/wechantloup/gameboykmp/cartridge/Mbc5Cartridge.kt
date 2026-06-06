@@ -21,7 +21,7 @@ class Mbc5Cartridge(
     override val isSaving: StateFlow<Boolean> = _isSaving
 
     private var ramEnabled = false
-    private var romBank = 0
+    private var romBank = 1
     private var ramBank = 0
 
     private val romBankCount: Int = run {
