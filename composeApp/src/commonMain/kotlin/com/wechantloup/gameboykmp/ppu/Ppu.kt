@@ -28,6 +28,7 @@ class Ppu(
                 modeClock = 0
                 mode = 2
                 windowLine = 0
+                bus.ppuMode = 0 // OAM and VRAM accessible when LCD is off
 
                 // fill scanline with white
                 frameBuffer.fill(0)
@@ -113,8 +114,9 @@ class Ppu(
     }
 
     private fun updateStat(newMode: Int) {
+        bus.ppuMode = newMode  // Keep Bus in sync for OAM/VRAM access gating
         val stat = bus.read(0xFF41)
-        bus.write(0xFF41, (stat and 0xFC) or (newMode and 0x03))
+        bus.writeRaw(0xFF41, (stat and 0xFC) or (newMode and 0x03))
 
         // Trigger STAT IRQ if the corresponding enable bit is set
         val irqBit = when (newMode) {

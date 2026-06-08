@@ -46,6 +46,8 @@ class Bus(
 
     private val isDmaActive: Boolean get() = dmaCounter > 0
 
+    var ppuMode: Int = 0
+
     /**
      * Callback invoked when the APU is powered off (NR52 bit 7: 1 -> 0).
      * The APU should register here to reset its channels' internal state.
@@ -103,7 +105,13 @@ class Bus(
     }
 
     fun read(address: Int): Int = when (address) {
+        in 0x8000..0x9FFF ->
+            if (ppuMode == 3) 0xFF
+            else readVram(address - 0x8000)
         in 0xE000..0xFDFF -> read(address - 0x2000) // Echo RAM: 0xE000–0xFDFF == 0xC000–0xDDFF
+        in 0xFE00..0xFE9F ->
+            if (isDmaActive || ppuMode == 2 || ppuMode == 3) 0xFF
+            else readOam(address - 0xFE00)
         0xFF00 -> {
             val p1 = internalRam[0xFF00]
             // Bits 0-3 are active-low: 0=pressed, 1=released
@@ -133,7 +141,9 @@ class Bus(
     fun write(address: Int, value: Int) {
         val v = value and 0xFF
         when (address) {
+            in 0x8000..0x9FFF -> if (ppuMode != 3) writeVram(address - 0x8000, v)
             in 0xE000..0xFDFF -> write(address - 0x2000, v) // Echo RAM: 0xE000–0xFDFF == 0xC000–0xDDFF
+            in 0xFE00..0xFE9F -> if (!isDmaActive && ppuMode != 2 && ppuMode != 3) writeOam(address - 0xFE00, v)
             0xFF04 -> {
                 internalRam[0xFF04] = 0
                 onDivReset?.invoke()
