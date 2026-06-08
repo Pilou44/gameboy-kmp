@@ -16,6 +16,8 @@ class Ppu(
     private var mode = 2
     private var windowLine = 0
     private var lcdWasOn = true
+    private var isFirstScanline = false
+    private var mode0Duration = 204
 
     fun step(cycles: Int) {
         val lcdc = bus.read(0xFF40)
@@ -43,7 +45,14 @@ class Ppu(
             return
         } else if (!lcdWasOn) {
             lcdWasOn = true
-            updateStat(mode)
+            ly = 0
+            modeClock = 0
+            mode = 0           // Line 0 starts in mode 0, skipping mode 2
+            isFirstScanline = true
+            mode0Duration = 80 // Short initial mode 0: 80 T-cycles before mode 3
+            bus.ppuMode = 0
+            updateStat(0)
+            checkLyc()
         }
 
         modeClock += cycles
@@ -74,20 +83,30 @@ class Ppu(
             // Rest period between scanlines.
             // CPU can freely access VRAM and OAM.
             // Duration: 204 cycles
-            0 -> if (modeClock >= 204) {
-                modeClock -= 204
-                ly++
-                bus.write(0xFF44, ly)
-                checkLyc()
-                if (ly == 144) {
-                    mode = 1
-                    windowLine = 0
-                    updateStat(1)
-                    bus.setIF(bus.iF or 0x01)  // V-Blank interrupt
-                    frameChannel.trySend(frameBuffer.copyOf())
+            0 -> if (modeClock >= mode0Duration) {
+                modeClock -= mode0Duration
+                if (isFirstScanline) {
+                    // Line 0: initial mode 0 done, go straight to mode 3 (no renderScanline yet)
+                    isFirstScanline = false
+                    mode0Duration = 200 // Shortened HBlank for line 0
+                    mode = 3
+                    updateStat(3)
                 } else {
-                    mode = 2
-                    updateStat(2)
+                    // Normal HBlank exit
+                    mode0Duration = 204 // Reset to standard (adjusted for SCX in fix 4)
+                    ly++
+                    bus.write(0xFF44, ly)
+                    checkLyc()
+                    if (ly == 144) {
+                        mode = 1
+                        windowLine = 0
+                        updateStat(1)
+                        bus.setIF(bus.iF or 0x01)
+                        frameChannel.trySend(frameBuffer.copyOf())
+                    } else {
+                        mode = 2
+                        updateStat(2)
+                    }
                 }
             }
 
