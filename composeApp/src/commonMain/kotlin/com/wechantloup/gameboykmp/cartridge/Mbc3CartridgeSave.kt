@@ -58,14 +58,15 @@ data class Mbc3CartridgeSave(
         finalArray[0x10000 + 6] = (totalCycles shr 8).toInt() and 0xFF
         finalArray[0x10000 + 7] = totalCycles.toInt() and 0xFF
         finalArray[0x10000 + 8] = if (carry) 1 else 0
-        finalArray[0x10000 + 9] = (savedAtMs shr 56).toInt() and 0xFF
-        finalArray[0x10000 + 10] = (savedAtMs shr 48).toInt() and 0xFF
-        finalArray[0x10000 + 11] = (savedAtMs shr 40).toInt() and 0xFF
-        finalArray[0x10000 + 12] = (savedAtMs shr 32).toInt() and 0xFF
-        finalArray[0x10000 + 13] = (savedAtMs shr 24).toInt() and 0xFF
-        finalArray[0x10000 + 14] = (savedAtMs shr 16).toInt() and 0xFF
-        finalArray[0x10000 + 15] = (savedAtMs shr 8).toInt() and 0xFF
-        finalArray[0x10000 + 16] = savedAtMs.toInt() and 0xFF
+        val now = Clock.System.now().toEpochMilliseconds()
+        finalArray[0x10000 + 9] = (now shr 56).toInt() and 0xFF
+        finalArray[0x10000 + 10] = (now shr 48).toInt() and 0xFF
+        finalArray[0x10000 + 11] = (now shr 40).toInt() and 0xFF
+        finalArray[0x10000 + 12] = (now shr 32).toInt() and 0xFF
+        finalArray[0x10000 + 13] = (now shr 24).toInt() and 0xFF
+        finalArray[0x10000 + 14] = (now shr 16).toInt() and 0xFF
+        finalArray[0x10000 + 15] = (now shr 8).toInt() and 0xFF
+        finalArray[0x10000 + 16] = now.toInt() and 0xFF
         finalArray[0x10000 + 17] = if (isRtcHalted) 1 else 0
 
         return finalArray

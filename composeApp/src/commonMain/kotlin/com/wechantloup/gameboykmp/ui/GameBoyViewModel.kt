@@ -63,7 +63,10 @@ class GameBoyViewModel : ViewModel() {
             rom = romBytes,
             romName = romName,
             scope = viewModelScope,
-        )
+        ).also {
+            cartridge = it
+        }
+
         val bus = Bus(cartridge).also { bus = it }
 
         viewModelScope.launch {

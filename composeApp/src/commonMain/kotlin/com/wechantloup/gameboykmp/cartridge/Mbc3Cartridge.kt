@@ -42,6 +42,7 @@ class Mbc3Cartridge(
     private var ramBank = 0
     private var ramEnabled = false
     private var lastWriteRom: Pair<Int, Int> = 0 to 0
+    private var rtcCycleAccumulator = 0
 
     private val romBankCount: Int = run {
         val fromHeader = when (rom[0x0148].toInt() and 0xFF) {
@@ -149,7 +150,12 @@ class Mbc3Cartridge(
 
     override fun stepRtc() {
         if (isRtcHalted) return
-        cartridgeSave.totalCycles += 4
+        rtcCycleAccumulator += 4  // +4 T-cycles par M-cycle
+        // 1 tick RTC = 4 194 304 / 32 768 = 128 T-cycles
+        while (rtcCycleAccumulator >= CYCLES_PER_RTC_TICK) {
+            rtcCycleAccumulator -= CYCLES_PER_RTC_TICK
+            cartridgeSave.totalCycles++  // 1 tick = 1/32768 s
+        }
     }
 
     private fun readRtc(): Int {
@@ -240,6 +246,7 @@ class Mbc3Cartridge(
 
     companion object {
         private const val DEBOUNCE_DURATION_MS = 500L
-        internal const val RTC_CYCLES_PER_SECOND = 32768L
+        private const val CYCLES_PER_RTC_TICK = 128  // 4_194_304 / 32_768
+        internal const val RTC_CYCLES_PER_SECOND = 32_768L
     }
 }
