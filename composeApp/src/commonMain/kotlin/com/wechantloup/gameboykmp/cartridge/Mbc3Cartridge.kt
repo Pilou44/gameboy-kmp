@@ -8,7 +8,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import kotlin.time.Clock
 
 class Mbc3Cartridge(
     private val rom: ByteArray,
@@ -148,6 +147,11 @@ class Mbc3Cartridge(
         onRamWritten()
     }
 
+    override fun stepRtc() {
+        if (isRtcHalted) return
+        cartridgeSave.totalCycles += 4
+    }
+
     private fun readRtc(): Int {
         return when (ramBank) {
             0x08 -> latchedRtc.seconds and 0xFF
@@ -164,50 +168,54 @@ class Mbc3Cartridge(
     }
 
     private fun writeRtc(value: Int) {
-        val effectiveNowMs = if (isRtcHalted) cartridgeSave.haltTimeMs else Clock.System.now().toEpochMilliseconds()
-        flushElapsedToRaw(effectiveNowMs)
-        when (ramBank) {
-            0x08 -> {
-                cartridgeSave.rawSeconds = value and 0x3F
-            }
-            0x09 -> {
-                cartridgeSave.rawMinutes = value and 0x3F
-            }
-            0x0A -> {
-                cartridgeSave.rawHours = value and 0x1F
-            }
-            0x0B -> {
-                val newDaysLow = value and 0xFF
-                cartridgeSave.rawDays = (cartridgeSave.rawDays and 0x100) or newDaysLow
-            }
+        val current = totalCyclesToSnapshot()
+        val updated = when (ramBank) {
+            0x08 -> current.copy(seconds = value and 0x3F)
+            0x09 -> current.copy(minutes = value and 0x3F)
+            0x0A -> current.copy(hours = value and 0x1F)
+            0x0B -> current.copy(days = (current.days and 0x100) or (value and 0xFF))
             0x0C -> {
                 val newDaysHigh = (value and 0x01) shl 8
-                cartridgeSave.rawDays = (cartridgeSave.rawDays and 0xFF) or newDaysHigh
-
                 cartridgeSave.carry = (value and 0x80) != 0
-                val halt = (value and 0x40) > 0
-                handleHalt(halt, effectiveNowMs)
+                val halt = (value and 0x40) != 0
+                handleHalt(halt)
+                current.copy(days = (current.days and 0xFF) or newDaysHigh)
             }
-            else -> {}
+            else -> return
         }
+        cartridgeSave.totalCycles = snapshotToTotalCycles(updated)
     }
 
-    private fun handleHalt(halt: Boolean, nowMs: Long) {
+    private fun handleHalt(halt: Boolean) {
         if (halt == isRtcHalted) return
 
-        if (halt) {
-            cartridgeSave.haltTimeMs = nowMs
-        } else {
-            val durationMs = Clock.System.now().toEpochMilliseconds() - cartridgeSave.haltTimeMs
-            cartridgeSave.lastTickMs += durationMs
-        }
         cartridgeSave.isRtcHalted = halt
     }
 
     private fun latch() {
-        val gameRtcMs = if (isRtcHalted) cartridgeSave.haltTimeMs else Clock.System.now().toEpochMilliseconds()
-        latchedRtc = advanceRtc(gameRtcMs)
+        latchedRtc = totalCyclesToSnapshot()
     }
+
+    private fun totalCyclesToSnapshot(): RtcSnapshot {
+        val totalSeconds = cartridgeSave.totalCycles / RTC_CYCLES_PER_SECOND
+        val seconds = (totalSeconds % 60).toInt()
+        val minutes = (totalSeconds / 60 % 60).toInt()
+        val hours = (totalSeconds / 3600 % 24).toInt()
+        val days = (totalSeconds / 86400).toInt()
+        val wrappedDays = days % 512
+        if (days >= 512) cartridgeSave.carry = true
+        cartridgeSave.totalCycles %= 86400L * RTC_CYCLES_PER_SECOND * 512L
+        return RtcSnapshot(seconds, minutes, hours, wrappedDays, cartridgeSave.carry, isRtcHalted)
+    }
+
+    private fun snapshotToTotalCycles(snapshot: RtcSnapshot): Long {
+        val totalSeconds = snapshot.seconds.toLong() +
+                snapshot.minutes.toLong() * 60 +
+                snapshot.hours.toLong() * 3600 +
+                snapshot.days.toLong() * 86400
+        return totalSeconds * RTC_CYCLES_PER_SECOND
+    }
+
 
     private fun onRamWritten() {
         if (!withSave && !withRtc) return
@@ -221,82 +229,6 @@ class Mbc3Cartridge(
         }
     }
 
-    private fun flushElapsedToRaw(effectiveNowMs: Long) {
-        val rtcSnapshot = advanceRtc(effectiveNowMs)
-        cartridgeSave.rawSeconds = rtcSnapshot.seconds
-        cartridgeSave.rawMinutes = rtcSnapshot.minutes
-        cartridgeSave.rawHours = rtcSnapshot.hours
-        cartridgeSave.rawDays = rtcSnapshot.days
-        cartridgeSave.carry = rtcSnapshot.carry
-
-        val elapsedSeconds = (effectiveNowMs - cartridgeSave.lastTickMs) / 1000
-        cartridgeSave.lastTickMs += elapsedSeconds * 1000
-    }
-
-    private fun advanceRtc(effectiveNowMs: Long): RtcSnapshot {
-        val elapsedSeconds = (effectiveNowMs - cartridgeSave.lastTickMs) / 1000
-
-        if (elapsedSeconds == 0L) {
-            return RtcSnapshot(
-                seconds = cartridgeSave.rawSeconds,
-                minutes = cartridgeSave.rawMinutes,
-                hours = cartridgeSave.rawHours,
-                days = cartridgeSave.rawDays,
-                carry = cartridgeSave.carry,
-                isHalted = cartridgeSave.isRtcHalted,
-            )
-        }
-
-        val rawS = cartridgeSave.rawSeconds.toLong()
-        val minuteCarry: Long
-        val seconds: Long
-        if (rawS < 60L) {
-            val total = rawS + elapsedSeconds
-            minuteCarry = total / 60L
-            seconds = total % 60L
-        } else {
-            minuteCarry = 0L
-            seconds = (rawS + elapsedSeconds) % 64L
-        }
-
-        val rawM = cartridgeSave.rawMinutes.toLong()
-        val hourCarry: Long
-        val minutes: Long
-        if (rawM < 60L) {
-            val total = rawM + minuteCarry
-            hourCarry = total / 60L
-            minutes = total % 60L
-        } else {
-            hourCarry = 0L
-            minutes = (rawM + minuteCarry) % 64L
-        }
-
-        val rawH = cartridgeSave.rawHours.toLong()
-        val dayCarry: Long
-        val hours: Long
-        if (rawH < 24L) {
-            val total = rawH + hourCarry
-            dayCarry = total / 24L
-            hours = total % 24L
-        } else {
-            dayCarry = 0L
-            hours = (rawH + hourCarry) % 32L
-        }
-
-        var days = cartridgeSave.rawDays.toLong() + dayCarry
-        val newCarry = cartridgeSave.carry || days > 511
-        days %= 512
-
-        return RtcSnapshot(
-            seconds = seconds.toInt(),
-            minutes = minutes.toInt(),
-            hours = hours.toInt(),
-            days = days.toInt(),
-            carry = newCarry,
-            isHalted = cartridgeSave.isRtcHalted,
-        )
-    }
-
     data class RtcSnapshot(
         val seconds: Int,
         val minutes: Int,
@@ -308,5 +240,6 @@ class Mbc3Cartridge(
 
     companion object {
         private const val DEBOUNCE_DURATION_MS = 500L
+        internal const val RTC_CYCLES_PER_SECOND = 32768L
     }
 }

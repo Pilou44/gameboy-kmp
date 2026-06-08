@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
 import com.wechantloup.gameboykmp.apu.Apu
 import com.wechantloup.gameboykmp.bus.Bus
+import com.wechantloup.gameboykmp.cartridge.Cartridge
 import com.wechantloup.gameboykmp.cartridge.CartridgeFactory
 import com.wechantloup.gameboykmp.cpu.Cpu
 import com.wechantloup.gameboykmp.joypad.JoypadEvent
@@ -41,6 +42,7 @@ class GameBoyViewModel : ViewModel() {
     private var timer: Timer? = null
     private var ppu: Ppu? = null
     private var apu: Apu? = null
+    private var cartridge: Cartridge? = null
     var frameCycles = 0
 
     init {
@@ -140,6 +142,7 @@ class GameBoyViewModel : ViewModel() {
         timer?.step(4) // TODO Always 4, useless parameter
         apu?.step(4) // TODO Always 4, useless parameter
         bus?.stepDma()
+        cartridge?.stepRtc()
         frameCycles += 4
     }
 
