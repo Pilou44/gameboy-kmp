@@ -174,6 +174,7 @@ class Mbc3Cartridge(
     }
 
     private fun writeRtc(value: Int) {
+        val subSecond = cartridgeSave.totalCycles % RTC_CYCLES_PER_SECOND  // preserve sub-second ticks
         val current = totalCyclesToSnapshot()
         val updated = when (ramBank) {
             0x08 -> current.copy(seconds = value and 0x3F)
@@ -189,7 +190,7 @@ class Mbc3Cartridge(
             }
             else -> return
         }
-        cartridgeSave.totalCycles = snapshotToTotalCycles(updated)
+        cartridgeSave.totalCycles = snapshotToTotalCycles(updated) + subSecond  // restore sub-second
     }
 
     private fun handleHalt(halt: Boolean) {
