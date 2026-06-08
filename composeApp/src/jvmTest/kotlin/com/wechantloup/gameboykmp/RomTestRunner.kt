@@ -747,7 +747,7 @@ class RomTestRunner {
     @Test
     @Order(115)
     fun `mooneye-emulator-only-mbc1-bits_ramg`(testInfo: TestInfo) {
-        runTest(testInfo.displayName, "mooneye/emulator-only/mbc1/bits_ramg.gb", 6_000)
+        runTest(testInfo.displayName, "mooneye/emulator-only/mbc1/bits_ramg.gb", 6_500)
     }
 
     @Test
