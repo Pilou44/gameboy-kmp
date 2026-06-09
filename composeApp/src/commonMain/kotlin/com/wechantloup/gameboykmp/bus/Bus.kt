@@ -82,6 +82,9 @@ class Bus(
     var onTimaWrite: () -> Unit = { }
     var timaReadOverride: (() -> Int?)? = null
 
+    var onStatWrite: (() -> Unit)? = null
+    var onLycWrite: (() -> Unit)? = null
+
     val apuPoweredOn: Boolean get() = internalRam[0xFF26] and 0x80 != 0
 
     /**
@@ -229,6 +232,18 @@ class Bus(
                 }
             }
             in 0xFF30..0xFF3F -> onWaveRamWrite?.invoke(address, v)
+            0xFF41 -> {
+                // STAT bits 0-2 (mode + LYC coincidence flag) are owned by the PPU and are
+                // read-only for the CPU; only the interrupt-enable bits 3-6 are writable.
+                val current = internalRam[0xFF41]
+                internalRam[0xFF41] = (current and 0x07) or (v and 0x78)
+                onStatWrite?.invoke()
+            }
+            0xFF45 -> {
+                // Writing LYC must re-evaluate the LY == LYC coincidence right away.
+                internalRam[0xFF45] = v
+                onLycWrite?.invoke()
+            }
             in 0x0000..0x7FFF -> cartridge.writeRom(address, v)
             in 0x8000..0x9FFF -> writeVram(address - 0x8000, v)
             in 0xA000..0xBFFF -> cartridge.writeRam(address - 0xA000, v)

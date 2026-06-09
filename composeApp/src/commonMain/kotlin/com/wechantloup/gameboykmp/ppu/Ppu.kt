@@ -18,6 +18,15 @@ class Ppu(
     private var lcdWasOn = true
     private var isFirstScanline = false
     private var mode0Duration = 204
+    private var statLine = false
+
+    init {
+        bus.onStatWrite = { refreshStatInterrupt() }
+        bus.onLycWrite = {
+            updateLycFlag()
+            refreshStatInterrupt()
+        }
+    }
 
     fun step(cycles: Int) {
         val lcdc = bus.read(0xFF40)
@@ -40,7 +49,8 @@ class Ppu(
 
                 // set STAT mode bits to 0 (H-Blank) when LCD turns off
                 val stat = bus.read(0xFF41)
-                bus.write(0xFF41, stat and 0xFC)
+                bus.writeRaw(0xFF41, stat and 0xFC)
+                statLine = false  // the STAT interrupt line is released while the LCD is off
             }
             return
         } else if (!lcdWasOn) {
@@ -133,33 +143,52 @@ class Ppu(
     }
 
     private fun updateStat(newMode: Int) {
-        bus.ppuMode = newMode  // Keep Bus in sync for OAM/VRAM access gating
+        bus.ppuMode = newMode  // keep Bus in sync for OAM/VRAM access gating
         val stat = bus.read(0xFF41)
         bus.writeRaw(0xFF41, (stat and 0xFC) or (newMode and 0x03))
-
-        // Trigger STAT IRQ if the corresponding enable bit is set
-        val irqBit = when (newMode) {
-            0 -> 0x08  // H-Blank
-            1 -> 0x10  // V-Blank
-            2 -> 0x20  // OAM
-            else -> 0
-        }
-        if (irqBit != 0 && stat and irqBit != 0) {
-            bus.setIF(bus.iF or 0x02)
-        }
+        refreshStatInterrupt()
     }
 
     private fun checkLyc() {
-        val lyc = bus.read(0xFF45)
+        updateLycFlag()
+        refreshStatInterrupt()
+    }
+
+    /**
+     * Keeps the STAT LYC == LY coincidence flag (bit 2) in sync with the live
+     * comparison. Called both when LY changes and when the CPU writes LYC, so the
+     * flag is never stale.
+     */
+    private fun updateLycFlag() {
+        val coincidence = ly == bus.read(0xFF45)
         val stat = bus.read(0xFF41)
-        if (ly == lyc) {
-            bus.write(0xFF41, stat or 0x04)  // Set coincidence flag
-            if (stat and 0x40 != 0) {        // LYC=LY interrupt enabled?
-                bus.setIF(bus.iF or 0x02)
-            }
-        } else {
-            bus.write(0xFF41, stat and 0x04.inv())
+        bus.writeRaw(0xFF41, if (coincidence) stat or 0x04 else stat and 0x04.inv())
+    }
+
+    /**
+     * Models the single internal STAT interrupt line.
+     *
+     * The line is the OR of the four STAT sources, each gated by its enable bit in
+     * STAT (bits 3-6): LYC == LY (bit 6), mode 2 / OAM (bit 5), mode 1 / V-Blank
+     * (bit 4) and mode 0 / H-Blank (bit 3). A STAT interrupt (IF bit 1) is requested
+     * only on the RISING edge of this combined line. While the line stays high (e.g.
+     * LY == LYC held across a whole scanline) no further interrupt is generated.
+     *
+     * The current mode comes from the `mode` field rather than the STAT register so
+     * it stays correct right after a CPU write to STAT.
+     */
+    private fun refreshStatInterrupt() {
+        val stat = bus.read(0xFF41)
+        val condition =
+            (stat and 0x40 != 0 && stat and 0x04 != 0) ||  // LYC == LY
+                    (stat and 0x20 != 0 && mode == 2) ||           // mode 2 (OAM)
+                    (stat and 0x10 != 0 && mode == 1) ||           // mode 1 (V-Blank)
+                    (stat and 0x08 != 0 && mode == 0)              // mode 0 (H-Blank)
+
+        if (condition && !statLine) {
+            bus.setIF(bus.iF or 0x02)
         }
+        statLine = condition
     }
 
     private fun renderScanline(lcdc: Int) {
