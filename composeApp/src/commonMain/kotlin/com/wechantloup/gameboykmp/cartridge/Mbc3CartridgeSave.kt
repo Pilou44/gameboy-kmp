@@ -82,7 +82,9 @@ data class Mbc3CartridgeSave(
         daysLow  = (d and 0xFF).toInt()
     }
 
-    fun toIntArray(): IntArray {
+    fun toIntArray(
+        saveTimeMs: Long = Clock.System.now().toEpochMilliseconds()
+    ): IntArray {
         val out = IntArray(0x1000D)
         ram.copyInto(out)
         out[0x10000] = seconds
@@ -92,15 +94,14 @@ data class Mbc3CartridgeSave(
         out[0x10004] = ctrl
         // Snapshot the wall-clock time at the moment of persistence so that the
         // next load correctly computes elapsed real-world time.
-        val now = Clock.System.now().toEpochMilliseconds()
-        out[0x10005] = (now shr 56).toInt() and 0xFF
-        out[0x10006] = (now shr 48).toInt() and 0xFF
-        out[0x10007] = (now shr 40).toInt() and 0xFF
-        out[0x10008] = (now shr 32).toInt() and 0xFF
-        out[0x10009] = (now shr 24).toInt() and 0xFF
-        out[0x1000A] = (now shr 16).toInt() and 0xFF
-        out[0x1000B] = (now shr  8).toInt() and 0xFF
-        out[0x1000C] = now.toInt()          and 0xFF
+        out[0x10005] = (saveTimeMs shr 56).toInt() and 0xFF
+        out[0x10006] = (saveTimeMs shr 48).toInt() and 0xFF
+        out[0x10007] = (saveTimeMs shr 40).toInt() and 0xFF
+        out[0x10008] = (saveTimeMs shr 32).toInt() and 0xFF
+        out[0x10009] = (saveTimeMs shr 24).toInt() and 0xFF
+        out[0x1000A] = (saveTimeMs shr 16).toInt() and 0xFF
+        out[0x1000B] = (saveTimeMs shr  8).toInt() and 0xFF
+        out[0x1000C] = saveTimeMs.toInt()          and 0xFF
         return out
     }
 
