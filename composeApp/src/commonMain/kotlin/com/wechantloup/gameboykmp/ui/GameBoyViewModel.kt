@@ -13,8 +13,10 @@ import com.wechantloup.gameboykmp.joypad.JoypadEvent
 import com.wechantloup.gameboykmp.logger.Logger
 import com.wechantloup.gameboykmp.ppu.Ppu
 import com.wechantloup.gameboykmp.timer.Timer
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.delay
@@ -56,8 +58,20 @@ class GameBoyViewModel : ViewModel() {
         }
     }
 
+    /**
+     * Cancels the emulation loop and all coroutines launched in this ViewModel.
+     * Must be called explicitly in non-Android contexts (e.g. JVM tests) where
+     * onCleared() is never triggered by a ViewModelStore.
+     */
+    fun stop() {
+        viewModelScope.cancel()
+    }
+
     fun loadRom(romBytes: ByteArray, romName: String) {
         emulationJob?.cancel()
+
+        val job = Job(parent = viewModelScope.coroutineContext[Job]).also { emulationJob = it }
+        val emulationScope = CoroutineScope(viewModelScope.coroutineContext + job)
 
         val cartridge = CartridgeFactory.create(
             rom = romBytes,
@@ -69,7 +83,7 @@ class GameBoyViewModel : ViewModel() {
 
         val bus = Bus(cartridge).also { bus = it }
 
-        viewModelScope.launch {
+        emulationScope.launch {
             cartridge.isSaving.collect {
                 _stateFlow.value = stateFlow.value.copy(isSaving = it)
             }
@@ -80,14 +94,14 @@ class GameBoyViewModel : ViewModel() {
         val apu = Apu(bus).also { apu = it }
         val cpu = Cpu(bus, ::onMachineCycleTick).also { it.reset() }
 
-        viewModelScope.launch {
+        emulationScope.launch {
             for (samples in apu.samplesChannel) {
                 audioSamplesChannel.trySend(samples)
             }
         }
 
         // Observe PPU frames
-        viewModelScope.launch {
+        emulationScope.launch {
             ppu.frameChannel.consumeEach { frame ->
                 _stateFlow.value = stateFlow.value.copy(
                     frameBuffer = frame,
@@ -102,7 +116,7 @@ class GameBoyViewModel : ViewModel() {
 
         val frameDuration = FRAME_DURATION_NS.toDuration(DurationUnit.NANOSECONDS)
         // Emulation loop
-        emulationJob = viewModelScope.launch(Dispatchers.Default) {
+        emulationScope.launch(Dispatchers.Default) {
             while (true) {
                 while (isPaused) {
                     delay(200)

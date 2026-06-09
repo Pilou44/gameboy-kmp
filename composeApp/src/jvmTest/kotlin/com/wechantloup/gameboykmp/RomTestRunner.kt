@@ -928,11 +928,15 @@ class RomTestRunner {
         private lateinit var runs: AllTestRun
         private lateinit var currentRun: TestRun
 
+        private var viewModel: GameBoyViewModel? = null
+
 
         @BeforeAll
         @JvmStatic
         fun setup() {
             Logger.debug("TEST", "Start of tests")
+
+            viewModel = GameBoyViewModel()
 
             testCount = 0
             successTestCount = 0
@@ -970,6 +974,9 @@ class RomTestRunner {
         @JvmStatic
         fun teardown() {
             Logger.debug("TEST", "End of tests")
+
+            viewModel?.stop()
+            viewModel = null
 
             runs.testRuns.add(currentRun)
             saveRuns()
@@ -1009,8 +1016,7 @@ class RomTestRunner {
                     .getSystemResourceAsStream("roms/$romPath")
                 val romBytes = requireNotNull(rom?.readBytes())
 
-                val viewModel = GameBoyViewModel()
-
+                val viewModel = requireNotNull(viewModel)
                 viewModel.loadRom(romBytes, romName)
 
                 if (commands.isNotEmpty()) {
