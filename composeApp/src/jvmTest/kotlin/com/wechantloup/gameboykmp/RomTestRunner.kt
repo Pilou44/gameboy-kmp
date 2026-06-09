@@ -1011,6 +1011,8 @@ class RomTestRunner {
             val captureName = "${romPath.replace('/', '_')}$captureNameSuffix.png"
             Logger.debug("TEST", pngPath)
 
+//            val viewModel = GameBoyViewModel()
+
             val imageBuffer = try {
                 val rom = ClassLoader
                     .getSystemResourceAsStream("roms/$romPath")
@@ -1053,6 +1055,8 @@ class RomTestRunner {
                 </tr>
                 """.trimIndent())
 
+//                viewModel.stop()
+
                 fail("Unknown error", e)
             }
 
@@ -1091,8 +1095,12 @@ class RomTestRunner {
                 </tr>
                 """.trimIndent())
 
+//                viewModel.stop()
+
                 fail("No reference found", e)
             }
+
+//            viewModel.stop()
         }
 
         private fun IntArray.toPng(outputPath: String) {

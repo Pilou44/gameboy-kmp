@@ -17,6 +17,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.delay
@@ -68,80 +69,80 @@ class GameBoyViewModel : ViewModel() {
     }
 
     fun loadRom(romBytes: ByteArray, romName: String) {
-        emulationJob?.cancel()
+        viewModelScope.launch {
+            emulationJob?.cancelAndJoin() // Now safe to await in a coroutine
 
-        val job = Job(parent = viewModelScope.coroutineContext[Job]).also { emulationJob = it }
-        val emulationScope = CoroutineScope(viewModelScope.coroutineContext + job)
+            _stateFlow.value = GameBoyState()
+            isPaused = false
 
-        val cartridge = CartridgeFactory.create(
-            rom = romBytes,
-            romName = romName,
-            scope = viewModelScope,
-        ).also {
-            cartridge = it
-        }
+            val job = Job(parent = coroutineContext[Job]).also { emulationJob = it }
+            val emulationScope = CoroutineScope(coroutineContext + job)
 
-        val bus = Bus(cartridge).also { bus = it }
+            val cartridge = CartridgeFactory.create(
+                rom = romBytes,
+                romName = romName,
+                scope = emulationScope,
+            ).also { cartridge = it }
 
-        emulationScope.launch {
-            cartridge.isSaving.collect {
-                _stateFlow.value = stateFlow.value.copy(isSaving = it)
+            val bus = Bus(cartridge).also { bus = it }
+
+            emulationScope.launch {
+                cartridge.isSaving.collect {
+                    _stateFlow.value = stateFlow.value.copy(isSaving = it)
+                }
             }
-        }
 
-        timer = Timer(bus)
-        val ppu = Ppu(bus).also { ppu = it }
-        val apu = Apu(bus).also { apu = it }
-        val cpu = Cpu(bus, ::onMachineCycleTick).also { it.reset() }
+            timer = Timer(bus)
+            val ppu = Ppu(bus).also { ppu = it }
+            val apu = Apu(bus).also { apu = it }
+            val cpu = Cpu(bus, ::onMachineCycleTick).also { it.reset() }
 
-        emulationScope.launch {
-            for (samples in apu.samplesChannel) {
-                audioSamplesChannel.trySend(samples)
+            emulationScope.launch {
+                for (samples in apu.samplesChannel) {
+                    audioSamplesChannel.trySend(samples)
+                }
             }
-        }
 
-        // Observe PPU frames
-        emulationScope.launch {
-            ppu.frameChannel.consumeEach { frame ->
-                _stateFlow.value = stateFlow.value.copy(
-                    frameBuffer = frame,
-                    frameCount = stateFlow.value.frameCount + 1,
-                )
+            emulationScope.launch {
+                ppu.frameChannel.consumeEach { frame ->
+                    _stateFlow.value = stateFlow.value.copy(
+                        frameBuffer = frame,
+                        frameCount = stateFlow.value.frameCount + 1,
+                    )
+                }
             }
-        }
 
-        var renderingIssueCount = 0
-        var frameCount = 0
-        var frameStartMark = currentTimeMark()
+            var renderingIssueCount = 0
+            var frameCount = 0
+            var frameStartMark = currentTimeMark()
+            val frameDuration = FRAME_DURATION_NS.toDuration(DurationUnit.NANOSECONDS)
 
-        val frameDuration = FRAME_DURATION_NS.toDuration(DurationUnit.NANOSECONDS)
-        // Emulation loop
-        emulationScope.launch(Dispatchers.Default) {
-            while (true) {
-                while (isPaused) {
-                    delay(200)
-                    frameStartMark = currentTimeMark()
+            emulationScope.launch(Dispatchers.Default) {
+                while (true) {
+                    while (isPaused) {
+                        delay(200)
+                        frameStartMark = currentTimeMark()
+                    }
+
+                    frameCycles = 0
+                    while (frameCycles < 70224) {
+                        cpu.step()
+                    }
+
+                    frameStartMark += frameDuration
+                    val remaining = frameStartMark.minus(currentTimeMark())
+                    if (remaining.isPositive()) {
+                        delay(remaining)
+                    } else {
+                        renderingIssueCount++
+                    }
+
+                    if (frameCount % 60 == 0 && renderingIssueCount > 0) {
+                        Logger.error(TAG, "Rendering issue, $renderingIssueCount on last 60 taking too much time")
+                        renderingIssueCount = 0
+                    }
+                    frameCount++
                 }
-
-                // Run for 1 frame (70224 cycles)
-                frameCycles = 0
-                while (frameCycles < 70224) {
-                    cpu.step()
-                }
-
-                frameStartMark += frameDuration
-                val remaining = frameStartMark.minus(currentTimeMark())
-                if (remaining.isPositive()) {
-                    delay(remaining)
-                } else {
-                    renderingIssueCount++
-                }
-
-                if (frameCount % 60 == 0 && renderingIssueCount > 0) {
-                    Logger.error(TAG, "Rendering issue, $renderingIssueCount on last 60 taking too much time")
-                    renderingIssueCount = 0
-                }
-                frameCount++
             }
         }
     }
