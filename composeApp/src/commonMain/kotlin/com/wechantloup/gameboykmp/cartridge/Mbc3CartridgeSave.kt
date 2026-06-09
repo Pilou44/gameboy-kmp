@@ -31,13 +31,13 @@ data class Mbc3CartridgeSave(
         daysLow  = value[0x10003],
         ctrl     = value[0x10004],
         savedAtMs =
-            (value[0x10005] and 0xFF).toLong() shl 56 or
-                    (value[0x10006] and 0xFF).toLong() shl 48 or
-                    (value[0x10007] and 0xFF).toLong() shl 40 or
-                    (value[0x10008] and 0xFF).toLong() shl 32 or
-                    (value[0x10009] and 0xFF).toLong() shl 24 or
-                    (value[0x1000A] and 0xFF).toLong() shl 16 or
-                    (value[0x1000B] and 0xFF).toLong() shl 8  or
+            ((value[0x10005] and 0xFF).toLong() shl 56) or
+                    ((value[0x10006] and 0xFF).toLong() shl 48) or
+                    ((value[0x10007] and 0xFF).toLong() shl 40) or
+                    ((value[0x10008] and 0xFF).toLong() shl 32) or
+                    ((value[0x10009] and 0xFF).toLong() shl 24) or
+                    ((value[0x1000A] and 0xFF).toLong() shl 16) or
+                    ((value[0x1000B] and 0xFF).toLong() shl 8) or
                     (value[0x1000C] and 0xFF).toLong(),
     )
 
@@ -94,14 +94,14 @@ data class Mbc3CartridgeSave(
         out[0x10004] = ctrl
         // Snapshot the wall-clock time at the moment of persistence so that the
         // next load correctly computes elapsed real-world time.
-        out[0x10005] = (saveTimeMs shr 56).toInt() and 0xFF
-        out[0x10006] = (saveTimeMs shr 48).toInt() and 0xFF
-        out[0x10007] = (saveTimeMs shr 40).toInt() and 0xFF
-        out[0x10008] = (saveTimeMs shr 32).toInt() and 0xFF
-        out[0x10009] = (saveTimeMs shr 24).toInt() and 0xFF
-        out[0x1000A] = (saveTimeMs shr 16).toInt() and 0xFF
-        out[0x1000B] = (saveTimeMs shr  8).toInt() and 0xFF
-        out[0x1000C] = saveTimeMs.toInt()          and 0xFF
+        out[0x10005] = ((saveTimeMs shr 56) and 0xFF).toInt()
+        out[0x10006] = ((saveTimeMs shr 48) and 0xFF).toInt()
+        out[0x10007] = ((saveTimeMs shr 40) and 0xFF).toInt()
+        out[0x10008] = ((saveTimeMs shr 32) and 0xFF).toInt()
+        out[0x10009] = ((saveTimeMs shr 24) and 0xFF).toInt()
+        out[0x1000A] = ((saveTimeMs shr 16) and 0xFF).toInt()
+        out[0x1000B] = ((saveTimeMs shr  8) and 0xFF).toInt()
+        out[0x1000C] = (saveTimeMs and 0xFF).toInt()
         return out
     }
 

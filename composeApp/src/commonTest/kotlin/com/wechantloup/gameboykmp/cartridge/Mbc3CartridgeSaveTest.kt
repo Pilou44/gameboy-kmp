@@ -43,7 +43,7 @@ class Mbc3CartridgeSaveTest {
             daysLow = 0, ctrl = 0)  // not halted
         save.savedAtMs = twelveMinutesAgoMs
 
-        val loaded = Mbc3CartridgeSave(save.toIntArray())
+        val loaded = Mbc3CartridgeSave(save.toIntArray(twelveMinutesAgoMs))
 
         assertEquals(9,  loaded.hours,   "hours unchanged")
         assertEquals(59, loaded.minutes, "minutes: 47 + 12 = 59")
