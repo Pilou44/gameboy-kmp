@@ -194,10 +194,10 @@ class Ppu(
 
         val stat = bus.read(0xFF41)
         val condition =
-            (stat and 0x40 != 0 && stat and 0x04 != 0) ||  // LYC == LY
-                    (stat and 0x20 != 0 && mode == 2) ||           // mode 2 (OAM)
-                    (stat and 0x10 != 0 && mode == 1) ||           // mode 1 (V-Blank)
-                    (stat and 0x08 != 0 && mode == 0)              // mode 0 (H-Blank)
+            (stat and 0x40 != 0 && stat and 0x04 != 0) ||              // LYC == LY
+                    (stat and 0x20 != 0 && (mode == 2 || ly == 144)) ||        // mode 2 (OAM); also pulses at line 144
+                    (stat and 0x10 != 0 && mode == 1) ||                       // mode 1 (V-Blank)
+                    (stat and 0x08 != 0 && mode == 0)                          // mode 0 (H-Blank)
 
         if (condition && !statLine) {
             bus.setIF(bus.iF or 0x02)
