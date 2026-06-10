@@ -8,6 +8,7 @@ class Timer(private val bus: Bus) {
 
     private var timaOverflowPending = false
     private var timaOverflowCycles = 0
+    private var timaIrqRaised = false
 
     init {
         bus.onDivReset = {
@@ -40,6 +41,7 @@ class Timer(private val bus: Bus) {
             // Only called when canWriteOnTima() returned true, i.e. we are in the cancel window.
             if (timaOverflowPending) {
                 timaOverflowPending = false
+                timaIrqRaised = false
             }
         }
         bus.timaReadOverride = {
@@ -65,13 +67,22 @@ class Timer(private val bus: Bus) {
         val oldCount = cycleCount
         cycleCount += cycles
 
-        // Handle pending TIMA overflow (reload TMA + fire interrupt, delayed by 4 cycles)
+        // Handle pending TIMA overflow
         if (timaOverflowPending) {
             timaOverflowCycles -= cycles
+            // Raise the timer interrupt one M-cycle after the overflow (the 4 T-cycle
+            // hardware delay) — the same instant TIMA observably becomes TMA via
+            // timaReadOverride. The raw reload below lands one M-cycle later but is
+            // masked by that override, so TIMA reads are unchanged; only the interrupt
+            // timing is corrected (it used to fire with the raw reload, one M-cycle late).
+            if (timaOverflowCycles <= 4 && !timaIrqRaised) {
+                timaIrqRaised = true
+                bus.setIF(bus.iF or 0x04)
+            }
             if (timaOverflowCycles <= 0) {
                 timaOverflowPending = false
+                timaIrqRaised = false
                 tima = tma
-                bus.setIF(bus.iF or 0x04)
             }
         }
 
