@@ -120,6 +120,7 @@ class RomTestRunner {
     @Test
     @Order(16)
     fun `blarrg-interrupt_time`(testInfo: TestInfo) {
+        // ToDo reference image indicates fail, but it's good for dmg only emulator. To fix when implementing GBC
         runTest(testInfo.displayName, "blarrg/interrupt_time.gb", 1_000)
     }
 
@@ -900,17 +901,18 @@ class RomTestRunner {
         runTest(testInfo.displayName, "mooneye/manual-only/sprite_priority.gb", 1_000)
     }
 
-    @Test
-    @Order(141)
-    fun `mooneye-misc-boot_div-cgbABCDE`(testInfo: TestInfo) {
-        runTest(testInfo.displayName, "mooneye/misc/boot_div-cgbABCDE.gb", 1_000)
-    }
-
-    @Test
-    @Order(142)
-    fun `mooneye-misc-boot_regs-cgb`(testInfo: TestInfo) {
-        runTest(testInfo.displayName, "mooneye/misc/boot_regs-cgb.gb", 1_000)
-    }
+//    ToDo Game Boy Color only test
+//    @Test
+//    @Order(141)
+//    fun `mooneye-misc-boot_div-cgbABCDE`(testInfo: TestInfo) {
+//        runTest(testInfo.displayName, "mooneye/misc/boot_div-cgbABCDE.gb", 1_000)
+//    }
+//    ToDo Game Boy Color only test
+//    @Test
+//    @Order(142)
+//    fun `mooneye-misc-boot_regs-cgb`(testInfo: TestInfo) {
+//        runTest(testInfo.displayName, "mooneye/misc/boot_regs-cgb.gb", 1_000)
+//    }
 
     companion object {
         private const val TEST_RESULTS_PATH = "build/test-results"
