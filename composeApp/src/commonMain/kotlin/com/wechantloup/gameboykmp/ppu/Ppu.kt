@@ -48,9 +48,14 @@ class Ppu(
                 bus.write(0xFF44, ly)
 
                 // set STAT mode bits to 0 (H-Blank) when LCD turns off
+                // Clear the STAT mode bits (mode reads 0 while off) but KEEP the
+                // LYC coincidence flag (bit 2): turning the LCD off freezes the
+                // comparison, it does not reset the flag.
                 val stat = bus.read(0xFF41)
                 bus.writeRaw(0xFF41, stat and 0xFC)
-                statLine = false  // the STAT interrupt line is released while the LCD is off
+                // statLine is intentionally NOT reset here: the interrupt line is
+                // frozen at its current value, so re-enabling the LCD only fires
+                // an interrupt if the comparison result actually changes.
             }
             return
         } else if (!lcdWasOn) {
@@ -61,6 +66,7 @@ class Ppu(
             isFirstScanline = true
             mode0Duration = 80 // Short initial mode 0: 80 T-cycles before mode 3
             bus.ppuMode = 0
+            updateLycFlag()    // comparison clock resumes: re-evaluate LY(0) == LYC first
             updateStat(0)
             checkLyc()
         }
@@ -156,10 +162,13 @@ class Ppu(
 
     /**
      * Keeps the STAT LYC == LY coincidence flag (bit 2) in sync with the live
-     * comparison. Called both when LY changes and when the CPU writes LYC, so the
-     * flag is never stale.
+     * comparison. Called when LY changes and when the CPU writes LYC.
+     *
+     * The comparison clock only runs while the LCD is on; while off the flag is
+     * frozen at its last value, so writes to LYC have no effect on it.
      */
     private fun updateLycFlag() {
+        if (bus.read(0xFF40) and 0x80 == 0) return  // comparison clock not running
         val coincidence = ly == bus.read(0xFF45)
         val stat = bus.read(0xFF41)
         bus.writeRaw(0xFF41, if (coincidence) stat or 0x04 else stat and 0x04.inv())
@@ -171,13 +180,18 @@ class Ppu(
      * The line is the OR of the four STAT sources, each gated by its enable bit in
      * STAT (bits 3-6): LYC == LY (bit 6), mode 2 / OAM (bit 5), mode 1 / V-Blank
      * (bit 4) and mode 0 / H-Blank (bit 3). A STAT interrupt (IF bit 1) is requested
-     * only on the RISING edge of this combined line. While the line stays high (e.g.
-     * LY == LYC held across a whole scanline) no further interrupt is generated.
+     * only on the RISING edge of this combined line.
+     *
+     * While the LCD is off the line is frozen: it keeps its last value and cannot
+     * fire. Re-enabling the LCD therefore only produces an interrupt if the resumed
+     * comparison flips the line from low to high.
      *
      * The current mode comes from the `mode` field rather than the STAT register so
      * it stays correct right after a CPU write to STAT.
      */
     private fun refreshStatInterrupt() {
+        if (bus.read(0xFF40) and 0x80 == 0) return  // line frozen while the LCD is off
+
         val stat = bus.read(0xFF41)
         val condition =
             (stat and 0x40 != 0 && stat and 0x04 != 0) ||  // LYC == LY
