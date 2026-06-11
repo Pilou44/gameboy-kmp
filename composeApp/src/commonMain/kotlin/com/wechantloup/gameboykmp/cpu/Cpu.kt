@@ -33,11 +33,6 @@ class Cpu(
             if (ime) {
                 ime = false
 
-                // Find highest priority interrupt (lowest bit)
-                val bit = pending.countTrailingZeroBits()
-
-                // Clear the bit in IF
-                bus.setIF(bus.iF and (1 shl bit).inv())
                 onMachineCycleTick()  // internal M-cycle 1
                 onMachineCycleTick()  // internal M-cycle 2
 
@@ -46,19 +41,32 @@ class Cpu(
                 // but not for interrupt dispatch.
                 registers.sp = (registers.sp - 1) and 0xFFFF
                 bus.write(registers.sp, (registers.pc shr 8) and 0xFF)
-                onMachineCycleTick()  // M-cycle 3: write PCH
+                onMachineCycleTick()  // M-cycle 3: write PCH (may overwrite IE when SP-1 == $FFFF)
+
+                // The interrupt vector is decided HERE, right after the high-byte push:
+                // IE & IF are re-sampled, so a push that just overwrote IE ($FFFF) changes
+                // the outcome. If no enabled+requested bit remains, the dispatch is
+                // cancelled and PC is forced to $0000 (IF is left untouched). A later
+                // overwrite of IE by the low-byte push comes too late to matter.
+                val latePending = bus.ie and bus.iF and 0x1F
+                val bit = if (latePending != 0) latePending.countTrailingZeroBits() else -1
 
                 registers.sp = (registers.sp - 1) and 0xFFFF
                 bus.write(registers.sp, registers.pc and 0xFF)
-                onMachineCycleTick()  // M-cycle 4: write PCL
+                onMachineCycleTick()  // M-cycle 4: write PCL (a write to IE here is too late)
 
-                registers.pc = when (bit) {
-                    0 -> 0x0040  // V-Blank
-                    1 -> 0x0048  // LCD STAT
-                    2 -> 0x0050  // Timer
-                    3 -> 0x0058  // Serial
-                    4 -> 0x0060  // Joypad
-                    else -> 0x0040
+                registers.pc = if (bit >= 0) {
+                    bus.setIF(bus.iF and (1 shl bit).inv())  // clear only the serviced bit
+                    when (bit) {
+                        0 -> 0x0040  // V-Blank
+                        1 -> 0x0048  // LCD STAT
+                        2 -> 0x0050  // Timer
+                        3 -> 0x0058  // Serial
+                        4 -> 0x0060  // Joypad
+                        else -> 0x0040
+                    }
+                } else {
+                    0x0000  // dispatch cancelled by the IE overwrite — no IF bit cleared
                 }
                 onMachineCycleTick()  // M-cycle 5: jump to vector
                 return
