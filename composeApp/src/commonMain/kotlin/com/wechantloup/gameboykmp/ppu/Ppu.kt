@@ -46,6 +46,16 @@ class Ppu(
                 else -> null
             }
         }
+        bus.ppuWriteBlocked = gate@{ addr ->
+            if (!firstFrameAfterLcdOn) return@gate false
+            when (addr) {
+                in 0xFE00..0xFE9F -> PpuTiming.oamWriteBlocked(lcdOnDot).also {
+                    println("WGATE oam dot=$lcdOnDot blocked=$it")
+                }
+                in 0x8000..0x9FFF -> PpuTiming.vramWriteBlocked(lcdOnDot)
+                else -> false
+            }
+        }
     }
 
     fun step(cycles: Int) {
@@ -56,6 +66,7 @@ class Ppu(
             // LCD off
             if (lcdWasOn) {
                 lcdWasOn = false
+                firstFrameAfterLcdOn = false
                 ly = 0
                 modeClock = 0
                 mode = 2

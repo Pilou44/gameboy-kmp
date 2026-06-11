@@ -115,4 +115,41 @@ object PpuTiming {
         val stat = 0x80 or coin or (mode and 0x03)
         return Sample(ly, stat, oamBlocked(d), vramBlocked(d))
     }
+
+    // ============================== WRITE ACCESS ==============================
+    // Write blocking is NOT the same as read blocking: a write is still accepted
+    // a few dots into the nominally blocked region, and on lines >= 1 the OAM
+    // mode-2 and mode-3 block windows do NOT merge -> a small accessible gap at the
+    // mode 2 -> 3 boundary. Validated against mooneye ppu/lcdon_write_timing-GS
+    // (all 38 OAM+VRAM points). Edges are under-determined by the test (+-4 dots);
+    // these are a valid centre of the family. [SOFT]
+
+    const val W_MODE2_BLOCK_START  = 4    // lines>=1: OAM write blocked from this dot in the line
+    const val W_MODE2_BLOCK_END    = 80
+    const val W_MODE3_BLOCK_START  = 84   // OAM+VRAM write blocked from here (note the 80->84 gap)
+    const val W_MODE3_BLOCK_END    = 256
+    const val L0_WRITE_BLOCK_START = 70   // line 0 write window (same shape as line-0 read access)
+    const val L0_WRITE_BLOCK_END   = 242
+
+    // Emulator phase for writes; converge against the ROM like ACCESS_OFFSET. [SOFT]
+    const val WRITE_ACCESS_OFFSET = -8
+
+    fun oamWriteBlocked(lcdOnDot: Int, accessOffset: Int = WRITE_ACCESS_OFFSET): Boolean {
+        val d = lcdOnDot + accessOffset
+        val line = lineIndex(d)
+        if (line < 0) return false
+        if (line == 0) return d in L0_WRITE_BLOCK_START until L0_WRITE_BLOCK_END
+        val u = d - lineStart(line)
+        return (u in W_MODE2_BLOCK_START until W_MODE2_BLOCK_END) ||
+                (u in W_MODE3_BLOCK_START until W_MODE3_BLOCK_END)
+    }
+
+    fun vramWriteBlocked(lcdOnDot: Int, accessOffset: Int = WRITE_ACCESS_OFFSET): Boolean {
+        val d = lcdOnDot + accessOffset
+        val line = lineIndex(d)
+        if (line < 0) return false
+        if (line == 0) return d in L0_WRITE_BLOCK_START until L0_WRITE_BLOCK_END
+        val u = d - lineStart(line)
+        return u in W_MODE3_BLOCK_START until W_MODE3_BLOCK_END
+    }
 }

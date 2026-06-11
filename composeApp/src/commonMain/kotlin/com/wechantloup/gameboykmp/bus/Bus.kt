@@ -92,6 +92,7 @@ class Bus(
     var onStatWrite: (() -> Unit)? = null
     var onLycWrite: (() -> Unit)? = null
     var ppuSampler: ((Int) -> Int?)? = null
+    var ppuWriteBlocked: ((Int) -> Boolean)? = null
 
     val apuPoweredOn: Boolean get() = internalRam[0xFF26] and 0x80 != 0
 
@@ -177,6 +178,7 @@ class Bus(
     }
 
     fun write(address: Int, value: Int) {
+        if (ppuWriteBlocked?.invoke(address) == true) return   // dot write gating
         val v = value and 0xFF
         when (address) {
             in 0x8000..0x9FFF -> if (ppuMode != 3) writeVram(address - 0x8000, v)
