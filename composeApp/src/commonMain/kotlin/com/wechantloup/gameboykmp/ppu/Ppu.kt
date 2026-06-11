@@ -34,8 +34,12 @@ class Ppu(
             if (!firstFrameAfterLcdOn) return@sampler null
 
             val s = PpuTiming.sample(lcdOnDot, bus.readRaw(0xFF45))
+
+            if (addr == 0xFF41 || addr == 0xFF44)
+                println("PPUSAMPLE ${addr.toString(16)} dot=$lcdOnDot ly=${s.ly} stat=${s.stat.toString(16)}")
+
             when (addr) {
-                0xFF41 -> s.stat
+                0xFF41 -> (bus.readRaw(0xFF41) and 0x78) or s.stat
                 0xFF44 -> s.ly
                 in 0xFE00..0xFE9F -> if (s.oamBlocked) 0xFF else null   // null -> garde le gating DMA existant
                 in 0x8000..0x9FFF -> if (s.vramBlocked) 0xFF else null

@@ -43,7 +43,7 @@ object PpuTiming {
     // the real emulator may need a different value depending on where lcdOnDot is
     // sampled in the machine loop. lcdon_timing-GS prints Cycle/Expected/Actual on
     // failure, so a uniform shift here is a 1-2 iteration fix.
-    const val ACCESS_OFFSET = 0
+    const val ACCESS_OFFSET = -4
 
     data class Sample(
         val ly: Int,
