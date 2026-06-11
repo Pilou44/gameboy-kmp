@@ -41,7 +41,7 @@ class Bus(
     private var joypadState = 0xFF  // all buttons released
 
     // --- DMA state ---
-    private var dmaCounter = 0       // counts down 161→0; 0 = inactive
+    private var dmaCounter = 0       // counts down 162→0; 0 = inactive (2 setup ticks + 160 transfers)
     private var dmaSourceBase = 0    // source address (sourceHighByte shl 8)
 
     private val isDmaActive: Boolean get() = dmaCounter > 0
@@ -101,10 +101,24 @@ class Bus(
         if (dmaCounter <= 0) return
         if (dmaCounter < 161) {
             val byteIndex = 160 - dmaCounter
-            // TODO: DMA reads should bypass CPU-facing locks for OAM-sourced transfers
-            oam[byteIndex] = read(dmaSourceBase + byteIndex)
+            oam[byteIndex] = readDmaSource(dmaSourceBase + byteIndex)
         }
         dmaCounter--
+    }
+
+    /**
+     * Reads one byte for an OAM DMA transfer. The DMA controller has its own
+     * memory bus, so it ignores the CPU-facing OAM/VRAM access locks and the I/O
+     * register mapping. Any source in $E000-$FFFF is read as a WRAM echo
+     * (address - $2000): this is why the region past $DFFF (including
+     * $FE00-$FFFF) mirrors WRAM instead of OAM / the I/O area.
+     */
+    private fun readDmaSource(address: Int): Int = when (address) {
+        in 0x0000..0x7FFF -> cartridge.readRom(address)
+        in 0x8000..0x9FFF -> readVram(address - 0x8000)
+        in 0xA000..0xBFFF -> cartridge.readRam(address - 0xA000)
+        in 0xC000..0xDFFF -> internalRam[address]
+        else -> internalRam[address - 0x2000] // $E000-$FFFF: WRAM echo
     }
 
     fun read(address: Int): Int = when (address) {
@@ -381,9 +395,9 @@ class Bus(
     }
 
     private fun triggerDmaTransfer(sourceHighByte: Int) {
-        internalRam[0xFF46] = sourceHighByte // store for readback at 0xFF46
+        internalRam[0xFF46] = sourceHighByte // store for readback at $FF46
         dmaSourceBase = sourceHighByte shl 8
-        dmaCounter = 162 // 1 write tick (consumed immediately) + 1 setup + 160 transfers
+        dmaCounter = 162 // 2 setup ticks + 160 transfers
     }
 
     fun incDiv() {
