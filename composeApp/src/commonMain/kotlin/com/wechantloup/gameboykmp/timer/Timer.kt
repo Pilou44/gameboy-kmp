@@ -4,7 +4,10 @@ import com.wechantloup.gameboykmp.bus.Bus
 
 class Timer(private val bus: Bus) {
 
-    private var cycleCount = 0
+    // Internal 16-bit DIV counter left by the DMG boot ROM at hand-off ($0100).
+    // The visible DIV register ($FF04) is the high byte; the low byte sets the
+    // sub-DIV phase, which boot_div verifies. The canonical DMG value is 0xABCC.
+    private var cycleCount = POST_BOOT_DIV_COUNTER
 
     private var timaOverflowPending = false
     private var timaOverflowCycles = 0
@@ -129,6 +132,7 @@ class Timer(private val bus: Bus) {
     }
 
     companion object {
+        private const val POST_BOOT_DIV_COUNTER = 0xABCC
         private const val TIMA_ADDR = 0xFF05
         private const val TMA_ADDR = 0xFF06
         private const val TAC_ADDR = 0xFF07

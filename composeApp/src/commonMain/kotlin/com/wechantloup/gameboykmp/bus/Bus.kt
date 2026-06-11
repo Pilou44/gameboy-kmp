@@ -446,7 +446,7 @@ class Bus(
          * Without it, LCDC=0 (LCD off) and games that poll LY==144 loop forever.
          */
         private fun initPostBootRegisters(ram: IntArray) {
-            ram[0xFF04] = 0xAC  // DIV — incremented during boot ROM's final JP instruction
+            ram[0xFF04] = 0xAB  // DIV high byte of the post-boot internal counter 0xABCC (see Timer)
             ram[0xFF05] = 0x00  // TIMA
             ram[0xFF06] = 0x00  // TMA
             ram[0xFF07] = 0x00  // TAC
