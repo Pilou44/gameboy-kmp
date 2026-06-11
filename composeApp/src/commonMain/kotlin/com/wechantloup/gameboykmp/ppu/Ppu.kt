@@ -19,6 +19,8 @@ class Ppu(
     private var isFirstScanline = false
     private var mode0Duration = 204
     private var statLine = false
+    private var lcdOnDot = 0
+    private var firstFrameAfterLcdOn = false
 
     init {
         bus.onStatWrite = { refreshStatInterrupt() }
@@ -26,10 +28,25 @@ class Ppu(
             updateLycFlag()
             refreshStatInterrupt()
         }
+        bus.ppuSampler = sampler@{ addr ->
+
+            if (addr == 0xFF41) println("sampler hit: first=$firstFrameAfterLcdOn dot=$lcdOnDot")
+            if (!firstFrameAfterLcdOn) return@sampler null
+
+            val s = PpuTiming.sample(lcdOnDot, bus.readRaw(0xFF45))
+            when (addr) {
+                0xFF41 -> s.stat
+                0xFF44 -> s.ly
+                in 0xFE00..0xFE9F -> if (s.oamBlocked) 0xFF else null   // null -> garde le gating DMA existant
+                in 0x8000..0x9FFF -> if (s.vramBlocked) 0xFF else null
+                else -> null
+            }
+        }
     }
 
     fun step(cycles: Int) {
         val lcdc = bus.read(0xFF40)
+        if (firstFrameAfterLcdOn) lcdOnDot += cycles
 
         if (lcdc and 0x80 == 0) {
             // LCD off
@@ -59,6 +76,9 @@ class Ppu(
             }
             return
         } else if (!lcdWasOn) {
+            lcdOnDot = 0
+            firstFrameAfterLcdOn = true
+
             lcdWasOn = true
             ly = 0
             modeClock = 0
@@ -114,6 +134,7 @@ class Ppu(
                     bus.write(0xFF44, ly)
                     checkLyc()
                     if (ly == 144) {
+                        firstFrameAfterLcdOn = false
                         mode = 1
                         windowLine = 0
                         updateStat(1)
@@ -150,7 +171,7 @@ class Ppu(
 
     private fun updateStat(newMode: Int) {
         bus.ppuMode = newMode  // keep Bus in sync for OAM/VRAM access gating
-        val stat = bus.read(0xFF41)
+        val stat = bus.readRaw(0xFF41)
         bus.writeRaw(0xFF41, (stat and 0xFC) or (newMode and 0x03))
         refreshStatInterrupt()
     }
@@ -170,7 +191,7 @@ class Ppu(
     private fun updateLycFlag() {
         if (bus.read(0xFF40) and 0x80 == 0) return  // comparison clock not running
         val coincidence = ly == bus.read(0xFF45)
-        val stat = bus.read(0xFF41)
+        val stat = bus.readRaw(0xFF41)
         bus.writeRaw(0xFF41, if (coincidence) stat or 0x04 else stat and 0x04.inv())
     }
 
@@ -192,7 +213,7 @@ class Ppu(
     private fun refreshStatInterrupt() {
         if (bus.read(0xFF40) and 0x80 == 0) return  // line frozen while the LCD is off
 
-        val stat = bus.read(0xFF41)
+        val stat = bus.readRaw(0xFF41)
         val condition =
             (stat and 0x40 != 0 && stat and 0x04 != 0) ||              // LYC == LY
                     (stat and 0x20 != 0 && (mode == 2 || ly == 144)) ||        // mode 2 (OAM); also pulses at line 144

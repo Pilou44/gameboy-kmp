@@ -91,6 +91,7 @@ class Bus(
 
     var onStatWrite: (() -> Unit)? = null
     var onLycWrite: (() -> Unit)? = null
+    var ppuSampler: ((Int) -> Int?)? = null
 
     val apuPoweredOn: Boolean get() = internalRam[0xFF26] and 0x80 != 0
 
@@ -138,38 +139,41 @@ class Bus(
         else -> internalRam[address - 0x2000] // $E000-$FFFF: WRAM echo
     }
 
-    fun read(address: Int): Int = when (address) {
-        in 0x8000..0x9FFF ->
-            if (ppuMode == 3) 0xFF
-            else readVram(address - 0x8000)
-        in 0xE000..0xFDFF -> read(address - 0x2000) // Echo RAM: 0xE000–0xFDFF == 0xC000–0xDDFF
-        in 0xFE00..0xFE9F ->
-            if (isDmaActive || ppuMode == 2 || ppuMode == 3) 0xFF
-            else readOam(address - 0xFE00)
-        0xFF00 -> {
-            val p1 = internalRam[0xFF00]
-            // Bits 0-3 are active-low: 0=pressed, 1=released
-            // Bit 5 selects direction keys, bit 4 selects action buttons
-            val result = when {
-                p1 and 0x20 == 0 -> (p1 and 0xF0) or (joypadState shr 4 and 0x0F)  // directions
-                p1 and 0x10 == 0 -> (p1 and 0xF0) or (joypadState and 0x0F)         // buttons
-                else -> p1 or 0x0F
+    fun read(address: Int): Int {
+        ppuSampler?.invoke(address)?.let { return it }   // dot-accurate override, null = fall through
+        return when (address) {
+            in 0x8000..0x9FFF ->
+                if (ppuMode == 3) 0xFF
+                else readVram(address - 0x8000)
+            in 0xE000..0xFDFF -> read(address - 0x2000) // Echo RAM: 0xE000–0xFDFF == 0xC000–0xDDFF
+            in 0xFE00..0xFE9F ->
+                if (isDmaActive || ppuMode == 2 || ppuMode == 3) 0xFF
+                else readOam(address - 0xFE00)
+            0xFF00 -> {
+                val p1 = internalRam[0xFF00]
+                // Bits 0-3 are active-low: 0=pressed, 1=released
+                // Bit 5 selects direction keys, bit 4 selects action buttons
+                val result = when {
+                    p1 and 0x20 == 0 -> (p1 and 0xF0) or (joypadState shr 4 and 0x0F)  // directions
+                    p1 and 0x10 == 0 -> (p1 and 0xF0) or (joypadState and 0x0F)         // buttons
+                    else -> p1 or 0x0F
+                }
+                result or 0xC0 // bits 7-6 always read as 1
             }
-            result or 0xC0 // bits 7-6 always read as 1
+            0xFF02 -> internalRam[0xFF02] or 0x7E  // SC: unused bits always read as 1 on DMG
+            0xFF03, in 0xFF08..0xFF0E -> 0xFF  // Unused I/O registers, always read 0xFF on DMG
+            0xFF05 -> timaReadOverride?.invoke() ?: internalRam[0xFF05]
+            0xFF07 -> internalRam[0xFF07] or 0xF8  // TAC: bits 7-3 always read as 1 on DMG
+            0xFF41 -> internalRam[0xFF41] or 0x80  // STAT: bit 7 always reads as 1 on DMG
+            in 0xFF4C..0xFF7F -> 0xFF  // GBC registers and unused I/O, always read 0xFF on DMG
+            in 0x0000..0x7FFF -> cartridge.readRom(address)
+            in 0x8000..0x9FFF -> readVram(address - 0x8000)
+            in 0xA000..0xBFFF -> cartridge.readRam(address - 0xA000)
+            in 0xFE00..0xFE9F -> if (isDmaActive) 0xFF else readOam(address - 0xFE00)
+            in 0xFF10..0xFF3F -> readApuRegister(address)
+            0xFF0F -> internalRam[0xFF0F] or 0xE0  // IF: upper 3 bits always read as 1
+            else -> internalRam[address]
         }
-        0xFF02 -> internalRam[0xFF02] or 0x7E  // SC: unused bits always read as 1 on DMG
-        0xFF03, in 0xFF08..0xFF0E -> 0xFF  // Unused I/O registers, always read 0xFF on DMG
-        0xFF05 -> timaReadOverride?.invoke() ?: internalRam[0xFF05]
-        0xFF07 -> internalRam[0xFF07] or 0xF8  // TAC: bits 7-3 always read as 1 on DMG
-        0xFF41 -> internalRam[0xFF41] or 0x80  // STAT: bit 7 always reads as 1 on DMG
-        in 0xFF4C..0xFF7F -> 0xFF  // GBC registers and unused I/O, always read 0xFF on DMG
-        in 0x0000..0x7FFF -> cartridge.readRom(address)
-        in 0x8000..0x9FFF -> readVram(address - 0x8000)
-        in 0xA000..0xBFFF -> cartridge.readRam(address - 0xA000)
-        in 0xFE00..0xFE9F -> if (isDmaActive) 0xFF else readOam(address - 0xFE00)
-        in 0xFF10..0xFF3F -> readApuRegister(address)
-        0xFF0F -> internalRam[0xFF0F] or 0xE0  // IF: upper 3 bits always read as 1
-        else -> internalRam[address]
     }
 
     fun write(address: Int, value: Int) {
