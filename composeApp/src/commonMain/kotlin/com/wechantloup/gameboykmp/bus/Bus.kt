@@ -41,10 +41,17 @@ class Bus(
     private var joypadState = 0xFF  // all buttons released
 
     // --- DMA state ---
-    private var dmaCounter = 0       // counts down 162→0; 0 = inactive (2 setup ticks + 160 transfers)
-    private var dmaSourceBase = 0    // source address (sourceHighByte shl 8)
+    private var dmaCounter = 0       // active transfer: 162→0 (2 setup ticks + 160 copies); 0 = inactive
+    private var dmaSourceBase = 0    // source address of the active transfer (sourceHighByte shl 8)
+    private var dmaRestartDelay = 0  // M-cycles before a restart requested mid-transfer takes over; 0 = none
+    private var dmaRestartSource = 0 // source address for the pending restart
 
-    private val isDmaActive: Boolean get() = dmaCounter > 0
+    // OAM is locked once the transfer reaches its copy phase (dmaCounter 160→1),
+    // AND for the whole duration of a pending restart — otherwise OAM would briefly
+    // become accessible if the previous transfer ends before the restart fires.
+    // The 2 setup ticks (162/161) of a fresh transfer leave OAM accessible for
+    // ~1 M-cycle, exactly as real hardware does.
+    private val isDmaActive: Boolean get() = dmaCounter in 1..160 || dmaRestartDelay > 0
 
     var ppuMode: Int = 0
 
@@ -92,12 +99,22 @@ class Bus(
      * Must be called once per M-cycle from the emulation loop.
      *
      * Timing:
-     *   dmaCounter = 161 : setup tick — no byte copied yet
-     *   dmaCounter = 160 : copy byte 0
+     *   dmaCounter = 162/161 : setup ticks — OAM still accessible, no byte copied
+     *   dmaCounter = 160 : copy byte 0 (OAM now locked)
      *   ...
      *   dmaCounter =   1 : copy byte 159 → DMA done on next tick
      */
     fun stepDma() {
+        // A restart requested while a transfer was still copying takes over only
+        // after a 2 M-cycle delay; until then the previous transfer keeps running
+        // (and keeps OAM locked). The delay itself serves as the new startup.
+        if (dmaRestartDelay > 0) {
+            dmaRestartDelay--
+            if (dmaRestartDelay == 0) {
+                dmaSourceBase = dmaRestartSource
+                dmaCounter = 160 // copy phase begins right away (no extra setup ticks)
+            }
+        }
         if (dmaCounter <= 0) return
         if (dmaCounter < 161) {
             val byteIndex = 160 - dmaCounter
@@ -396,8 +413,18 @@ class Bus(
 
     private fun triggerDmaTransfer(sourceHighByte: Int) {
         internalRam[0xFF46] = sourceHighByte // store for readback at $FF46
-        dmaSourceBase = sourceHighByte shl 8
-        dmaCounter = 162 // 2 setup ticks + 160 transfers
+        if (isDmaActive) {
+            // Restart while a transfer is mid-copy: hardware does not stop the
+            // running one immediately — the new one takes over after a delay,
+            // during which OAM stays locked by the still-running transfer.
+            // The delay is 3 so the restarted transfer unlocks OAM at the very
+            // same offset a fresh DMA would (write +162 M-cycles): 3 + 159 = 162.
+            dmaRestartSource = sourceHighByte shl 8
+            dmaRestartDelay = 3
+        } else {
+            dmaSourceBase = sourceHighByte shl 8
+            dmaCounter = 162 // 2 setup ticks (OAM still accessible) + 160 transfers
+        }
     }
 
     fun incDiv() {
