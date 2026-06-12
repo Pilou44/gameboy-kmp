@@ -14,10 +14,13 @@ class Ppu(
     private var ly = 0
     private var modeClock = 0
     private var mode = 2
+    private var statMode = 2
+    private var pendingStatMode: Int? = null
     private var windowLine = 0
     private var lcdWasOn = true
     private var isFirstScanline = false
     private var mode0Duration = 204
+    private var mode3Duration = 172
     private var statLine = false
     private var lcdOnDot = 0
     private var firstFrameAfterLcdOn = false
@@ -41,8 +44,12 @@ class Ppu(
             when (addr) {
                 0xFF41 -> (bus.readRaw(0xFF41) and 0x78) or s.stat
                 0xFF44 -> s.ly
-                in 0xFE00..0xFE9F -> if (s.oamBlocked) 0xFF else null   // null -> garde le gating DMA existant
-                in 0x8000..0x9FFF -> if (s.vramBlocked) 0xFF else null
+                in 0xFE00..0xFE9F -> when {
+                    s.oamBlocked    -> 0xFF
+                    bus.isDmaActive -> 0xFF                    // OAM inaccessible pendant DMA
+                    else            -> bus.readOam(addr - 0xFE00)   // modèle dot seul, bypass ppuMode
+                }
+                in 0x8000..0x9FFF -> if (s.vramBlocked) 0xFF else bus.readVram(addr - 0x8000)
                 else -> null
             }
         }
@@ -63,6 +70,15 @@ class Ppu(
     }
 
     fun step(cycles: Int) {
+        pendingStatMode?.let { m ->
+            statMode = m
+            bus.ppuMode = m
+            val stat = bus.readRaw(0xFF41)
+            bus.writeRaw(0xFF41, (stat and 0xFC) or (m and 0x03))
+            refreshStatInterrupt()
+            pendingStatMode = null
+        }
+
         val lcdc = bus.read(0xFF40)
         if (firstFrameAfterLcdOn) lcdOnDot += cycles
 
@@ -120,6 +136,9 @@ class Ppu(
             2 -> if (modeClock >= 80) {
                 modeClock -= 80
                 mode = 3
+                val penalty = scxPenalty(bus.read(0xFF43))
+                mode3Duration = 172 + penalty
+                mode0Duration = 204 - penalty
                 updateStat(3)
             }
 
@@ -127,8 +146,8 @@ class Ppu(
             // PPU reads VRAM and renders pixels for the current scanline.
             // Neither VRAM nor OAM are accessible to CPU during this mode.
             // Duration: 172 cycles
-            3 -> if (modeClock >= 172) {
-                modeClock -= 172
+            3 -> if (modeClock >= mode3Duration) {
+                modeClock -= mode3Duration
                 renderScanline(lcdc)
                 mode = 0
                 updateStat(0)
@@ -141,9 +160,9 @@ class Ppu(
             0 -> if (modeClock >= mode0Duration) {
                 modeClock -= mode0Duration
                 if (isFirstScanline) {
-                    // Line 0: initial mode 0 done, go straight to mode 3 (no renderScanline yet)
                     isFirstScanline = false
-                    mode0Duration = 200 // Shortened HBlank for line 0
+                    mode0Duration = 200
+                    mode3Duration = 172      // ← ligne 0 : pas de pénalité SCX, chemin lcdon inchangé
                     mode = 3
                     updateStat(3)
                 } else {
@@ -188,11 +207,14 @@ class Ppu(
         }
     }
 
+    private fun scxPenalty(scx: Int): Int = when (scx and 0x07) {
+        0 -> 0
+        in 1..4 -> 4
+        else -> 8            // 5..7
+    }
+
     private fun updateStat(newMode: Int) {
-        bus.ppuMode = newMode  // keep Bus in sync for OAM/VRAM access gating
-        val stat = bus.readRaw(0xFF41)
-        bus.writeRaw(0xFF41, (stat and 0xFC) or (newMode and 0x03))
-        refreshStatInterrupt()
+        pendingStatMode = newMode      // bits STAT + IRQ : appliqués au step suivant (+4 dots)
     }
 
     private fun checkLyc() {
@@ -235,9 +257,9 @@ class Ppu(
         val stat = bus.readRaw(0xFF41)
         val condition =
             (stat and 0x40 != 0 && stat and 0x04 != 0) ||              // LYC == LY
-                    (stat and 0x20 != 0 && (mode == 2 || ly == 144)) ||        // mode 2 (OAM); also pulses at line 144
-                    (stat and 0x10 != 0 && mode == 1) ||                       // mode 1 (V-Blank)
-                    (stat and 0x08 != 0 && mode == 0)                          // mode 0 (H-Blank)
+                    (stat and 0x20 != 0 && (statMode == 2 || ly == 144)) ||        // mode 2 (OAM); also pulses at line 144
+                    (stat and 0x10 != 0 && statMode == 1) ||                       // mode 1 (V-Blank)
+                    (stat and 0x08 != 0 && statMode == 0)                          // mode 0 (H-Blank)
 
         if (condition && !statLine) {
             bus.setIF(bus.iF or 0x02)
