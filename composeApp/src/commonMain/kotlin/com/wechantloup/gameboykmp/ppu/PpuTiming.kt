@@ -132,7 +132,7 @@ object PpuTiming {
     const val L0_WRITE_BLOCK_END   = 242
 
     // Emulator phase for writes; converge against the ROM like ACCESS_OFFSET. [SOFT]
-    const val WRITE_ACCESS_OFFSET = -8
+    const val WRITE_ACCESS_OFFSET = -5
 
     fun oamWriteBlocked(lcdOnDot: Int, accessOffset: Int = WRITE_ACCESS_OFFSET): Boolean {
         val d = lcdOnDot + accessOffset

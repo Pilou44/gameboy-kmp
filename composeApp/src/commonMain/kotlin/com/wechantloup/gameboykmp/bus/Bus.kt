@@ -51,7 +51,7 @@ class Bus(
     // become accessible if the previous transfer ends before the restart fires.
     // The 2 setup ticks (162/161) of a fresh transfer leave OAM accessible for
     // ~1 M-cycle, exactly as real hardware does.
-    private val isDmaActive: Boolean get() = dmaCounter in 1..160 || dmaRestartDelay > 0
+    val isDmaActive: Boolean get() = dmaCounter in 1..160 || dmaRestartDelay > 0
 
     var ppuMode: Int = 0
 
@@ -92,7 +92,7 @@ class Bus(
     var onStatWrite: (() -> Unit)? = null
     var onLycWrite: (() -> Unit)? = null
     var ppuSampler: ((Int) -> Int?)? = null
-    var ppuWriteBlocked: ((Int) -> Boolean)? = null
+    var ppuWriteIntercept: ((Int, Int) -> Boolean)? = null
 
     val apuPoweredOn: Boolean get() = internalRam[0xFF26] and 0x80 != 0
 
@@ -178,8 +178,8 @@ class Bus(
     }
 
     fun write(address: Int, value: Int) {
-        if (ppuWriteBlocked?.invoke(address) == true) return   // dot write gating
         val v = value and 0xFF
+        if (ppuWriteIntercept?.invoke(address, v) == true) return
         when (address) {
             in 0x8000..0x9FFF -> if (ppuMode != 3) writeVram(address - 0x8000, v)
             in 0xE000..0xFDFF -> write(address - 0x2000, v) // Echo RAM: 0xE000–0xFDFF == 0xC000–0xDDFF

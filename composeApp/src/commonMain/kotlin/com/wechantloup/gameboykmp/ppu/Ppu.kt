@@ -46,13 +46,17 @@ class Ppu(
                 else -> null
             }
         }
-        bus.ppuWriteBlocked = gate@{ addr ->
-            if (!firstFrameAfterLcdOn) return@gate false
+        bus.ppuWriteIntercept = wi@{ addr, v ->
+            if (!firstFrameAfterLcdOn) return@wi false          // hors 1re frame → write() normal
             when (addr) {
-                in 0xFE00..0xFE9F -> PpuTiming.oamWriteBlocked(lcdOnDot).also {
-                    println("WGATE oam dot=$lcdOnDot blocked=$it")
+                in 0xFE00..0xFE9F -> {
+                    if (!PpuTiming.oamWriteBlocked(lcdOnDot) && !bus.isDmaActive) bus.writeOam(addr - 0xFE00, v)
+                    true                                         // géré (drop OU écrit) → court-circuite ppuMode
                 }
-                in 0x8000..0x9FFF -> PpuTiming.vramWriteBlocked(lcdOnDot)
+                in 0x8000..0x9FFF -> {
+                    if (!PpuTiming.vramWriteBlocked(lcdOnDot)) bus.writeVram(addr - 0x8000, v)
+                    true
+                }
                 else -> false
             }
         }
