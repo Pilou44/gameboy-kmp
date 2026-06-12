@@ -93,6 +93,7 @@ class Bus(
     var onLycWrite: (() -> Unit)? = null
     var ppuSampler: ((Int) -> Int?)? = null
     var ppuWriteIntercept: ((Int, Int) -> Boolean)? = null
+    var onBgpWrite: ((Int) -> Unit)? = null
 
     val apuPoweredOn: Boolean get() = internalRam[0xFF26] and 0x80 != 0
 
@@ -202,6 +203,10 @@ class Bus(
                 onTacWrite?.invoke(oldTac, v)
             }
             0xFF46 -> triggerDmaTransfer(v)
+            0xFF47 -> {
+                internalRam[0xFF47] = v
+                onBgpWrite?.invoke(v)
+            }
             0xFF26 -> writeNR52(v)
 
             // Length registers: writable even when APU is off (DMG quirk)

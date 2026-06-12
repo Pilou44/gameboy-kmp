@@ -914,6 +914,24 @@ class RomTestRunner {
 //        runTest(testInfo.displayName, "mooneye/misc/boot_regs-cgb.gb", 1_000)
 //    }
 
+    @Test
+    @Order(143)
+    fun `daid-ppu_scanline_bgp_0`(testInfo: TestInfo) {
+        runTest(testInfo.displayName, "daid/ppu_scanline_bgp.gb", 500, captureNameSuffix = "_0.dmg")
+    }
+
+    @Test
+    @Order(144)
+    fun `daid-ppu_scanline_bgp_1`(testInfo: TestInfo) {
+        runTest(testInfo.displayName, "daid/ppu_scanline_bgp.gb", 500, captureNameSuffix = "_1.dmg")
+    }
+
+    @Test
+    @Order(145)
+    fun `daid-ppu_scanline_bgp_2`(testInfo: TestInfo) {
+        runTest(testInfo.displayName, "daid/ppu_scanline_bgp.gb", 500, captureNameSuffix = "_2.dmg")
+    }
+
     companion object {
         private const val TEST_RESULTS_PATH = "build/test-results"
         private const val TEST_RESULTS_HTML_FILE = "test-results.html"

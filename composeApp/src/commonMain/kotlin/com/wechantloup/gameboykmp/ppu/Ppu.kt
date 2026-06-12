@@ -25,6 +25,10 @@ class Ppu(
     private var lcdOnDot = 0
     private var firstFrameAfterLcdOn = false
 
+    private val bgpDots = IntArray(200)
+    private val bgpVals = IntArray(200)
+    private var bgpCount = 0
+
     init {
         bus.onStatWrite = { refreshStatInterrupt() }
         bus.onLycWrite = {
@@ -65,6 +69,13 @@ class Ppu(
                     true
                 }
                 else -> false
+            }
+        }
+        bus.onBgpWrite = { v ->
+            if (mode == 3 && bgpCount < bgpDots.size) {
+                bgpDots[bgpCount] = modeClock   // dot du mode 3 au moment de l'écriture
+                bgpVals[bgpCount] = v
+                bgpCount++
             }
         }
     }
@@ -136,6 +147,9 @@ class Ppu(
             2 -> if (modeClock >= 80) {
                 modeClock -= 80
                 mode = 3
+                bgpCount = 1
+                bgpDots[0] = 0
+                bgpVals[0] = bus.readRaw(0xFF47)
                 val scx = bus.read(0xFF43)
                 val penalty = scxPenalty(scx) + spriteMode3Penalty(lcdc, scx)
                 mode3Duration = 172 + penalty
@@ -416,7 +430,7 @@ class Ppu(
     private fun renderBackground(lcdc: Int) {
         val scy = bus.read(0xFF42)
         val scx = bus.read(0xFF43)
-        val bgp = bus.read(0xFF47)
+        val warmup = 2 + (scx and 7)          // dot du mode 3 où sort le pixel x=0
 
         // Bit 3: BG tile map — 0=0x9800, 1=0x9C00
         val tileMapBase = if (lcdc and 0x08 != 0) 0x1C00 else 0x1800  // VRAM offsets
@@ -450,10 +464,17 @@ class Ppu(
             val hiBit = (hiByte shr (7 - tilePixelX)) and 0x01
             val colorIndex = (hiBit shl 1) or loBit
 
+            val bgp  = bgpAt(warmup + screenX)
             val gray = (bgp shr (colorIndex * 2)) and 0x03
             frameBuffer[ly * 160 + screenX] = gray
             bgColorIndexBuffer[ly * 160 + screenX] = colorIndex
         }
+    }
+
+    private fun bgpAt(dot: Int): Int {
+        var v = bgpVals[0]; var i = 1
+        while (i < bgpCount && bgpDots[i] <= dot) { v = bgpVals[i]; i++ }
+        return v
     }
 
     private fun spriteMode3Penalty(lcdc: Int, scx: Int): Int {
