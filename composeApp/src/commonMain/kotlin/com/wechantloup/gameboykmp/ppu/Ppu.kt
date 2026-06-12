@@ -136,7 +136,8 @@ class Ppu(
             2 -> if (modeClock >= 80) {
                 modeClock -= 80
                 mode = 3
-                val penalty = scxPenalty(bus.read(0xFF43))
+                val scx = bus.read(0xFF43)
+                val penalty = scxPenalty(scx) + spriteMode3Penalty(lcdc, scx)
                 mode3Duration = 172 + penalty
                 mode0Duration = 204 - penalty
                 updateStat(3)
@@ -453,5 +454,26 @@ class Ppu(
             frameBuffer[ly * 160 + screenX] = gray
             bgColorIndexBuffer[ly * 160 + screenX] = colorIndex
         }
+    }
+
+    private fun spriteMode3Penalty(lcdc: Int, scx: Int): Int {
+        if (lcdc and 0x02 == 0) return 0                 // sprites désactivés
+        val height = if (lcdc and 0x04 != 0) 16 else 8
+        val xs = ArrayList<Int>(10)
+        var i = 0
+        while (i < 40 && xs.size < 10) {                 // scan mode 2 : 10 max, ordre OAM, par Y
+            val y = bus.readOam(i * 4)
+            if (ly + 16 >= y && ly + 16 < y + height) xs.add(bus.readOam(i * 4 + 1))
+            i++
+        }
+        xs.removeAll { it >= 168 }                        // hors écran à droite : pas de pénalité
+        xs.sort()
+        var p = 0; var lastTile = -1
+        for (x in xs) {
+            p += 6
+            val tile = (x + scx) / 8
+            if (tile != lastTile) { p += maxOf(0, 5 - ((x + scx) and 7)); lastTile = tile }
+        }
+        return (p / 4) * 4                                // ← tronqué au M-cycle (floor)
     }
 }

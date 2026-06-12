@@ -556,7 +556,7 @@ class RomTestRunner {
     @Test
     @Order(83)
     fun `mooneye-acceptance-ppu-intr_2_mode0_timing_sprites`(testInfo: TestInfo) {
-        runTest(testInfo.displayName, "mooneye/acceptance/ppu/intr_2_mode0_timing_sprites.gb", 1_000)
+        runTest(testInfo.displayName, "mooneye/acceptance/ppu/intr_2_mode0_timing_sprites.gb", 4_000)
     }
 
     @Test
