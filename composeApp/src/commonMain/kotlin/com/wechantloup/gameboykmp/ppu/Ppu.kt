@@ -29,6 +29,8 @@ class Ppu(
     private val bgpVals = IntArray(200)
     private var bgpCount = 0
 
+    private var ly153Wrapped = false
+
     init {
         bus.onStatWrite = { refreshStatInterrupt() }
         bus.onLycWrite = {
@@ -37,13 +39,13 @@ class Ppu(
         }
         bus.ppuSampler = sampler@{ addr ->
 
-            if (addr == 0xFF41) println("sampler hit: first=$firstFrameAfterLcdOn dot=$lcdOnDot")
+//            if (addr == 0xFF41) println("sampler hit: first=$firstFrameAfterLcdOn dot=$lcdOnDot")
             if (!firstFrameAfterLcdOn) return@sampler null
 
             val s = PpuTiming.sample(lcdOnDot, bus.readRaw(0xFF45))
 
-            if (addr == 0xFF41 || addr == 0xFF44)
-                println("PPUSAMPLE ${addr.toString(16)} dot=$lcdOnDot ly=${s.ly} stat=${s.stat.toString(16)}")
+//            if (addr == 0xFF41 || addr == 0xFF44)
+//                println("PPUSAMPLE ${addr.toString(16)} dot=$lcdOnDot ly=${s.ly} stat=${s.stat.toString(16)}")
 
             when (addr) {
                 0xFF41 -> (bus.readRaw(0xFF41) and 0x78) or s.stat
@@ -97,6 +99,7 @@ class Ppu(
             // LCD off
             if (lcdWasOn) {
                 lcdWasOn = false
+                ly153Wrapped = false
                 firstFrameAfterLcdOn = false
                 ly = 0
                 modeClock = 0
@@ -163,6 +166,10 @@ class Ppu(
             // Duration: 172 cycles
             3 -> if (modeClock >= mode3Duration) {
                 modeClock -= mode3Duration
+
+                if ((1 until bgpCount).any { bgpVals[it] != 0xE4 })
+                    println("1re row BGP non-E4 -> ly=$ly")   // attendu: 8
+
                 renderScanline(lcdc)
                 mode = 0
                 updateStat(0)
@@ -205,18 +212,32 @@ class Ppu(
             // Lines 144-153 are off-screen - CPU can safely update VRAM.
             // V-Blank interrupt is triggered at the start of this mode.
             // Duration: 456 cycles × 10 lines (lines 144-153)
-            1 -> if (modeClock >= 456) {
-                modeClock -= 456
-                ly++
-                bus.write(0xFF44, ly)
-                checkLyc()
-                if (ly > 153) {
+            1 -> {
+                // LY=153 quirk: LY only reads 153 for ~1 M-cycle, then reads 0 for the rest
+                // of the line. The LYC=0 coincidence (and the STAT interrupt) therefore fires
+                // ~452 dots earlier than at the real start of line 0.
+                if (ly == 153 && !ly153Wrapped && modeClock >= 4) {
+                    ly153Wrapped = true
                     ly = 0
                     bus.write(0xFF44, 0)
-                    checkLyc()
-                    modeClock = 0
-                    mode = 2
-                    updateStat(2)
+                    checkLyc()                 // LYC=0 interrupt fires HERE, ~1 line earlier
+                }
+
+                if (modeClock >= 456) {
+                    modeClock -= 456
+                    if (ly153Wrapped) {
+                        // End of "line 153" -> actual start of the frame, LY already 0
+                        ly153Wrapped = false
+                        ly = 0
+                        modeClock = 0
+                        mode = 2
+                        updateStat(2)
+                        // No checkLyc here: LY==0 has already been signaled
+                    } else {
+                        ly++
+                        bus.write(0xFF44, ly)
+                        checkLyc()
+                    }
                 }
             }
         }
@@ -235,6 +256,7 @@ class Ppu(
     private fun checkLyc() {
         updateLycFlag()
         refreshStatInterrupt()
+        if (ly == 0 && bus.readRaw(0xFF45) == 0) println("STAT LYC=0 fired @ ly=0 modeClock=$modeClock")
     }
 
     /**
@@ -430,7 +452,7 @@ class Ppu(
     private fun renderBackground(lcdc: Int) {
         val scy = bus.read(0xFF42)
         val scx = bus.read(0xFF43)
-        val warmup = 2 + (scx and 7)          // dot du mode 3 où sort le pixel x=0
+        val warmup = 6 + (scx and 7)          // dot du mode 3 où sort le pixel x=0
 
         // Bit 3: BG tile map — 0=0x9800, 1=0x9C00
         val tileMapBase = if (lcdc and 0x08 != 0) 0x1C00 else 0x1800  // VRAM offsets
