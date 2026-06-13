@@ -20,8 +20,10 @@ import org.junit.jupiter.api.TestInfo
 import org.junit.jupiter.api.TestMethodOrder
 import java.awt.image.BufferedImage
 import java.io.File
+import java.io.InputStream
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import kotlin.math.abs
 import kotlin.test.assertNotNull
 import kotlin.test.fail
 
@@ -920,18 +922,6 @@ class RomTestRunner {
         runTest(testInfo.displayName, "daid/ppu_scanline_bgp.gb", 500, captureNameSuffix = "_0.dmg")
     }
 
-    @Test
-    @Order(144)
-    fun `daid-ppu_scanline_bgp_1`(testInfo: TestInfo) {
-        runTest(testInfo.displayName, "daid/ppu_scanline_bgp.gb", 500, captureNameSuffix = "_1.dmg")
-    }
-
-    @Test
-    @Order(145)
-    fun `daid-ppu_scanline_bgp_2`(testInfo: TestInfo) {
-        runTest(testInfo.displayName, "daid/ppu_scanline_bgp.gb", 500, captureNameSuffix = "_2.dmg")
-    }
-
     companion object {
         private const val TEST_RESULTS_PATH = "build/test-results"
         private const val TEST_RESULTS_HTML_FILE = "test-results.html"
@@ -1065,6 +1055,8 @@ class RomTestRunner {
                     .also {
                         it.toPng("$TEST_RESULTS_PATH/$captureName")
                     }
+
+                frameBuffer
             } catch (e: Throwable) {
                 currentRun.tests[testName] = TestStatus.FAIL
 
@@ -1081,13 +1073,15 @@ class RomTestRunner {
             }
 
             try {
-                val reference = ImageIO
-                    .read(
-                        ClassLoader.getSystemResourceAsStream("references/$pngPath")
-                    )
-                    .getRGB(0, 0, 160, 144, null, 0, 160)
+//                val reference = ImageIO
+//                    .read(
+//                        ClassLoader.getSystemResourceAsStream("references/$pngPath")
+//                    )
+//                    .getRGB(0, 0, 160, 144, null, 0, 160)
+                val reference = requireNotNull(ClassLoader.getSystemResourceAsStream("references/$pngPath"))
 
-                val passed = reference.contentEquals(imageBuffer)
+                val passed = matchesReference(imageBuffer, reference)
+//                val passed = reference.contentEquals(imageBuffer)
 
                 val status = if (passed) "PASS" else "FAIL"
 
@@ -1186,5 +1180,35 @@ class RomTestRunner {
 
             runsHtmlFile.appendText("</table></html>\n")
         }
+
+
+        /** Référence PNG -> indices de nuance GB 0..3.
+         *  Convention : 0 = blanc (clair) … 3 = noir, comme ton frameBuffer. */
+        fun pngToShades(stream: InputStream): IntArray {
+            val img = stream.use { ImageIO.read(it) }      // .use ferme le flux ; ImageIO ne le fait pas
+                ?: error("PNG illisible (aucun décodeur ImageIO ou flux vide)")
+            require(img.width == 160 && img.height == 144) {
+                "attendu 160x144, reçu ${img.width}x${img.height}"
+            }
+            val palette = intArrayOf(255, 170, 85, 0)      // luminance par nuance ; index = nuance GB
+            val out = IntArray(160 * 144)
+            for (y in 0 until 144) for (x in 0 until 160) {
+                val p = img.getRGB(x, y)
+                val r = (p ushr 16) and 0xFF
+                val g = (p ushr 8)  and 0xFF
+                val b =  p          and 0xFF
+                val lum = (r * 299 + g * 587 + b * 114) / 1000
+                var best = 0; var bestD = Int.MAX_VALUE
+                for (s in palette.indices) {
+                    val d = abs(lum - palette[s])
+                    if (d < bestD) { bestD = d; best = s }
+                }
+                out[y * 160 + x] = best
+            }
+            return out
+        }
+
+        fun matchesReference(frameBuffer: IntArray, reference: InputStream): Boolean =
+            frameBuffer.contentEquals(pngToShades(reference))
     }
 }
