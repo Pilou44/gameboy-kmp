@@ -77,7 +77,6 @@ fun MainScreen() {
     val gameBoyState by gameBoyViewModel.stateFlow.collectAsState()
     val mainState by mainViewModel.stateFlow.collectAsState()
 
-    val selectedPalette = remember { mutableStateOf(Palette.DMG) }
     val scale = remember { mutableIntStateOf(3) }
 
     Scaffold { paddingValues ->
@@ -91,12 +90,11 @@ fun MainScreen() {
                     content = {
                         DmgShell(
                             scale = scale.value,
-                            screenBorderColor = selectedPalette.value.colors.first(),
+                            screenBorderColor = gameBoyState.dmgPalette.colors.first(),
                         ) {
-                            gameBoyState.frameBuffer?.let {
+                            gameBoyState.coloredFrameBuffer?.let {
                                 BitmapGameBoyScreen(
-                                    frameBuffer = it,
-                                    palette = selectedPalette.value,
+                                    coloredFrameBuffer = it,
                                     scale = scale.value,
                                 )
                             }
@@ -129,9 +127,10 @@ fun MainScreen() {
                     mainViewModel.onIntent(MainIntent.ShowCommandsTable)
                 }
                 Commands(
-                    selectedPalette = selectedPalette,
+                    selectedPalette = gameBoyState.dmgPalette,
                     scale = scale,
                     loadRom = gameBoyViewModel::loadRom,
+                    setDmgPalette = gameBoyViewModel::setDmgPalette,
                     showCommands = showCommands,
                     modifier = Modifier
                         .fillMaxHeight()
@@ -148,9 +147,10 @@ fun MainScreen() {
 
 @Composable
 private fun Commands(
-    selectedPalette: MutableState<Palette>,
+    selectedPalette: Palette,
     scale: MutableState<Int>,
     loadRom: (romBytes: ByteArray, romName: String) -> Unit,
+    setDmgPalette: (Palette) -> Unit,
     showCommands: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -187,14 +187,14 @@ private fun Commands(
                     .fillMaxWidth()
                     .widthIn(min = 150.dp),
             ) {
-                Text(selectedPalette.value.name)
+                Text(selectedPalette.displayName)
             }
             DropdownMenu(expanded = paletteExpanded, onDismissRequest = { paletteExpanded = false }) {
                 Palette.entries.forEach { palette ->
                     DropdownMenuItem(
                         text = { Text(palette.displayName) },
                         onClick = {
-                            selectedPalette.value = palette
+                            setDmgPalette(palette)
                             paletteExpanded = false
                         }
                     )

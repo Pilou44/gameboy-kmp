@@ -1,5 +1,6 @@
 package com.wechantloup.gameboykmp.bus
 
+import com.wechantloup.gameboykmp.MachineMode
 import com.wechantloup.gameboykmp.cartridge.Cartridge
 import com.wechantloup.gameboykmp.joypad.JoypadButton
 import kotlin.concurrent.Volatile
@@ -23,6 +24,7 @@ import kotlin.concurrent.Volatile
  */
 class Bus(
     private val cartridge: Cartridge,
+    val machineMode: MachineMode,
 ) {
 
     // Bit 0 : V-Blank  - PPU entered V-Blank period (LY == 144)

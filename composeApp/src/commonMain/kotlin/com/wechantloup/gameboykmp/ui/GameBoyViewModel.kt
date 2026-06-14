@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
+import com.wechantloup.gameboykmp.MachineMode
 import com.wechantloup.gameboykmp.apu.Apu
 import com.wechantloup.gameboykmp.bus.Bus
 import com.wechantloup.gameboykmp.cartridge.Cartridge
@@ -23,6 +24,7 @@ import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.concurrent.Volatile
 import kotlin.reflect.KClass
@@ -41,12 +43,18 @@ class GameBoyViewModel : ViewModel() {
     val audioSamplesChannel = Channel<FloatArray>(8)
     val buttonChannel = Channel<JoypadEvent>(Channel.UNLIMITED)
 
+    private var machineModeForMixtGame = MachineMode.CGB
+    private var machineModeForDMGGame = MachineMode.DMG
+
     private var bus: Bus? = null
     private var timer: Timer? = null
     private var ppu: Ppu? = null
     private var apu: Apu? = null
     private var cartridge: Cartridge? = null
     var frameCycles = 0
+
+    private val dmgPalette: Palette
+        get() = stateFlow.value.dmgPalette
 
     init {
         viewModelScope.launch {
@@ -72,8 +80,10 @@ class GameBoyViewModel : ViewModel() {
         viewModelScope.launch {
             emulationJob?.cancelAndJoin() // Now safe to await in a coroutine
 
-            _stateFlow.value = GameBoyState()
+            _stateFlow.value = GameBoyState(dmgPalette = dmgPalette)
             isPaused = false
+
+            val machineMode = getMachineMode(romBytes)
 
             val job = Job(parent = coroutineContext[Job]).also { emulationJob = it }
             val emulationScope = CoroutineScope(coroutineContext + job)
@@ -84,11 +94,11 @@ class GameBoyViewModel : ViewModel() {
                 scope = emulationScope,
             ).also { cartridge = it }
 
-            val bus = Bus(cartridge).also { bus = it }
+            val bus = Bus(cartridge, machineMode).also { bus = it }
 
             emulationScope.launch {
-                cartridge.isSaving.collect {
-                    _stateFlow.value = stateFlow.value.copy(isSaving = it)
+                cartridge.isSaving.collect { isSaving ->
+                    _stateFlow.update { it.copy(isSaving = isSaving) }
                 }
             }
 
@@ -105,10 +115,12 @@ class GameBoyViewModel : ViewModel() {
 
             emulationScope.launch {
                 ppu.frameChannel.consumeEach { frame ->
-                    _stateFlow.value = stateFlow.value.copy(
-                        frameBuffer = frame,
-                        frameCount = stateFlow.value.frameCount + 1,
-                    )
+                    _stateFlow.update {
+                        it.copy(
+                            coloredFrameBuffer = getColoredFrameBuffer(frame, bus.machineMode),
+                            frameCount = stateFlow.value.frameCount + 1,
+                        )
+                    }
                 }
             }
 
@@ -155,6 +167,15 @@ class GameBoyViewModel : ViewModel() {
         isPaused = false
     }
 
+    fun setDmgPalette(palette: Palette) {
+        // TODO live palette change only repaints on the next frame; a frozen frame
+        //  (reachable only once pause() is wired to the UI) would keep the old palette.
+        //  Fix then by keeping the last raw frame and re-colorizing it here.
+        _stateFlow.update {
+            it.copy(dmgPalette = palette)
+        }
+    }
+
     private fun onMachineCycleTick() {
         ppu?.step(4) // TODO Always 4, useless parameter
         timer?.step(4) // TODO Always 4, useless parameter
@@ -166,6 +187,24 @@ class GameBoyViewModel : ViewModel() {
 
     private fun currentTimeMark(): ValueTimeMark {
         return TimeSource.Monotonic.markNow()
+    }
+
+    private fun getMachineMode(romBytes: ByteArray): MachineMode {
+        val cartridgeType = romBytes[0x0143].toInt() and 0xC0
+        return when (cartridgeType) {
+            0xC0 -> MachineMode.CGB
+            0x80 -> machineModeForMixtGame
+            else -> machineModeForDMGGame
+        }
+    }
+
+    private fun getColoredFrameBuffer(frame: IntArray, machineMode: MachineMode): IntArray {
+        return when (machineMode) {
+            MachineMode.CGB_COMPAT,
+            MachineMode.CGB,
+            -> frame
+            MachineMode.DMG -> IntArray(frame.size) { dmgPalette.colors[frame[it]] }
+        }
     }
 
     class Factory : ViewModelProvider.Factory {

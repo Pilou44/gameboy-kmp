@@ -204,10 +204,9 @@ private fun PortraitEmulator(
                         )
                         .background(Color(selectedPalette.value.colors[0])),
                 )
-                gameBoyState.frameBuffer?.let {
+                gameBoyState.coloredFrameBuffer?.let {
                     BitmapGameBoyScreen(
-                        frameBuffer = it,
-                        palette = selectedPalette.value,
+                        coloredFrameBuffer = it,
                         scale = scale,
                     )
                 }
@@ -266,10 +265,9 @@ private fun LandscapeEmulator(
                         )
                         .background(Color(selectedPalette.value.colors[0])),
                 )
-                gameBoyState.frameBuffer?.let {
+                gameBoyState.coloredFrameBuffer?.let {
                     BitmapGameBoyScreen(
-                        frameBuffer = it,
-                        palette = selectedPalette.value,
+                        coloredFrameBuffer = it,
                         scale = scale,
                     )
                 }
