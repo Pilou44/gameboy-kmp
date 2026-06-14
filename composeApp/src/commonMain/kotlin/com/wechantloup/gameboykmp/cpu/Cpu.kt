@@ -8,6 +8,7 @@ class Cpu(
 ) {
     val registers = Registers() // Visible for tests
     var isHalted = false // Visible for tests
+    private var isStopped = false
     var ime = false // Visible for tests
 
     private var imeScheduled = false
@@ -15,6 +16,21 @@ class Cpu(
     private var haltBug = false
 
     fun step() {
+        // STOP mode (DMG): frozen until a selected joypad input line goes low.
+        // Checked before the interrupt logic: unlike HALT, a pending interrupt does
+        // NOT wake STOP (here IE=IF=0x01 / VBlank pending when STOP runs).
+        if (isStopped) {
+            // A selected line is low (button pressed) when any of bits 0..3 is 0.
+            if ((bus.read(0xFF00) and 0x0F) != 0x0F) {
+                isStopped = false
+            }
+            // Keep ticking: the PPU needs at least one tick after LCDC bit 7 was cleared
+            // to run its "LCD off" path and push the blank frame. Once off, its step()
+            // early-returns, so the screen stays blank while stopped.
+            onMachineCycleTick()
+            return
+        }
+
         // Check for pending interrupts
         val pending = bus.ie and bus.iF and 0x1F
 
@@ -143,13 +159,16 @@ class Cpu(
             }
 
             0x10 -> {
-                // Consume the mandatory 0x00 operand by advancing PC only,
-                // without triggering an M-cycle tick (STOP costs 1 M-cycle on DMG)
+                // 0x10 0x00: STOP is a 2-byte instruction on DMG (normal case) -> skip 0x00.
                 registers.pc = (registers.pc + 1) and 0xFFFF
+
                 // TODO: implement full STOP behavior for GBC double-speed mode switch
-                if (bus.ie and 0x10 != 0) {
-                    isHalted = true
-                }
+                // Enter STOP mode: CPU frozen until a selected joypad line goes low.
+                isStopped = true
+                // Turn the LCD off (clear LCDC bit 7) so the screen blanks
+                bus.write(0xFF40, bus.read(0xFF40) and 0x7F)
+                // Optional, hardware-accurate: STOP also resets DIV.
+                 bus.write(0xFF04, 0x00)
             }
 
             /* --- 8-bit loads: immediate --- */
