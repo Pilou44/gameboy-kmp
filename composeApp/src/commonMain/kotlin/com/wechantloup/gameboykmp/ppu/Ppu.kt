@@ -39,13 +39,9 @@ class Ppu(
         }
         bus.ppuSampler = sampler@{ addr ->
 
-//            if (addr == 0xFF41) println("sampler hit: first=$firstFrameAfterLcdOn dot=$lcdOnDot")
             if (!firstFrameAfterLcdOn) return@sampler null
 
             val s = PpuTiming.sample(lcdOnDot, bus.readRaw(0xFF45))
-
-//            if (addr == 0xFF41 || addr == 0xFF44)
-//                println("PPUSAMPLE ${addr.toString(16)} dot=$lcdOnDot ly=${s.ly} stat=${s.stat.toString(16)}")
 
             when (addr) {
                 0xFF41 -> (bus.readRaw(0xFF41) and 0x78) or s.stat
@@ -167,9 +163,6 @@ class Ppu(
             3 -> if (modeClock >= mode3Duration) {
                 modeClock -= mode3Duration
 
-                if ((1 until bgpCount).any { bgpVals[it] != 0xE4 })
-                    println("1re row BGP non-E4 -> ly=$ly")   // attendu: 8
-
                 renderScanline(lcdc)
                 mode = 0
                 updateStat(0)
@@ -256,7 +249,6 @@ class Ppu(
     private fun checkLyc() {
         updateLycFlag()
         refreshStatInterrupt()
-        if (ly == 0 && bus.readRaw(0xFF45) == 0) println("STAT LYC=0 fired @ ly=0 modeClock=$modeClock")
     }
 
     /**

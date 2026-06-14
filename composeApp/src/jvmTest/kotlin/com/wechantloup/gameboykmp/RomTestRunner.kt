@@ -1073,15 +1073,9 @@ class RomTestRunner {
             }
 
             try {
-//                val reference = ImageIO
-//                    .read(
-//                        ClassLoader.getSystemResourceAsStream("references/$pngPath")
-//                    )
-//                    .getRGB(0, 0, 160, 144, null, 0, 160)
                 val reference = requireNotNull(ClassLoader.getSystemResourceAsStream("references/$pngPath"))
 
                 val passed = matchesReference(imageBuffer, reference)
-//                val passed = reference.contentEquals(imageBuffer)
 
                 val status = if (passed) "PASS" else "FAIL"
 
