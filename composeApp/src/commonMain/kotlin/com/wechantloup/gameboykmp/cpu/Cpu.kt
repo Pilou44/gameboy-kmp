@@ -1,5 +1,6 @@
 package com.wechantloup.gameboykmp.cpu
 
+import com.wechantloup.gameboykmp.MachineMode
 import com.wechantloup.gameboykmp.bus.Bus
 
 class Cpu(
@@ -798,14 +799,48 @@ class Cpu(
      * Initialize registers with boot values.
      */
     private fun Registers.reset() {
-        a = 0x01
-        b = 0x00
-        c = 0x13
-        d = 0x00
-        e = 0xD8
-        h = 0x01
-        l = 0x4D
-        f = 0xB0
+        // Post-boot CPU state, per Pan Docs "Console state after boot ROM hand-off".
+        // Games detect the hardware via A (0x11 = CGB); the rest matches real hardware
+        // so the full register file is correct (cf. Mooneye boot_regs-* tests).
+        when (bus.machineMode) {
+            MachineMode.DMG -> {
+                // F = Z+H+C. H and C are clear if the header checksum is 0; 0xB0 is the
+                // usual case (any cartridge with a valid non-zero checksum).
+                a = 0x01
+                b = 0x00
+                c = 0x13
+                d = 0x00
+                e = 0xD8
+                f = 0xB0
+                h = 0x01
+                l = 0x4D
+            }
+            MachineMode.CGB -> {
+                a = 0x11
+                b = 0x00
+                c = 0x00
+                d = 0xFF
+                e = 0x56
+                f = 0x80 // Z only
+                h = 0x00
+                l = 0x0D
+            }
+            MachineMode.CGB_COMPAT -> {
+                // CGB hardware running a DMG game. Fixed registers below; B and HL depend
+                // on the title checksum, which is the same hash that drives auto-palette.
+                a = 0x11
+                c = 0x00
+                d = 0x00
+                e = 0x08
+                f = 0x80
+                // TODO: tie B and HL to the title checksum at the auto-palette step:
+                //   B = sum of the 16 title bytes for Nintendo-licensed games, else 0x00;
+                //   HL = 0x991A if B is 0x43/0x58, else 0x007C.
+                // Using the common (non-Nintendo) case for now.
+                b = 0x00
+                h = 0x00; l = 0x7C
+            }
+        }
         pc = 0x0100
         sp = 0xFFFE
     }
