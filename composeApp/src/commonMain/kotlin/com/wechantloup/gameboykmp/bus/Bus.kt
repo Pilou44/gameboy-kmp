@@ -37,7 +37,12 @@ class Bus(
     val iF: Int get() = read(0xFF0F) // Requested interrupts
 
     private val internalRam = IntArray(0x10000).also { initPostBootRegisters(it) }
-    private val vram = IntArray(0x2000)  // 8KB
+
+    // VRAM: 2 banks of 8KB. Bank 1 is CGB-only (BG attribute map + extra tile data).
+    // On DMG vramBank stays 0, so bank 1 is allocated but never touched.
+    private val vram = Array(2) { IntArray(0x2000) }
+    private var vramBank = 0  // VBK (0xFF4F bit 0); pinned to 0 on DMG (write is CGB-gated)
+
     private val oam = IntArray(0xA0) // 160 bytes = 40 sprites × 4 bytes
     @Volatile
     private var joypadState = 0xFF  // all buttons released
@@ -145,6 +150,13 @@ class Bus(
 
     fun read(address: Int): Int {
         ppuSampler?.invoke(address)?.let { return it }   // dot-accurate override, null = fall through
+
+        // CGB-only registers are resolved before the DMG when() below, so that path
+        // stays byte-for-byte identical on DMG. null = not a CGB register, fall through.
+        if (hasCgbRegisters) {
+            readCgbRegister(address)?.let { return it }
+        }
+
         return when (address) {
             in 0x8000..0x9FFF ->
                 if (ppuMode == 3) 0xFF
@@ -183,6 +195,11 @@ class Bus(
     fun write(address: Int, value: Int) {
         val v = value and 0xFF
         if (ppuWriteIntercept?.invoke(address, v) == true) return
+
+        // CGB-only register writes are intercepted before the DMG path (same rationale
+        // as read). v is the already-masked value.
+        if (hasCgbRegisters && writeCgbRegister(address, v)) return
+
         when (address) {
             in 0x8000..0x9FFF -> if (ppuMode != 3) writeVram(address - 0x8000, v)
             in 0xE000..0xFDFF -> write(address - 0x2000, v) // Echo RAM: 0xE000–0xFDFF == 0xC000–0xDDFF
@@ -444,13 +461,51 @@ class Bus(
         internalRam[0xFF04] = (internalRam[0xFF04] + 1) and 0xFF
     }
 
-    fun readVram(address: Int): Int = vram[address]        // address 0x0000..0x1FFF
-    fun writeVram(address: Int, value: Int) { vram[address] = value }
+    /**
+     * CGB-only register reads. Returns null when the address is not a CGB register,
+     * letting read() fall through to the unchanged DMG path.
+     *
+     * TODO: only VBK is wired so far. Still to add: SVBK (0xFF70),
+     *   BCPS/BCPD (0xFF68/0xFF69), OCPS/OCPD (0xFF6A/0xFF6B), KEY1 (0xFF4D), OPRI (0xFF6C).
+     * TODO: in CGB_COMPAT the real boot ROM locks several CGB registers (palettes in
+     *   particular) after setup. Harmless for a DMG game (never accesses them), but the
+     *   lock read-back semantics must be verified vs Pan Docs at the auto-palette step.
+     */
+    private fun readCgbRegister(address: Int): Int? = when (address) {
+        0xFF4F -> vramBank or 0xFE  // VBK: only bit 0 is meaningful, bits 1-7 read as 1
+        else -> null
+    }
+
+    /**
+     * CGB-only register writes. Returns true when handled (write() returns early),
+     * false to fall through to the DMG path.
+     *
+     * TODO: only VBK is wired so far (see readCgbRegister for the remaining list).
+     */
+    private fun writeCgbRegister(address: Int, value: Int): Boolean = when (address) {
+        0xFF4F -> { vramBank = value and 0x01; true }  // VBK: bit 0 selects the VRAM bank
+        else -> false
+    }
+
+    // CPU-facing / active-bank access. VBK selects the bank; pinned to 0 on DMG,
+    // so every existing caller reads bank 0 exactly as before.
+    fun readVram(address: Int): Int = vram[vramBank][address]        // address 0x0000..0x1FFF
+    fun writeVram(address: Int, value: Int) { vram[vramBank][address] = value }
+
+    // Explicit-bank read — PPU entry point for CGB rendering (tile data bank 0/1,
+    // attribute map always bank 1), independent of VBK. Unused until the CGB BG/sprite
+    // rendering step; exercised by unit tests now.
+    fun readVram(bank: Int, address: Int): Int = vram[bank][address]
 
     fun readOam(address: Int): Int = oam[address]
     fun writeOam(address: Int, value: Int) { oam[address] = value }
 
     fun setIF(value: Int) = write(0xFF0F, value)
+
+    // The CGB register block is physically present on CGB silicon, i.e. in both
+    // CGB (color game) and CGB_COMPAT (a CGB running a DMG game). Only true DMG
+    // hardware lacks it.
+    private val hasCgbRegisters: Boolean get() = machineMode != MachineMode.DMG
 
     companion object {
         /**
