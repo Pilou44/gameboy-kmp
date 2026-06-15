@@ -1,5 +1,6 @@
 package com.wechantloup.gameboykmp.ppu
 
+import com.wechantloup.gameboykmp.MachineMode
 import com.wechantloup.gameboykmp.bus.Bus
 import kotlinx.coroutines.channels.Channel
 
@@ -300,9 +301,23 @@ class Ppu(
         // Reset BG color index buffer for this scanline before rendering
         for (x in 0 until 160) bgColorIndexBuffer[ly * 160 + x] = 0
 
-        if (lcdc and 0x01 != 0) renderBackground(lcdc)
-        if (lcdc and 0x20 != 0) renderWindow(lcdc)
-        if (lcdc and 0x02 != 0) renderSprites(lcdc)
+        // CGB uses a separate rendering path. LCDC.0 is no longer "BG enable" on CGB
+        // (it is the BG/OBJ master priority), so the background is always drawn.
+        if (bus.machineMode == MachineMode.DMG) {
+            if (lcdc and 0x01 != 0) renderBackground(lcdc)
+            if (lcdc and 0x20 != 0) renderWindow(lcdc)
+            if (lcdc and 0x02 != 0) renderSprites(lcdc)
+        } else {
+            renderBackgroundCgb(lcdc)
+            // TODO: renderWindowCgb (gated on LCDC.5) and renderSpritesCgb (gated on LCDC.2)
+            //  are the next steps. Until they exist, window and sprites are not drawn in CGB
+            //  mode — expect BG-only color output.
+            // TODO: CGB_COMPAT (DMG game on CGB hardware) needs its own path: DMG-style
+            //  rendering whose BGP/OBP indices map into the auto-palette CGB palettes. This
+            //  branch currently renders it like full CGB (BG palette 0, BGP ignored), which is
+            //  only a placeholder until the auto-palette step. Test DMG-only games in DMG mode
+            //  for now.
+        }
     }
 
     private fun renderSprites(lcdc: Int) {
@@ -482,6 +497,66 @@ class Ppu(
             val gray = (bgp shr (colorIndex * 2)) and 0x03
             frameBuffer[ly * 160 + screenX] = gray
             bgColorIndexBuffer[ly * 160 + screenX] = colorIndex
+        }
+    }
+
+    private fun renderBackgroundCgb(lcdc: Int) {
+        val scy = bus.read(0xFF42)
+        val scx = bus.read(0xFF43)
+
+        // Bit 3: BG tile map — 0=0x9800, 1=0x9C00
+        val tileMapBase = if (lcdc and 0x08 != 0) 0x1C00 else 0x1800
+
+        // Bit 4: Tile data area — 1=0x8000 (unsigned), 0=0x8800 (signed, base at 0x9000)
+        val unsignedTileData = lcdc and 0x10 != 0
+
+        val scrolledY = (ly + scy) and 0xFF
+        val tileRow = scrolledY / 8
+        val tilePixelY = scrolledY % 8
+
+        for (screenX in 0 until 160) {
+            val scrolledX = (screenX + scx) and 0xFF
+            val tileCol = scrolledX / 8
+            val tilePixelX = scrolledX % 8
+
+            val tileMapAddr = tileMapBase + tileRow * 32 + tileCol
+            // Tile index lives in VRAM bank 0; its attribute byte is at the same offset
+            // in bank 1.
+            val tileIndex = bus.readVram(0, tileMapAddr)
+            val attr = bus.readVram(1, tileMapAddr)
+
+            // BG map attributes (CGB):
+            // bits 0-2 — BG palette (0-7)
+            // bit 3    — tile VRAM bank
+            // bit 5    — X flip
+            // bit 6    — Y flip
+            // bit 7    — BG-to-OBJ priority
+            val palette = attr and 0x07
+            val tileBank = (attr shr 3) and 0x01
+            val xFlip = attr and 0x20 != 0
+            val yFlip = attr and 0x40 != 0
+            val bgPriority = attr and 0x80 != 0
+
+            val rowInTile = if (yFlip) 7 - tilePixelY else tilePixelY
+
+            val tileDataAddr = if (unsignedTileData) {
+                tileIndex * 16 + rowInTile * 2                                  // 0x8000-based, unsigned
+            } else {
+                0x1000 + tileIndex.toByte().toInt() * 16 + rowInTile * 2        // 0x9000-based, signed
+            }
+
+            val loByte = bus.readVram(tileBank, tileDataAddr)
+            val hiByte = bus.readVram(tileBank, tileDataAddr + 1)
+
+            val bitIndex = if (xFlip) tilePixelX else 7 - tilePixelX
+            val loBit = (loByte shr bitIndex) and 0x01
+            val hiBit = (hiByte shr bitIndex) and 0x01
+            val colorIndex = (hiBit shl 1) or loBit
+
+            frameBuffer[ly * 160 + screenX] = bus.bgColorRgb555(palette, colorIndex)
+            // Pack the color index (bits 0-1) with the per-tile BG priority (bit 2). Both
+            // are consumed by the CGB sprite/BG priority resolution in a later step.
+            bgColorIndexBuffer[ly * 160 + screenX] = colorIndex or (if (bgPriority) 0x04 else 0)
         }
     }
 

@@ -553,6 +553,14 @@ class Bus(
 
     fun setIF(value: Int) = write(0xFF0F, value)
 
+    // Reads a CGB BG color from palette RAM as a raw 15-bit RGB555 value (little-endian,
+    // as stored). The RGB555 → ARGB expansion happens at display time, not here.
+    // palette: 0-7, colorIndex: 0-3.
+    fun bgColorRgb555(palette: Int, colorIndex: Int): Int {
+        val offset = palette * 8 + colorIndex * 2   // 8 bytes per palette, 2 bytes per color
+        return bgPaletteRam[offset] or (bgPaletteRam[offset + 1] shl 8)
+    }
+
     // The CGB register block is physically present on CGB silicon, i.e. in both
     // CGB (color game) and CGB_COMPAT (a CGB running a DMG game). Only true DMG
     // hardware lacks it.

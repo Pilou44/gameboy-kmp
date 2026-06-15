@@ -202,9 +202,21 @@ class GameBoyViewModel : ViewModel() {
         return when (machineMode) {
             MachineMode.CGB_COMPAT,
             MachineMode.CGB,
-            -> frame
+            -> IntArray(frame.size) { rgb555ToArgb(frame[it]) }
             MachineMode.DMG -> IntArray(frame.size) { dmgPalette.colors[frame[it]] }
         }
+    }
+
+    // RGB555 (15-bit, little-endian as stored in CGB palette RAM) → ARGB8888.
+    // Channel expansion: (c shl 3) or (c shr 2) maps 0x1F to 0xFF (full 8-bit range).
+    private fun rgb555ToArgb(color: Int): Int {
+        val r = color and 0x1F
+        val g = (color shr 5) and 0x1F
+        val b = (color shr 10) and 0x1F
+        val r8 = (r shl 3) or (r shr 2)
+        val g8 = (g shl 3) or (g shr 2)
+        val b8 = (b shl 3) or (b shr 2)
+        return (0xFF shl 24) or (r8 shl 16) or (g8 shl 8) or b8
     }
 
     class Factory : ViewModelProvider.Factory {
