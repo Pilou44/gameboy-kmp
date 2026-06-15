@@ -953,6 +953,10 @@ class RomTestRunner {
             Logger.debug("TEST", "Start of tests")
 
             viewModel = GameBoyViewModel()
+                .apply {
+                    setDmgPalette(Palette.DOC_BOY_TEST)
+                    machineModeForMixtGame = MachineMode.DMG  // whole DMG suite: validate DMG rendering, ignore the CGB header flag
+                }
 
             testCount = 0
             successTestCount = 0
@@ -1048,19 +1052,10 @@ class RomTestRunner {
 
                 Thread.sleep(duration)
 
-                val frameBuffer = viewModel.stateFlow.value.frameBuffer
+                val frameBuffer = viewModel.stateFlow.value.coloredFrameBuffer
                 assertNotNull(frameBuffer)
 
-                val palette = Palette.DOC_BOY_TEST
-
-                frameBuffer
-                    .map {
-                        palette.colors[it]
-                    }
-                    .toIntArray()
-                    .also {
-                        it.toPng("$TEST_RESULTS_PATH/$captureName")
-                    }
+                frameBuffer.toPng("$TEST_RESULTS_PATH/$captureName")
 
                 frameBuffer
             } catch (e: Throwable) {
@@ -1080,8 +1075,9 @@ class RomTestRunner {
 
             try {
                 val reference = requireNotNull(ClassLoader.getSystemResourceAsStream("references/$pngPath"))
+                val output = File("$TEST_RESULTS_PATH/$captureName").inputStream()
 
-                val passed = matchesReference(imageBuffer, reference)
+                val passed = matchesReference(output, reference)
 
                 val status = if (passed) "PASS" else "FAIL"
 
@@ -1208,7 +1204,10 @@ class RomTestRunner {
             return out
         }
 
-        fun matchesReference(frameBuffer: IntArray, reference: InputStream): Boolean =
-            frameBuffer.contentEquals(pngToShades(reference))
+        fun matchesReference(output: InputStream, reference: InputStream): Boolean {
+            val outputShades = pngToShades(output)
+            val referenceShades = pngToShades(reference)
+            return outputShades.contentEquals(referenceShades)
+        }
     }
 }

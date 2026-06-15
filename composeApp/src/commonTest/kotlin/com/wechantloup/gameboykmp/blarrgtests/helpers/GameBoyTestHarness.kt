@@ -1,5 +1,6 @@
 package com.wechantloup.gameboykmp.blarrgtests.helpers
 
+import com.wechantloup.gameboykmp.MachineMode
 import com.wechantloup.gameboykmp.apu.Apu
 import com.wechantloup.gameboykmp.bus.Bus
 import com.wechantloup.gameboykmp.cpu.Cpu
@@ -13,7 +14,7 @@ import com.wechantloup.gameboykmp.timer.Timer
  */
 class GameBoyTestHarness {
     val cartridge = FakeCartridge()
-    val bus = Bus(cartridge)
+    val bus = Bus(cartridge, MachineMode.DMG)
     val cpu = Cpu(bus, ::step1).also { it.reset() }
     val timer = Timer(bus)
     val ppu = Ppu(bus)

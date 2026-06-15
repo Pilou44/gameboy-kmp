@@ -43,7 +43,7 @@ class GameBoyViewModel : ViewModel() {
     val audioSamplesChannel = Channel<FloatArray>(8)
     val buttonChannel = Channel<JoypadEvent>(Channel.UNLIMITED)
 
-    private var machineModeForMixtGame = MachineMode.CGB
+    var machineModeForMixtGame = MachineMode.CGB // TODO Internal for tests
     private var machineModeForDMGGame = MachineMode.DMG
 
     private var bus: Bus? = null

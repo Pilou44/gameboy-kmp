@@ -1,5 +1,6 @@
 package com.wechantloup.gameboykmp.cpu
 
+import com.wechantloup.gameboykmp.MachineMode
 import com.wechantloup.gameboykmp.bus.Bus
 import com.wechantloup.gameboykmp.cartridge.RomRamCartridge
 import dev.mokkery.mock
@@ -21,8 +22,8 @@ class CpuTest {
 
     @BeforeTest
     fun setUp() {
-        bus = Bus(cartridge)
-        cpu = Cpu(bus, {})
+        bus = Bus(cartridge, MachineMode.DMG)
+        cpu = Cpu(bus) {}
         cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.pc = 0xC000
