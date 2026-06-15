@@ -309,6 +309,7 @@ class Ppu(
             if (lcdc and 0x02 != 0) renderSprites(lcdc)
         } else {
             renderBackgroundCgb(lcdc)
+            renderWindowCgb(lcdc)
             // TODO: renderWindowCgb (gated on LCDC.5) and renderSpritesCgb (gated on LCDC.2)
             //  are the next steps. Until they exist, window and sprites are not drawn in CGB
             //  mode — expect BG-only color output.
@@ -451,6 +452,70 @@ class Ppu(
             val gray = (bgp shr (colorIndex * 2)) and 0x03
             frameBuffer[ly * 160 + screenX] = gray
             bgColorIndexBuffer[ly * 160 + screenX] = colorIndex
+        }
+
+        windowLine++
+    }
+
+    private fun renderWindowCgb(lcdc: Int) {
+        val wx = bus.read(0xFF4B)
+        val wy = bus.read(0xFF4A)
+
+        if (ly < wy) return
+        if (wx - 7 >= 160) return
+
+        val tileRow = windowLine / 8
+        val tilePixelY = windowLine % 8
+
+        // Bit 6: Window tile map — 0=0x9800, 1=0x9C00
+        val tileMapBase = if (lcdc and 0x40 != 0) 0x1C00 else 0x1800
+
+        // Bit 4: Tile data area — 1=0x8000 (unsigned), 0=0x8800 (signed, base at 0x9000)
+        val unsignedTileData = lcdc and 0x10 != 0
+
+        val startScreenX = maxOf(0, wx - 7)
+        for (screenX in startScreenX until 160) {
+            val windowX = screenX - (wx - 7)
+            val tileCol = windowX / 8
+            val tilePixelX = windowX % 8
+
+            val tileMapAddr = tileMapBase + tileRow * 32 + tileCol
+            val tileIndex = bus.readVram(0, tileMapAddr)
+
+            val attr = bus.readVram(1, tileMapAddr)
+
+            // BG map attributes (CGB):
+            // bits 0-2 — BG palette (0-7)
+            // bit 3    — tile VRAM bank
+            // bit 5    — X flip
+            // bit 6    — Y flip
+            // bit 7    — BG-to-OBJ priority
+            val palette = attr and 0x07
+            val tileBank = (attr shr 3) and 0x01
+            val xFlip = attr and 0x20 != 0
+            val yFlip = attr and 0x40 != 0
+            val bgPriority = attr and 0x80 != 0
+
+            val rowInTile = if (yFlip) 7 - tilePixelY else tilePixelY
+
+            val tileDataAddr = if (unsignedTileData) {
+                tileIndex * 16 + rowInTile * 2                                  // 0x8000-based, unsigned
+            } else {
+                0x1000 + tileIndex.toByte().toInt() * 16 + rowInTile * 2        // 0x9000-based, signed
+            }
+
+            val loByte = bus.readVram(tileBank, tileDataAddr)
+            val hiByte = bus.readVram(tileBank, tileDataAddr + 1)
+
+            val bitIndex = if (xFlip) tilePixelX else 7 - tilePixelX
+            val loBit = (loByte shr bitIndex) and 0x01
+            val hiBit = (hiByte shr bitIndex) and 0x01
+            val colorIndex = (hiBit shl 1) or loBit
+
+            frameBuffer[ly * 160 + screenX] = bus.bgColorRgb555(palette, colorIndex)
+            // Pack the color index (bits 0-1) with the per-tile BG priority (bit 2). Both
+            // are consumed by the CGB sprite/BG priority resolution in a later step.
+            bgColorIndexBuffer[ly * 160 + screenX] = colorIndex or (if (bgPriority) 0x04 else 0)
         }
 
         windowLine++
