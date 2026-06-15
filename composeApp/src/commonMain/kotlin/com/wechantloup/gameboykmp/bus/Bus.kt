@@ -49,6 +49,15 @@ class Bus(
     private val wram = Array(8) { IntArray(0x1000) }
     private var wramBank = 1  // SVBK; effective bank for 0xD000-0xDFFF, always 1..7
 
+    // CGB palette RAM: 8 palettes × 4 colors × 2 bytes each, stored raw as RGB555 LE.
+    // Color conversion to ARGB is deferred to the render step.
+    private val bgPaletteRam = IntArray(0x40)
+    private val objPaletteRam = IntArray(0x40)
+    private var bgPaletteIndex = 0       // BCPS bits 0-5
+    private var bgPaletteAutoInc = false // BCPS bit 7
+    private var objPaletteIndex = 0      // OCPS bits 0-5
+    private var objPaletteAutoInc = false
+
     private val oam = IntArray(0xA0) // 160 bytes = 40 sprites × 4 bytes
     @Volatile
     private var joypadState = 0xFF  // all buttons released
@@ -473,15 +482,21 @@ class Bus(
      * CGB-only register reads. Returns null when the address is not a CGB register,
      * letting read() fall through to the unchanged DMG path.
      *
-     * TODO: only VBK is wired so far. Still to add:
-     *   BCPS/BCPD (0xFF68/0xFF69), OCPS/OCPD (0xFF6A/0xFF6B), KEY1 (0xFF4D), OPRI (0xFF6C).
-     * TODO: in CGB_COMPAT the real boot ROM locks several CGB registers (palettes in
-     *   particular) after setup. Harmless for a DMG game (never accesses them), but the
-     *   lock read-back semantics must be verified vs Pan Docs at the auto-palette step.
+     * TODO: KEY1 (0xFF4D) and OPRI (0xFF6C) still to wire as their steps land.
+     * TODO: in CGB_COMPAT the real boot ROM locks the palette registers after setup.
+     *   Harmless for a DMG game (never accesses them), but the lock read-back semantics
+     *   must be verified vs Pan Docs at the auto-palette step.
      */
     private fun readCgbRegister(address: Int): Int? = when (address) {
         0xFF4F -> vramBank or 0xFE  // VBK: only bit 0 is meaningful, bits 1-7 read as 1
         0xFF70 -> wramBank or 0xF8  // SVBK: bits 0-2 = bank, bits 3-7 read as 1
+        // BCPS/OCPS: index in bits 0-5, auto-increment in bit 7, bit 6 reads as 1
+        0xFF68 -> bgPaletteIndex or (if (bgPaletteAutoInc) 0x80 else 0) or 0x40
+        0xFF6A -> objPaletteIndex or (if (objPaletteAutoInc) 0x80 else 0) or 0x40
+        // BCPD/OCPD: the byte at the current index.
+        // TODO: during PPU mode 3 these reads must return 0xFF (CGB palette access lock).
+        0xFF69 -> bgPaletteRam[bgPaletteIndex]
+        0xFF6B -> objPaletteRam[objPaletteIndex]
         else -> null
     }
 
@@ -489,11 +504,26 @@ class Bus(
      * CGB-only register writes. Returns true when handled (write() returns early),
      * false to fall through to the DMG path.
      *
-     * TODO: only VBK is wired so far (see readCgbRegister for the remaining list).
+     * TODO: KEY1 (0xFF4D) and OPRI (0xFF6C) still to wire (see readCgbRegister).
      */
     private fun writeCgbRegister(address: Int, value: Int): Boolean = when (address) {
         0xFF4F -> { vramBank = value and 0x01; true }  // VBK: bit 0 selects the VRAM bank
         0xFF70 -> { wramBank = (value and 0x07).let { if (it == 0) 1 else it }; true }  // 0 selects bank 1
+        0xFF68 -> { bgPaletteIndex = value and 0x3F; bgPaletteAutoInc = value and 0x80 != 0; true }  // BCPS
+        0xFF6A -> { objPaletteIndex = value and 0x3F; objPaletteAutoInc = value and 0x80 != 0; true } // OCPS
+        // BCPD/OCPD: write at the current index, then advance iff auto-increment is set.
+        // The increment fires on write only, never on read.
+        // TODO: during PPU mode 3 these writes must be ignored (CGB palette access lock).
+        0xFF69 -> {
+            bgPaletteRam[bgPaletteIndex] = value
+            if (bgPaletteAutoInc) bgPaletteIndex = (bgPaletteIndex + 1) and 0x3F
+            true
+        }
+        0xFF6B -> {
+            objPaletteRam[objPaletteIndex] = value
+            if (objPaletteAutoInc) objPaletteIndex = (objPaletteIndex + 1) and 0x3F
+            true
+        }
         else -> false
     }
 
