@@ -43,6 +43,12 @@ class Bus(
     private val vram = Array(2) { IntArray(0x2000) }
     private var vramBank = 0  // VBK (0xFF4F bit 0); pinned to 0 on DMG (write is CGB-gated)
 
+    // WRAM: 8 banks of 4KB. 0xC000-0xCFFF is always bank 0; 0xD000-0xDFFF is banked
+    // via SVBK. Banks 2-7 are CGB-only; on DMG wramBank stays 1, reproducing the old
+    // flat 0xC000-0xDFFF region that used to live inside internalRam.
+    private val wram = Array(8) { IntArray(0x1000) }
+    private var wramBank = 1  // SVBK; effective bank for 0xD000-0xDFFF, always 1..7
+
     private val oam = IntArray(0xA0) // 160 bytes = 40 sprites × 4 bytes
     @Volatile
     private var joypadState = 0xFF  // all buttons released
@@ -144,8 +150,8 @@ class Bus(
         in 0x0000..0x7FFF -> cartridge.readRom(address)
         in 0x8000..0x9FFF -> readVram(address - 0x8000)
         in 0xA000..0xBFFF -> cartridge.readRam(address - 0xA000)
-        in 0xC000..0xDFFF -> internalRam[address]
-        else -> internalRam[address - 0x2000] // $E000-$FFFF: WRAM echo
+        in 0xC000..0xDFFF -> readWram(address)
+        else -> readWram(address - 0x2000) // $E000-$FFFF: WRAM echo
     }
 
     fun read(address: Int): Int {
@@ -185,6 +191,7 @@ class Bus(
             in 0x0000..0x7FFF -> cartridge.readRom(address)
             in 0x8000..0x9FFF -> readVram(address - 0x8000)
             in 0xA000..0xBFFF -> cartridge.readRam(address - 0xA000)
+            in 0xC000..0xDFFF -> readWram(address)
             in 0xFE00..0xFE9F -> if (isDmaActive) 0xFF else readOam(address - 0xFE00)
             in 0xFF10..0xFF3F -> readApuRegister(address)
             0xFF0F -> internalRam[0xFF0F] or 0xE0  // IF: upper 3 bits always read as 1
@@ -308,6 +315,7 @@ class Bus(
             in 0x0000..0x7FFF -> cartridge.writeRom(address, v)
             in 0x8000..0x9FFF -> writeVram(address - 0x8000, v)
             in 0xA000..0xBFFF -> cartridge.writeRam(address - 0xA000, v)
+            in 0xC000..0xDFFF -> writeWram(address, v)
             in 0xFE00..0xFE9F -> if (!isDmaActive) writeOam(address - 0xFE00, v)
             else -> internalRam[address] = v
         }
@@ -465,7 +473,7 @@ class Bus(
      * CGB-only register reads. Returns null when the address is not a CGB register,
      * letting read() fall through to the unchanged DMG path.
      *
-     * TODO: only VBK is wired so far. Still to add: SVBK (0xFF70),
+     * TODO: only VBK is wired so far. Still to add:
      *   BCPS/BCPD (0xFF68/0xFF69), OCPS/OCPD (0xFF6A/0xFF6B), KEY1 (0xFF4D), OPRI (0xFF6C).
      * TODO: in CGB_COMPAT the real boot ROM locks several CGB registers (palettes in
      *   particular) after setup. Harmless for a DMG game (never accesses them), but the
@@ -473,6 +481,7 @@ class Bus(
      */
     private fun readCgbRegister(address: Int): Int? = when (address) {
         0xFF4F -> vramBank or 0xFE  // VBK: only bit 0 is meaningful, bits 1-7 read as 1
+        0xFF70 -> wramBank or 0xF8  // SVBK: bits 0-2 = bank, bits 3-7 read as 1
         else -> null
     }
 
@@ -484,6 +493,7 @@ class Bus(
      */
     private fun writeCgbRegister(address: Int, value: Int): Boolean = when (address) {
         0xFF4F -> { vramBank = value and 0x01; true }  // VBK: bit 0 selects the VRAM bank
+        0xFF70 -> { wramBank = (value and 0x07).let { if (it == 0) 1 else it }; true }  // 0 selects bank 1
         else -> false
     }
 
@@ -491,6 +501,17 @@ class Bus(
     // so every existing caller reads bank 0 exactly as before.
     fun readVram(address: Int): Int = vram[vramBank][address]        // address 0x0000..0x1FFF
     fun writeVram(address: Int, value: Int) { vram[vramBank][address] = value }
+
+    // WRAM routing. 0xC000-0xCFFF is the fixed bank 0; 0xD000-0xDFFF is the banked
+    // region. wramBank is normalized to 1..7 on write, so no remap is needed here.
+    private fun readWram(address: Int): Int =
+        if (address < 0xD000) wram[0][address - 0xC000]
+        else wram[wramBank][address - 0xD000]
+
+    private fun writeWram(address: Int, value: Int) {
+        if (address < 0xD000) wram[0][address - 0xC000] = value
+        else wram[wramBank][address - 0xD000] = value
+    }
 
     // Explicit-bank read — PPU entry point for CGB rendering (tile data bank 0/1,
     // attribute map always bank 1), independent of VBK. Unused until the CGB BG/sprite

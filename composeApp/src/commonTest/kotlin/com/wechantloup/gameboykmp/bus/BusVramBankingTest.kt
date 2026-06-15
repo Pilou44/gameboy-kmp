@@ -7,6 +7,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class BusVramBankingTest {
+
     private val cartridge = RomRamCartridge(
         rom = ByteArray(0x7FFF),
         romName = "name",
