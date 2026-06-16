@@ -561,6 +561,12 @@ class Bus(
         return bgPaletteRam[offset] or (bgPaletteRam[offset + 1] shl 8)
     }
 
+    // OBJ counterpart of bgColorRgb555. palette: 0-7, colorIndex: 1-3 (0 is transparent).
+    fun objColorRgb555(palette: Int, colorIndex: Int): Int {
+        val offset = palette * 8 + colorIndex * 2
+        return objPaletteRam[offset] or (objPaletteRam[offset + 1] shl 8)
+    }
+
     // The CGB register block is physically present on CGB silicon, i.e. in both
     // CGB (color game) and CGB_COMPAT (a CGB running a DMG game). Only true DMG
     // hardware lacks it.

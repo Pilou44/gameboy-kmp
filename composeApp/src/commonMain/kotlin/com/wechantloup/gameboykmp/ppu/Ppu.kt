@@ -310,9 +310,7 @@ class Ppu(
         } else {
             renderBackgroundCgb(lcdc)
             renderWindowCgb(lcdc)
-            // TODO: renderWindowCgb (gated on LCDC.5) and renderSpritesCgb (gated on LCDC.2)
-            //  are the next steps. Until they exist, window and sprites are not drawn in CGB
-            //  mode — expect BG-only color output.
+            renderSpritesCgb(lcdc)
             // TODO: CGB_COMPAT (DMG game on CGB hardware) needs its own path: DMG-style
             //  rendering whose BGP/OBP indices map into the auto-palette CGB palettes. This
             //  branch currently renders it like full CGB (BG palette 0, BGP ignored), which is
@@ -322,9 +320,7 @@ class Ppu(
     }
 
     private fun renderSprites(lcdc: Int) {
-        // squareSprite
-        // true for 8x16
-        // false for 8x8
+        // squareSprite: false for 8x16, true for 8x8
         val squareSprite = lcdc and 0x04 == 0
         val spriteHeight = if (squareSprite) 8 else 16
 
@@ -348,6 +344,7 @@ class Ppu(
             .toMutableList()
         for (spriteIndex in spriteIndexesToDisplay) {
             val positionY = bus.readOam(spriteIndex * 4)
+            val positionX = bus.readOam(spriteIndex * 4 + 1)
 
             // Sprite attributes (byte 3 of OAM):
             // bit 7 — BG priority: 0=sprite in front of background, 1=sprite behind background
@@ -385,8 +382,6 @@ class Ppu(
             val loByte = bus.readVram(tileDataAddr)
             val hiByte = bus.readVram(tileDataAddr + 1)
 
-            val positionX = bus.readOam(spriteIndex * 4 + 1)
-
             for (pixelIndexX in 0 until 8) {
                 val pixelX = if (flipX) 7 - pixelIndexX else pixelIndexX
                 val screenX = positionX - 8 + pixelIndexX
@@ -404,6 +399,101 @@ class Ppu(
 
                 if (!bgPriority || bgColorIndexBuffer[ly * 160 + screenX] == 0) {
                     frameBuffer[ly * 160 + screenX] = gray
+                }
+            }
+        }
+    }
+
+    private fun renderSpritesCgb(lcdc: Int) {
+        // squareSprite: false for 8x16, true for 8x8
+        val squareSprite = lcdc and 0x04 == 0
+        val spriteHeight = if (squareSprite) 8 else 16
+
+        var spriteCounter = 0
+        val spriteIndexesToDisplay = mutableListOf<Int>()
+        for (spriteIndex in 0..39) {
+            val positionY = bus.readOam(spriteIndex * 4)
+
+            val isSpriteOnLine = ly >= positionY - 16 && ly < positionY - 16 + spriteHeight // sprite is displayed
+
+            // Max 10 sprites per line
+            if (isSpriteOnLine && spriteCounter < 10) {
+                spriteCounter++
+                spriteIndexesToDisplay.add(spriteIndex)
+            }
+        }
+
+        val masterPriority = lcdc and 0x01 != 0   // LCDC.0 on CGB = BG/OBJ master priority
+
+        // CGB priority is by OAM index only (no X sort): lowest index wins. The list is in
+        // ascending OAM order, so iterating it reversed paints the lowest index last = on top.
+        // TODO: OPRI (0xFF6C) can switch back to DMG X-coordinate priority; not wired yet.
+        for (spriteIndex in spriteIndexesToDisplay.reversed()) {
+            val positionY = bus.readOam(spriteIndex * 4)
+            val positionX = bus.readOam(spriteIndex * 4 + 1)
+
+            // Sprite attributes (OAM byte 3) on CGB:
+            // bit 7    — OBJ-to-BG priority (1 = behind BG colors 1-3)
+            // bit 6    — Y flip
+            // bit 5    — X flip
+            // bit 3    — tile VRAM bank
+            // bits 0-2 — OBJ palette (0-7) via OCPD  (bit 4 ignored on CGB)
+            val attr = bus.readOam(spriteIndex * 4 + 3)
+            val flipY = attr and 0x40 > 0
+            val flipX = attr and 0x20 > 0
+            val spriteBgPriority = attr and 0x80 > 0
+            val spriteBank = (attr shr 3) and 0x01
+            val palette = attr and 0x07
+
+            val tileRow = if (!flipY) {
+                ly - (positionY - 16)
+            } else {
+                spriteHeight - 1 - (ly - (positionY - 16))
+            }
+
+            var tileIndex = bus.readOam(spriteIndex * 4 + 2)
+            if (!squareSprite) tileIndex = if (tileRow < 8) {
+                tileIndex and 0xFE
+            } else {
+                tileIndex or 0x01
+            }
+
+            val adjustedTileRow = if (tileRow >= 8) {
+                tileRow - 8
+            } else {
+                tileRow
+            }
+
+            val tileDataAddr = tileIndex * 16 + adjustedTileRow * 2
+
+            // Tile pixels come from VRAM, in the bank selected by attribute bit 3.
+            val loByte = bus.readVram(spriteBank, tileDataAddr)
+            val hiByte = bus.readVram(spriteBank, tileDataAddr + 1)
+
+            for (pixelIndexX in 0 until 8) {
+                val pixelX = if (flipX) 7 - pixelIndexX else pixelIndexX
+                val screenX = positionX - 8 + pixelIndexX
+                if (screenX < 0) continue
+                if (screenX >= 160) continue
+
+                val loBit = (loByte shr (7 - pixelX)) and 0x01
+                val hiBit = (hiByte shr (7 - pixelX)) and 0x01
+                val colorIndex = (hiBit shl 1) or loBit
+
+                if (colorIndex == 0) continue // Do not display transparent color
+
+                // BG/OBJ priority resolution. The BG layer's color index and per-tile
+                // priority bit were packed into bgColorIndexBuffer by the BG/window render.
+                val packed = bgColorIndexBuffer[ly * 160 + screenX]
+                val bgColorIndex = packed and 0x03
+                val bgHasPriority = packed and 0x04 != 0
+
+                val spriteWins = !masterPriority ||           // master off → OBJ always on top
+                        bgColorIndex == 0 ||                       // BG is color 0 → OBJ shows through
+                        (!bgHasPriority && !spriteBgPriority)       // neither layer claims priority
+
+                if (spriteWins) {
+                    frameBuffer[ly * 160 + screenX] = bus.objColorRgb555(palette, colorIndex)
                 }
             }
         }
