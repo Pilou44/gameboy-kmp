@@ -160,16 +160,22 @@ class Cpu(
             }
 
             0x10 -> {
-                // 0x10 0x00: STOP is a 2-byte instruction on DMG (normal case) -> skip 0x00.
+                // STOP is a 2-byte instruction (0x10 0x00) -> skip the padding byte.
                 registers.pc = (registers.pc + 1) and 0xFFFF
 
-                // TODO: implement full STOP behavior for GBC double-speed mode switch
-                // Enter STOP mode: CPU frozen until a selected joypad line goes low.
-                isStopped = true
-                // Turn the LCD off (clear LCDC bit 7) so the screen blanks
-                bus.write(0xFF40, bus.read(0xFF40) and 0x7F)
-                // Optional, hardware-accurate: STOP also resets DIV.
-                 bus.write(0xFF04, 0x00)
+                if (bus.performSpeedSwitch()) {
+                    // CGB speed switch: a KEY1 switch was armed, so STOP toggles the speed and
+                    // execution continues with the next instruction (the LCD is left untouched).
+                    // STOP still resets DIV.
+                    // TODO: hardware halts the CPU ~2050 M-cycles during the switch; not modeled
+                    //  (immediate toggle). Fine for boot; revisit if a timing test needs it.
+                    bus.write(0xFF04, 0x00)
+                } else {
+                    // Real STOP mode: CPU frozen until a selected joypad line goes low.
+                    isStopped = true
+                    bus.write(0xFF40, bus.read(0xFF40) and 0x7F)  // blank the screen (clear LCDC bit 7)
+                    bus.write(0xFF04, 0x00)
+                }
             }
 
             /* --- 8-bit loads: immediate --- */

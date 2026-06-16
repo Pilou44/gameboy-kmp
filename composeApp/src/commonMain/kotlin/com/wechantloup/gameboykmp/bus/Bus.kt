@@ -61,6 +61,14 @@ class Bus(
     private var hdmaDest = 0       // running dest offset within VRAM (0x0000-0x1FF0)
     private var hdmaRemaining = 0  // remaining 0x10-byte chunks
 
+    // Near the other CGB state (e.g. after the hdma fields):
+    // Double-speed (CGB). CPU, timer/DIV and serial run twice as fast in double speed;
+    // the PPU and APU keep their normal rate. Armed via KEY1 bit 0, committed by STOP.
+    var isDoubleSpeed = false
+        private set
+    private var speedSwitchArmed = false
+
+
     // CGB palette RAM: 8 palettes × 4 colors × 2 bytes each, stored raw as RGB555 LE.
     // Color conversion to ARGB is deferred to the render step.
     private val bgPaletteRam = IntArray(0x40)
@@ -377,6 +385,18 @@ class Bus(
         joypadState = joypadState or mask  // set bit to 1 (released)
     }
 
+    /**
+     * Commits a pending KEY1 speed switch. Called by the STOP instruction: if bit 0 of KEY1
+     * was armed, the speed toggles and the armed flag clears. Returns true if a switch
+     * actually happened, so STOP knows it was a speed switch rather than a normal stop.
+     */
+    fun performSpeedSwitch(): Boolean {
+        if (!speedSwitchArmed) return false
+        isDoubleSpeed = !isDoubleSpeed
+        speedSwitchArmed = false
+        return true
+    }
+
     private fun buttonMask(button: JoypadButton): Int = when (button) {
         JoypadButton.RIGHT  -> 0x01
         JoypadButton.LEFT   -> 0x02
@@ -500,15 +520,8 @@ class Bus(
      *   must be verified vs Pan Docs at the auto-palette step.
      */
     private fun readCgbRegister(address: Int): Int? = when (address) {
-        0xFF4D -> {
-            // KEY1 (double-speed). The switch isn't implemented yet, but the 0xFF4C..0xFF7F
-            // catch-all currently reports bit 7 = 1 (double-speed active) and bit 0 = 1 (switch
-            // armed) — both false for a CGB at normal speed, which can mislead games that probe it.
-            // Report normal speed, switch not armed; unused bits read as 1.
-            // TODO: implement the actual KEY1 speed switch.
-            Logger.debug("Bus", "R KEY1")
-            0x7E
-        }
+        // KEY1: bit 7 = current speed, bit 0 = switch armed, unused bits 1-6 read as 1.
+        0xFF4D -> (if (isDoubleSpeed) 0x80 else 0) or (if (speedSwitchArmed) 0x01 else 0) or 0x7E
         0xFF4F -> vramBank or 0xFE  // VBK: only bit 0 is meaningful, bits 1-7 read as 1
         0xFF70 -> wramBank or 0xF8  // SVBK: bits 0-2 = bank, bits 3-7 read as 1
         // BCPS/OCPS: index in bits 0-5, auto-increment in bit 7, bit 6 reads as 1
@@ -529,7 +542,8 @@ class Bus(
      * TODO: KEY1 (0xFF4D) and OPRI (0xFF6C) still to wire (see readCgbRegister).
      */
     private fun writeCgbRegister(address: Int, value: Int): Boolean = when (address) {
-        0xFF4D -> { Logger.debug("Bus", "W KEY1=${value.toString(16)}"); true }
+        // Only bit 0 (prepare switch) is writable; bit 7 in the written value is ignored
+        0xFF4D -> { speedSwitchArmed = value and 0x01 != 0; true }
         0xFF4F -> { vramBank = value and 0x01; true }  // VBK: bit 0 selects the VRAM bank
         0xFF70 -> { wramBank = (value and 0x07).let { if (it == 0) 1 else it }; true }  // 0 selects bank 1
         0xFF68 -> { bgPaletteIndex = value and 0x3F; bgPaletteAutoInc = value and 0x80 != 0; true }  // BCPS

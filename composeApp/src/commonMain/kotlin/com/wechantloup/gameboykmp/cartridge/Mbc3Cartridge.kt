@@ -140,9 +140,9 @@ class Mbc3Cartridge(
         onRamWritten()
     }
 
-    override fun stepRtc() {
+    override fun stepRtc(cycles: Int) {
         if (cartridgeSave.isHalted) return
-        rtcCycleAccumulator += 4
+        rtcCycleAccumulator += cycles
         while (rtcCycleAccumulator >= CYCLES_PER_RTC_TICK) {
             rtcCycleAccumulator -= CYCLES_PER_RTC_TICK
             rtcTickAccumulator++

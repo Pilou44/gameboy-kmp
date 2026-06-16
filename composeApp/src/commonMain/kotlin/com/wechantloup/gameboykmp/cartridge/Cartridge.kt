@@ -8,5 +8,5 @@ interface Cartridge {
     fun writeRom(address: Int, value: Int)
     fun readRam(address: Int): Int
     fun writeRam(address: Int, value: Int)
-    fun stepRtc() {}
+    fun stepRtc(cycles: Int) {}
 }
