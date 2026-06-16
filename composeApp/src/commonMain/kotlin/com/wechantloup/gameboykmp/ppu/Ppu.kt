@@ -308,9 +308,15 @@ class Ppu(
             if (lcdc and 0x20 != 0) renderWindow(lcdc)
             if (lcdc and 0x02 != 0) renderSprites(lcdc)
         } else {
+            // CGB: LCDC.0 is the BG/OBJ master priority, NOT a BG-enable bit, so the
+            // background is always drawn. Window (LCDC.5) and objects (LCDC.1) are still
+            // gated exactly like on DMG. Gating the window is required for correctness of
+            // the window line counter too: renderWindowCgb advances windowLine on every
+            // line where ly >= wy, so calling it on a window-disabled line wrongly pushes
+            // windowLine ahead and corrupts later window rows (this is what acid2 checks).
             renderBackgroundCgb(lcdc)
-            renderWindowCgb(lcdc)
-            renderSpritesCgb(lcdc)
+            if (lcdc and 0x20 != 0) renderWindowCgb(lcdc)
+            if (lcdc and 0x02 != 0) renderSpritesCgb(lcdc)
             // TODO: CGB_COMPAT (DMG game on CGB hardware) needs its own path: DMG-style
             //  rendering whose BGP/OBP indices map into the auto-palette CGB palettes. This
             //  branch currently renders it like full CGB (BG palette 0, BGP ignored), which is
