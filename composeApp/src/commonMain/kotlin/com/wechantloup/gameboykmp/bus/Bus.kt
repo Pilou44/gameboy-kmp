@@ -3,6 +3,7 @@ package com.wechantloup.gameboykmp.bus
 import com.wechantloup.gameboykmp.MachineMode
 import com.wechantloup.gameboykmp.cartridge.Cartridge
 import com.wechantloup.gameboykmp.joypad.JoypadButton
+import com.wechantloup.gameboykmp.logger.Logger
 import kotlin.concurrent.Volatile
 
 /**
@@ -48,6 +49,17 @@ class Bus(
     // flat 0xC000-0xDFFF region that used to live inside internalRam.
     private val wram = Array(8) { IntArray(0x1000) }
     private var wramBank = 1  // SVBK; effective bank for 0xD000-0xDFFF, always 1..7
+
+    private var hdma1 = 0  // HDMA1 source high
+    private var hdma2 = 0  // HDMA2 source low
+    private var hdma3 = 0  // HDMA3 dest high
+    private var hdma4 = 0  // HDMA4 dest low
+
+    // Active HBlank DMA state (used in the next step)
+    private var hdmaActive = false
+    private var hdmaSource = 0     // running source address
+    private var hdmaDest = 0       // running dest offset within VRAM (0x0000-0x1FF0)
+    private var hdmaRemaining = 0  // remaining 0x10-byte chunks
 
     // CGB palette RAM: 8 palettes × 4 colors × 2 bytes each, stored raw as RGB555 LE.
     // Color conversion to ARGB is deferred to the render step.
@@ -488,6 +500,15 @@ class Bus(
      *   must be verified vs Pan Docs at the auto-palette step.
      */
     private fun readCgbRegister(address: Int): Int? = when (address) {
+        0xFF4D -> {
+            // KEY1 (double-speed). The switch isn't implemented yet, but the 0xFF4C..0xFF7F
+            // catch-all currently reports bit 7 = 1 (double-speed active) and bit 0 = 1 (switch
+            // armed) — both false for a CGB at normal speed, which can mislead games that probe it.
+            // Report normal speed, switch not armed; unused bits read as 1.
+            // TODO: implement the actual KEY1 speed switch.
+            Logger.debug("Bus", "R KEY1")
+            0x7E
+        }
         0xFF4F -> vramBank or 0xFE  // VBK: only bit 0 is meaningful, bits 1-7 read as 1
         0xFF70 -> wramBank or 0xF8  // SVBK: bits 0-2 = bank, bits 3-7 read as 1
         // BCPS/OCPS: index in bits 0-5, auto-increment in bit 7, bit 6 reads as 1
@@ -497,6 +518,7 @@ class Bus(
         // TODO: during PPU mode 3 these reads must return 0xFF (CGB palette access lock).
         0xFF69 -> bgPaletteRam[bgPaletteIndex]
         0xFF6B -> objPaletteRam[objPaletteIndex]
+        0xFF55 -> if (hdmaActive) (hdmaRemaining - 1) and 0x7F else 0xFF  // bit 7 = 0 while active
         else -> null
     }
 
@@ -507,6 +529,7 @@ class Bus(
      * TODO: KEY1 (0xFF4D) and OPRI (0xFF6C) still to wire (see readCgbRegister).
      */
     private fun writeCgbRegister(address: Int, value: Int): Boolean = when (address) {
+        0xFF4D -> { Logger.debug("Bus", "W KEY1=${value.toString(16)}"); true }
         0xFF4F -> { vramBank = value and 0x01; true }  // VBK: bit 0 selects the VRAM bank
         0xFF70 -> { wramBank = (value and 0x07).let { if (it == 0) 1 else it }; true }  // 0 selects bank 1
         0xFF68 -> { bgPaletteIndex = value and 0x3F; bgPaletteAutoInc = value and 0x80 != 0; true }  // BCPS
@@ -522,6 +545,30 @@ class Bus(
         0xFF6B -> {
             objPaletteRam[objPaletteIndex] = value
             if (objPaletteAutoInc) objPaletteIndex = (objPaletteIndex + 1) and 0x3F
+            true
+        }
+        0xFF51 -> {
+            hdma1 = value
+            Logger.debug("Bus", "W HDMA1=${value.toString(16)}")
+            true
+        }
+        0xFF52 -> {
+            hdma2 = value
+            Logger.debug("Bus", "W HDMA2=${value.toString(16)}")
+            true
+        }
+        0xFF53 -> {
+            hdma3 = value
+            Logger.debug("Bus", "W HDMA3=${value.toString(16)}")
+            true
+        }
+        0xFF54 -> {
+            hdma4 = value
+            Logger.debug("Bus", "W HDMA4=${value.toString(16)}")
+            true
+        }
+        0xFF55 -> {
+            startHdma(value)
             true
         }
         else -> false
@@ -565,6 +612,62 @@ class Bus(
     fun objColorRgb555(palette: Int, colorIndex: Int): Int {
         val offset = palette * 8 + colorIndex * 2
         return objPaletteRam[offset] or (objPaletteRam[offset + 1] shl 8)
+    }
+
+    private fun startHdma(value: Int) {
+//        // TODO: remove this diagnostic once HBlank DMA is pumped.
+//        if (value and 0x80 != 0) {
+//            Logger.debug("Bus", "HDMA arm: HBlank, ${(value and 0x7F) + 1} chunks")
+//        } else if (!hdmaActive) {
+//            Logger.debug("Bus", "HDMA arm: GDMA, ${(value and 0x7F) + 1} chunks")
+//        }
+
+
+        // Writing bit 7 = 0 while an HBlank DMA is in progress aborts it (HDMA5 then
+        // reads back with bit 7 set). It does not start a GDMA.
+        if (value and 0x80 == 0 && hdmaActive) {
+            hdmaActive = false
+            return
+        }
+
+        val source = ((hdma1 shl 8) or hdma2) and 0xFFF0
+        val dest = ((hdma3 shl 8) or hdma4) and 0x1FF0   // offset within VRAM
+
+        if (value and 0x80 == 0) {
+            // General Purpose DMA: copy the whole block at once into the current VBK bank.
+            // TODO: GDMA halts the CPU for (length / 0x10) * 8 M-cycles (normal speed),
+            //  doubled in double-speed. Not accounted yet.
+            val length = ((value and 0x7F) + 1) * 0x10
+            // TODO: remove this diagnostic once the GDMA path is validated on SMB Deluxe.
+            Logger.debug(
+                "Bus",
+                "GDMA src=${source.toString(16)} dst=${(0x8000 + dest).toString(16)} " +
+                        "len=$length vbk=$vramBank"
+            )
+            for (i in 0 until length) {
+                writeVram((dest + i) and 0x1FFF, readDmaSource(source + i))
+            }
+        }
+
+        if (value and 0x80 == 0) {
+            // General Purpose DMA: copy the whole block at once into the current VBK bank.
+            // TODO: GDMA halts the CPU for (length / 0x10) * 8 M-cycles (normal speed),
+            //  doubled in double-speed. Not accounted yet — the transfer is instantaneous
+            //  here. Feed the stall into the machine loop for timing accuracy.
+            val length = ((value and 0x7F) + 1) * 0x10
+            for (i in 0 until length) {
+                writeVram((dest + i) and 0x1FFF, readDmaSource(source + i))
+            }
+        } else {
+            // HBlank DMA: 0x10 bytes per HBlank (mode 0), LY 0-143. Chunks are pumped by
+            // the PPU hook (next step).
+            hdmaSource = source
+            hdmaDest = dest
+            hdmaRemaining = (value and 0x7F) + 1   // number of 0x10-byte chunks
+            hdmaActive = true
+            // TODO: if started while the PPU is already in mode 0 on a visible line, the
+            //  first chunk must transfer immediately. Handled with the PPU mode-0 hook.
+        }
     }
 
     // The CGB register block is physically present on CGB silicon, i.e. in both
