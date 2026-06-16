@@ -915,18 +915,17 @@ class RomTestRunner {
         runTest(testInfo.displayName, "mooneye/manual-only/sprite_priority.gb", 1_000)
     }
 
-//    ToDo Game Boy Color only test
-//    @Test
-//    @Order(143)
-//    fun `mooneye-misc-boot_div-cgbABCDE`(testInfo: TestInfo) {
-//        runTest(testInfo.displayName, "mooneye/misc/boot_div-cgbABCDE.gb", 1_000)
-//    }
-//    ToDo Game Boy Color only test
-//    @Test
-//    @Order(144)
-//    fun `mooneye-misc-boot_regs-cgb`(testInfo: TestInfo) {
-//        runTest(testInfo.displayName, "mooneye/misc/boot_regs-cgb.gb", 1_000)
-//    }
+    @Test
+    @Order(143)
+    fun `mooneye-misc-boot_div-cgbABCDE`(testInfo: TestInfo) {
+        runTest(testInfo.displayName, "mooneye/misc/boot_div-cgbABCDE.gb", 1_000)
+    }
+
+    @Test
+    @Order(144)
+    fun `mooneye-misc-boot_regs-cgb`(testInfo: TestInfo) {
+        runTest(testInfo.displayName, "mooneye/misc/boot_regs-cgb.gb", 1_000)
+    }
 
     companion object {
         private const val TEST_RESULTS_PATH = "build/test-results"
