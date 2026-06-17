@@ -43,7 +43,7 @@ class GameBoyViewModel : ViewModel() {
     val audioSamplesChannel = Channel<FloatArray>(8)
     val buttonChannel = Channel<JoypadEvent>(Channel.UNLIMITED)
 
-    var machineModeForMixtGame = MachineMode.CGB // TODO Internal for tests
+    private var machineModeForMixtGame = MachineMode.CGB
     private var machineModeForDMGGame = MachineMode.DMG
 
     private var bus: Bus? = null
@@ -76,14 +76,16 @@ class GameBoyViewModel : ViewModel() {
         viewModelScope.cancel()
     }
 
-    fun loadRom(romBytes: ByteArray, romName: String) {
+    fun loadRom(
+        romBytes: ByteArray,
+        romName: String,
+        machineMode: MachineMode = getMachineMode(romBytes),
+    ) {
         viewModelScope.launch {
             emulationJob?.cancelAndJoin() // Now safe to await in a coroutine
 
             _stateFlow.value = GameBoyState(dmgPalette = dmgPalette)
             isPaused = false
-
-            val machineMode = getMachineMode(romBytes)
 
             val job = Job(parent = coroutineContext[Job]).also { emulationJob = it }
             val emulationScope = CoroutineScope(coroutineContext + job)

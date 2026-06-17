@@ -237,6 +237,12 @@ class Bus(
         if (hasCgbRegisters && writeCgbRegister(address, v)) return
 
         when (address) {
+            // TODO: VRAM lock is gated on ppuMode at M-cycle granularity, so writes landing
+            //  within a few dots of the mode 3<->0 boundary can be misclassified (dropped when
+            //  hardware would accept them, or vice-versa). Visible on blargg cpu_instrs 06 in CGB
+            //  (the 'd' of "Passed" is dropped; SameBoy shows it). A precise fix needs dot/T-state
+            //  PPU stepping (or a per-access PPU catch-up). Cosmetic only: serial pass/fail is
+            //  unaffected. Revisit with the T-state rendering refactor.
             in 0x8000..0x9FFF -> if (ppuMode != 3) writeVram(address - 0x8000, v)
             in 0xE000..0xFDFF -> write(address - 0x2000, v) // Echo RAM: 0xE000–0xFDFF == 0xC000–0xDDFF
             in 0xFE00..0xFE9F -> if (!isDmaActive && ppuMode != 2 && ppuMode != 3) writeOam(address - 0xFE00, v)

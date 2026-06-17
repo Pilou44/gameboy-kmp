@@ -42,6 +42,16 @@ class RomTestRunner {
     }
 
     @Test
+    @Order(2)
+    fun `acid-cgb-acid2`(testInfo: TestInfo) {
+        runTest(
+            testName = testInfo.displayName,
+            romPath = "acid/cgb-acid2.gbc",
+            duration = 500,
+        )
+    }
+
+    @Test
     @Order(3)
     fun `blarrg-cpu_instrs-01`(testInfo: TestInfo) {
         runTest(testInfo.displayName, "blarrg/cpu_instrs/01-special.gb", 3_000)
@@ -56,7 +66,12 @@ class RomTestRunner {
     @Test
     @Order(5)
     fun `blarrg-cpu_instrs-03`(testInfo: TestInfo) {
-        runTest(testInfo.displayName, "blarrg/cpu_instrs/03-op_sp,hl.gb", 3_000)
+        runTest(
+            testName = testInfo.displayName,
+            romPath = "blarrg/cpu_instrs/03-op_sp,hl.gb",
+            duration = 3_000,
+            machineMode = MachineMode.DMG,
+        )
     }
 
     @Test
@@ -74,7 +89,12 @@ class RomTestRunner {
     @Test
     @Order(8)
     fun `blarrg-cpu_instrs-06`(testInfo: TestInfo) {
-        runTest(testInfo.displayName, "blarrg/cpu_instrs/06-ld_r,r.gb", 1_000)
+        runTest(
+            testName = testInfo.displayName,
+            romPath = "blarrg/cpu_instrs/06-ld_r,r.gb",
+            duration = 1_000,
+            machineMode = MachineMode.DMG,
+        )
     }
 
     @Test
@@ -284,9 +304,22 @@ class RomTestRunner {
 
     @Test
     @Order(43)
-    fun `daid-ppu_scanline_bgp_0`(testInfo: TestInfo) {
+    fun `daid-ppu_scanline_bgp_dmg`(testInfo: TestInfo) {
         runTest(testInfo.displayName, "daid/ppu_scanline_bgp.gb", 500, captureNameSuffix = "_0.dmg")
     }
+
+    // ToDo need CGB_COMPAT implementation
+//    @Test
+//    @Order(43)
+//    fun `daid-ppu_scanline_bgp_cgb`(testInfo: TestInfo) {
+//        runTest(
+//            testName = testInfo.displayName,
+//            romPath = "daid/ppu_scanline_bgp.gb",
+//            duration = 500,
+//            captureNameSuffix = ".gbc",
+//            machineMode = MachineMode.CGB_COMPAT,
+//        )
+//    }
 
     @Test
     @Order(44)
@@ -306,6 +339,7 @@ class RomTestRunner {
                 JoypadEvent.Released(JoypadButton.A),
             ),
             captureNameSuffix = "_basic_tests",
+            machineMode = MachineMode.DMG,
         )
     }
 
@@ -322,7 +356,8 @@ class RomTestRunner {
                 JoypadEvent.Pressed(JoypadButton.A),
                 JoypadEvent.Released(JoypadButton.A),
             ),
-            captureNameSuffix = "_range_tests"
+            captureNameSuffix = "_range_tests",
+            machineMode = MachineMode.DMG,
         )
     }
 
@@ -341,7 +376,8 @@ class RomTestRunner {
                 JoypadEvent.Pressed(JoypadButton.A),
                 JoypadEvent.Released(JoypadButton.A),
             ),
-            captureNameSuffix = "_sub-second_writes"
+            captureNameSuffix = "_sub-second_writes",
+            machineMode = MachineMode.DMG,
         )
     }
 
@@ -954,7 +990,6 @@ class RomTestRunner {
             viewModel = GameBoyViewModel()
                 .apply {
                     setDmgPalette(Palette.DOC_BOY_TEST)
-                    machineModeForMixtGame = MachineMode.DMG  // whole DMG suite: validate DMG rendering, ignore the CGB header flag
                 }
 
             testCount = 0
@@ -1014,6 +1049,7 @@ class RomTestRunner {
             duration: Long,
             commands: List<JoypadEvent> = emptyList(),
             captureNameSuffix: String = "",
+            machineMode: MachineMode? = null,
         ) {
             testCount++
 
@@ -1038,7 +1074,12 @@ class RomTestRunner {
                 val romBytes = requireNotNull(rom?.readBytes())
 
                 val viewModel = requireNotNull(viewModel)
-                viewModel.loadRom(romBytes, romName)
+
+                if (machineMode != null) {
+                    viewModel.loadRom(romBytes, romName, machineMode)
+                } else {
+                    viewModel.loadRom(romBytes, romName)
+                }
 
                 if (commands.isNotEmpty()) {
                     Thread.sleep(500)
