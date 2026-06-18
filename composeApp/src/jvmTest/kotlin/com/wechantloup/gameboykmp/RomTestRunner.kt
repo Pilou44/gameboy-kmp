@@ -323,8 +323,20 @@ class RomTestRunner {
 
     @Test
     @Order(44)
-    fun `daid-stop_instr`(testInfo: TestInfo) {
+    fun `daid-stop_instr_dmg`(testInfo: TestInfo) {
         runTest(testInfo.displayName, "daid/stop_instr.gb", 500, captureNameSuffix = ".dmg")
+    }
+
+    @Test
+    @Order(44)
+    fun `daid-stop_instr_cgb`(testInfo: TestInfo) {
+        runTest(
+            testName = testInfo.displayName,
+            romPath = "daid/stop_instr.gb",
+            duration = 500,
+            captureNameSuffix = ".cgb",
+            machineMode = MachineMode.CGB_COMPAT,
+        )
     }
 
     @Test
