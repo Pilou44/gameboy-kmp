@@ -7,7 +7,11 @@ class Timer(private val bus: Bus) {
     // Internal 16-bit DIV counter left by the DMG boot ROM at hand-off ($0100).
     // The visible DIV register ($FF04) is the high byte; the low byte sets the
     // sub-DIV phase, which boot_div verifies. The canonical DMG value is 0xABCC.
-    private var cycleCount = POST_BOOT_DIV_COUNTER
+    private var cycleCount = if (bus.bootRom == null) {
+        POST_BOOT_DIV_COUNTER
+    } else {
+        0
+    }
 
     private var timaOverflowPending = false
     private var timaOverflowCycles = 0
