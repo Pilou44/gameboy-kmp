@@ -957,8 +957,9 @@ class RomTestRunner {
         runTest(
             testName = testInfo.displayName,
             romPath = "mooneye/misc/boot_div-cgbABCDE.gb",
-            duration = 1_000,
+            duration = 4_000,
             machineMode = MachineMode.CGB_COMPAT,
+            skipBoot = false,
         )
     }
 
@@ -1060,6 +1061,7 @@ class RomTestRunner {
             commands: List<JoypadEvent> = emptyList(),
             captureNameSuffix: String = "",
             machineMode: MachineMode? = null,
+            skipBoot: Boolean = true,
         ) {
             testCount++
 
@@ -1086,9 +1088,9 @@ class RomTestRunner {
                 val viewModel = requireNotNull(viewModel)
 
                 if (machineMode != null) {
-                    viewModel.loadRom(romBytes, romName, machineMode)
+                    viewModel.loadRom(romBytes, romName, machineMode, skipBoot)
                 } else {
-                    viewModel.loadRom(romBytes, romName)
+                    viewModel.loadRom(romBytes, romName, skipBoot = skipBoot)
                 }
 
                 if (commands.isNotEmpty()) {

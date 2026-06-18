@@ -16,7 +16,7 @@ class BusVramBankingTest {
     )
 
     private fun makeBus(mode: MachineMode): Bus =
-        Bus(cartridge = cartridge, machineMode = mode)
+        Bus(cartridge = cartridge, machineMode = mode, bootRom = null)
 
     @Test
     fun `VBK switches the active VRAM bank for CPU access`() {

@@ -14,6 +14,7 @@ import com.wechantloup.gameboykmp.joypad.JoypadEvent
 import com.wechantloup.gameboykmp.logger.Logger
 import com.wechantloup.gameboykmp.ppu.Ppu
 import com.wechantloup.gameboykmp.timer.Timer
+import gameboykmp.composeapp.generated.resources.Res
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -80,12 +81,21 @@ class GameBoyViewModel : ViewModel() {
         romBytes: ByteArray,
         romName: String,
         machineMode: MachineMode = getMachineMode(romBytes),
+        skipBoot: Boolean = false,
     ) {
         viewModelScope.launch {
             emulationJob?.cancelAndJoin() // Now safe to await in a coroutine
 
-            _stateFlow.value = GameBoyState(dmgPalette = dmgPalette)
             isPaused = false
+
+            _stateFlow.value = GameBoyState(dmgPalette = dmgPalette)
+
+            val skipBoot = skipBoot || machineMode == MachineMode.DMG
+            val bootRom = if (!skipBoot) {
+                getBootRom()
+            } else {
+                null
+            }
 
             val job = Job(parent = coroutineContext[Job]).also { emulationJob = it }
             val emulationScope = CoroutineScope(coroutineContext + job)
@@ -96,7 +106,7 @@ class GameBoyViewModel : ViewModel() {
                 scope = emulationScope,
             ).also { cartridge = it }
 
-            val bus = Bus(cartridge, machineMode).also { bus = it }
+            val bus = Bus(cartridge, machineMode, bootRom).also { bus = it }
 
             emulationScope.launch {
                 cartridge.isSaving.collect { isSaving ->
@@ -176,6 +186,10 @@ class GameBoyViewModel : ViewModel() {
         _stateFlow.update {
             it.copy(dmgPalette = palette)
         }
+    }
+
+    private suspend fun getBootRom(): ByteArray {
+        return Res.readBytes("files/cgb_boot.bin")
     }
 
     private fun onMachineCycleTick() {

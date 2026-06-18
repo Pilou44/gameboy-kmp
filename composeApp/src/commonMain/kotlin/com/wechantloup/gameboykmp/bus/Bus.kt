@@ -26,7 +26,10 @@ import kotlin.concurrent.Volatile
 class Bus(
     private val cartridge: Cartridge,
     val machineMode: MachineMode,
+    val bootRom: ByteArray?,
 ) {
+
+    private var bootRomEnabled: Boolean = bootRom != null
 
     // Bit 0 : V-Blank  - PPU entered V-Blank period (LY == 144)
     // Bit 1 : LCD STAT - PPU mode change or LY==LYC coincidence (depends on STAT bits 3-6)
@@ -37,7 +40,9 @@ class Bus(
     val ie: Int get() = read(0xFFFF) // Enabled interrupts
     val iF: Int get() = read(0xFF0F) // Requested interrupts
 
-    private val internalRam = IntArray(0x10000).also { initPostBootRegisters(it) }
+    private val internalRam = IntArray(0x10000).also {
+        if (bootRom == null) initPostBootRegisters(it)
+    }
 
     // VRAM: 2 banks of 8KB. Bank 1 is CGB-only (BG attribute map + extra tile data).
     // On DMG vramBank stays 0, so bank 1 is allocated but never touched.
@@ -140,7 +145,7 @@ class Bus(
     val apuPoweredOn: Boolean get() = internalRam[0xFF26] and 0x80 != 0
 
     init {
-        if (machineMode == MachineMode.CGB_COMPAT) {
+        if (bootRom == null && machineMode == MachineMode.CGB_COMPAT) {
             initCompatPalettes()
         }
     }
@@ -223,7 +228,16 @@ class Bus(
             0xFF07 -> internalRam[0xFF07] or 0xF8  // TAC: bits 7-3 always read as 1 on DMG
             0xFF41 -> internalRam[0xFF41] or 0x80  // STAT: bit 7 always reads as 1 on DMG
             in 0xFF4C..0xFF7F -> 0xFF  // GBC registers and unused I/O, always read 0xFF on DMG
-            in 0x0000..0x7FFF -> cartridge.readRom(address)
+
+            // There's a hole in boot rom at addresses 0x0100..0x01FF to read cartridge
+            in 0x0100..0x01FF -> cartridge.readRom(address)
+            in 0x0000..0x08FF -> if (bootRomEnabled) {
+                requireNotNull(bootRom)[address].toInt() and 0xFF
+            } else {
+                cartridge.readRom(address)
+            }
+            in 0x0900..0x7FFF -> cartridge.readRom(address)
+
             in 0x8000..0x9FFF -> readVram(address - 0x8000)
             in 0xA000..0xBFFF -> cartridge.readRam(address - 0xA000)
             in 0xC000..0xDFFF -> readWram(address)
@@ -243,6 +257,12 @@ class Bus(
         if (hasCgbRegisters && writeCgbRegister(address, v)) return
 
         when (address) {
+            0xFF50 -> {
+                internalRam[0xFF50] = v
+                if (v and 0x01 > 0) {
+                    bootRomEnabled = false
+                }
+            }
             // TODO: VRAM lock is gated on ppuMode at M-cycle granularity, so writes landing
             //  within a few dots of the mode 3<->0 boundary can be misclassified (dropped when
             //  hardware would accept them, or vice-versa). Visible on blargg cpu_instrs 06 in CGB
@@ -673,17 +693,6 @@ class Bus(
             for (i in 0 until length) {
                 writeVram((dest + i) and 0x1FFF, readDmaSource(source + i))
             }
-        }
-
-        if (value and 0x80 == 0) {
-            // General Purpose DMA: copy the whole block at once into the current VBK bank.
-            // TODO: GDMA halts the CPU for (length / 0x10) * 8 M-cycles (normal speed),
-            //  doubled in double-speed. Not accounted yet — the transfer is instantaneous
-            //  here. Feed the stall into the machine loop for timing accuracy.
-            val length = ((value and 0x7F) + 1) * 0x10
-            for (i in 0 until length) {
-                writeVram((dest + i) and 0x1FFF, readDmaSource(source + i))
-            }
         } else {
             // HBlank DMA: 0x10 bytes per HBlank (mode 0), LY 0-143. Chunks are pumped by
             // the PPU hook (next step).
@@ -766,6 +775,7 @@ class Bus(
             ram[0xFF49] = 0xFF  // OBP1
             ram[0xFF4A] = 0x00  // WY
             ram[0xFF4B] = 0x00  // WX
+            ram[0xFF50] = 0x00  // Boot done
             ram[0xFFFF] = 0x00  // IE
         }
     }

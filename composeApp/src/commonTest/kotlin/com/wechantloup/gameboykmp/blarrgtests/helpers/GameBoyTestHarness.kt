@@ -14,7 +14,7 @@ import com.wechantloup.gameboykmp.timer.Timer
  */
 class GameBoyTestHarness {
     val cartridge = FakeCartridge()
-    val bus = Bus(cartridge, MachineMode.DMG)
+    val bus = Bus(cartridge, MachineMode.DMG, bootRom = null)
     val cpu = Cpu(bus, ::step1).also { it.reset() }
     val timer = Timer(bus)
     val ppu = Ppu(bus)

@@ -805,6 +805,22 @@ class Cpu(
      * Initialize registers with boot values.
      */
     private fun Registers.reset() {
+        if (bus.machineMode != MachineMode.DMG && bus.bootRom != null) {
+            a = 0x00
+            b = 0x00
+            c = 0x00
+            d = 0x00
+            e = 0x00
+            f = 0x00
+            h = 0x00
+            l = 0x00
+
+            pc = 0x0000
+            sp = 0x0000
+
+            return
+        }
+
         // Post-boot CPU state, per Pan Docs "Console state after boot ROM hand-off".
         // Games detect the hardware via A (0x11 = CGB); the rest matches real hardware
         // so the full register file is correct (cf. Mooneye boot_regs-* tests).

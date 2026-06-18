@@ -16,7 +16,7 @@ class BusPaletteRamTest {
     )
 
     private fun makeBus(mode: MachineMode): Bus =
-        Bus(cartridge = cartridge, machineMode = mode)
+        Bus(cartridge = cartridge, machineMode = mode, bootRom = null)
 
     @Test
     fun `BCPD writes auto-increment the index when the flag is set`() {

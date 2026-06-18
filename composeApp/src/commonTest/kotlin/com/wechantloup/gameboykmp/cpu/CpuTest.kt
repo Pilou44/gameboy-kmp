@@ -22,7 +22,7 @@ class CpuTest {
 
     @BeforeTest
     fun setUp() {
-        bus = Bus(cartridge, MachineMode.DMG)
+        bus = Bus(cartridge, MachineMode.DMG, bootRom = null)
         cpu = Cpu(bus) {}
         cpu.reset()
         cpu.registers.f = 0x00

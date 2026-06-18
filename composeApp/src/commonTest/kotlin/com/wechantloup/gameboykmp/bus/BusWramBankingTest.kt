@@ -16,7 +16,7 @@ class BusWramBankingTest {
     )
 
     private fun makeBus(mode: MachineMode): Bus =
-        Bus(cartridge = cartridge, machineMode = mode)
+        Bus(cartridge = cartridge, machineMode = mode, bootRom = null)
 
     @Test
     fun `SVBK switches the banked WRAM region`() {

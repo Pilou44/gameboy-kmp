@@ -16,7 +16,7 @@ class BusTest {
 
     @Test
     fun testWriteAndRead() {
-        val bus = Bus(cartridge, MachineMode.DMG)
+        val bus = Bus(cartridge, MachineMode.DMG, bootRom = null)
         val expected = 0x5A
         val address = 0xC702
         bus.write(address, expected)
@@ -24,7 +24,7 @@ class BusTest {
     }
     @Test
     fun testWriteBigAndRead() {
-        val bus = Bus(cartridge, MachineMode.DMG)
+        val bus = Bus(cartridge, MachineMode.DMG, bootRom = null)
         val value = 0x555
         val expected = 0x055
         val address = 0xC702
@@ -33,7 +33,7 @@ class BusTest {
     }
     @Test
     fun testWriteAndReadStart() {
-        val bus = Bus(cartridge, MachineMode.DMG)
+        val bus = Bus(cartridge, MachineMode.DMG, bootRom = null)
         val expected = 0x5A
         val address = 0xC000
         bus.write(address, expected)
@@ -41,7 +41,7 @@ class BusTest {
     }
     @Test
     fun testWriteAndReadEnd() {
-        val bus = Bus(cartridge, MachineMode.DMG)
+        val bus = Bus(cartridge, MachineMode.DMG, bootRom = null)
         val expected = 0x5A
         val address = 0xFFFF
         bus.write(address, expected)
@@ -49,7 +49,7 @@ class BusTest {
     }
     @Test
     fun testReadUninitializedMemory() {
-        val bus = Bus(cartridge, MachineMode.DMG)
+        val bus = Bus(cartridge, MachineMode.DMG, bootRom = null)
         assertEquals(0, bus.read(0x2702))
     }
 }
