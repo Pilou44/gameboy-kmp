@@ -308,18 +308,18 @@ class RomTestRunner {
         runTest(testInfo.displayName, "daid/ppu_scanline_bgp.gb", 500, captureNameSuffix = "_0.dmg")
     }
 
-    // ToDo need CGB_COMPAT implementation
-//    @Test
-//    @Order(43)
-//    fun `daid-ppu_scanline_bgp_cgb`(testInfo: TestInfo) {
-//        runTest(
-//            testName = testInfo.displayName,
-//            romPath = "daid/ppu_scanline_bgp.gb",
-//            duration = 500,
-//            captureNameSuffix = ".gbc",
-//            machineMode = MachineMode.CGB_COMPAT,
-//        )
-//    }
+    @Test
+    @Order(43)
+    fun `daid-ppu_scanline_bgp_cgb`(testInfo: TestInfo) {
+        runTest(
+            testName = testInfo.displayName,
+            romPath = "daid/ppu_scanline_bgp.gb",
+            duration = 3500,
+            captureNameSuffix = ".gbc",
+            machineMode = MachineMode.CGB_COMPAT,
+            skipBoot = false,
+        )
+    }
 
     @Test
     @Order(44)
