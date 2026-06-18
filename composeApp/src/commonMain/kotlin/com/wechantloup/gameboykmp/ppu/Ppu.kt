@@ -797,7 +797,7 @@ class Ppu(
     private fun renderBackgroundCompat(lcdc: Int) {
         val scy = bus.read(0xFF42)
         val scx = bus.read(0xFF43)
-        val warmup = 6 + (scx and 7)          // dot du mode 3 où sort le pixel x=0
+        val warmup = 3 + (scx and 7)          // dot du mode 3 où sort le pixel x=0
 
         // Bit 3: BG tile map — 0=0x9800, 1=0x9C00
         val tileMapBase = if (lcdc and 0x08 != 0) 0x1C00 else 0x1800  // VRAM offsets
