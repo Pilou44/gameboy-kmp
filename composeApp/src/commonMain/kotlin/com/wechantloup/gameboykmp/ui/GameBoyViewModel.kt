@@ -207,6 +207,9 @@ class GameBoyViewModel : ViewModel() {
             0xC0 -> MachineMode.CGB
             0x80 -> machineModeForMixtGame
             else -> machineModeForDMGGame
+        }.also {
+            Logger.debug(TAG, "Cartridge byte 0x043 = ${romBytes[0x0143].toInt() and 0xFF}")
+            Logger.debug(TAG, "Machine mode = ${it.name}")
         }
     }
 
