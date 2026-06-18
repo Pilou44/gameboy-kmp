@@ -139,6 +139,12 @@ class Bus(
 
     val apuPoweredOn: Boolean get() = internalRam[0xFF26] and 0x80 != 0
 
+    init {
+        if (machineMode == MachineMode.CGB_COMPAT) {
+            initCompatPalettes()
+        }
+    }
+
     /**
      * Advances the OAM DMA by one M-cycle.
      * Must be called once per M-cycle from the emulation loop.
@@ -687,6 +693,30 @@ class Bus(
             hdmaActive = true
             // TODO: if started while the PPU is already in mode 0 on a visible line, the
             //  first chunk must transfer immediately. Handled with the PPU mode-0 hook.
+        }
+    }
+
+    private fun initCompatPalettes() {
+        // CGB_COMPAT skip-boot fallback. The real CGB boot ROM preloads the compatibility
+        // palettes; we skip it, so seed a neutral grey ramp so the screen isn't black.
+        // white → black, RGB555 (5 bits/channel).
+        // TODO: replace with the boot ROM's auto-colourisation palette to match SameBoy.
+        val COMPAT_GREY = intArrayOf(0x7FFF, 0x56B5, 0x294A, 0x0000)
+
+        // BG palette 0 (the compat attribute map is all zeros → every BG tile uses palette 0).
+        writeCgbRegister(0xFF68, 0x80)                  // BCPS: index 0, auto-increment on
+        for (color in COMPAT_GREY) {
+            writeCgbRegister(0xFF69, color and 0xFF)    // low byte
+            writeCgbRegister(0xFF69, (color shr 8) and 0xFF) // high byte
+        }
+
+        // OBJ palettes 0 and 1 (compat sprites pick OBP0/OBP1 → CGB OBJ palette 0/1).
+        writeCgbRegister(0xFF6A, 0x80)                  // OCPS: index 0, auto-increment on
+        repeat(2) {
+            for (color in COMPAT_GREY) {
+                writeCgbRegister(0xFF6B, color and 0xFF)
+                writeCgbRegister(0xFF6B, (color shr 8) and 0xFF)
+            }
         }
     }
 

@@ -954,13 +954,23 @@ class RomTestRunner {
     @Test
     @Order(143)
     fun `mooneye-misc-boot_div-cgbABCDE`(testInfo: TestInfo) {
-        runTest(testInfo.displayName, "mooneye/misc/boot_div-cgbABCDE.gb", 1_000)
+        runTest(
+            testName = testInfo.displayName,
+            romPath = "mooneye/misc/boot_div-cgbABCDE.gb",
+            duration = 1_000,
+            machineMode = MachineMode.CGB_COMPAT,
+        )
     }
 
     @Test
     @Order(144)
     fun `mooneye-misc-boot_regs-cgb`(testInfo: TestInfo) {
-        runTest(testInfo.displayName, "mooneye/misc/boot_regs-cgb.gb", 1_000)
+        runTest(
+            testName = testInfo.displayName,
+            romPath = "mooneye/misc/boot_regs-cgb.gb",
+            duration = 1_000,
+            machineMode = MachineMode.CGB_COMPAT,
+        )
     }
 
     companion object {
