@@ -987,6 +987,16 @@ class RomTestRunner {
         )
     }
 
+    @Test
+    @Order(145)
+    fun `magenTests-hblank_vram_dma`(testInfo: TestInfo) {
+        runTest(
+            testName = testInfo.displayName,
+            romPath = "magenTests/hblank_vram_dma.gbc",
+            duration = 500,
+        )
+    }
+
     companion object {
         private const val TEST_RESULTS_PATH = "build/test-results"
         private const val TEST_RESULTS_HTML_FILE = "test-results.html"
