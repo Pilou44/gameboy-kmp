@@ -988,6 +988,28 @@ class RomTestRunner {
     }
 
     @Test
+    @Order(144)
+    fun `samesuite-dma-gdma_addr_mask`(testInfo: TestInfo) {
+        runTest(
+            testName = testInfo.displayName,
+            romPath = "samesuite/dma/gdma_addr_mask.gb",
+            duration = 500,
+            machineMode = MachineMode.CGB_COMPAT,
+        )
+    }
+
+    @Test
+    @Order(144)
+    fun `samesuite-dma-hdma_lcd_off`(testInfo: TestInfo) {
+        runTest(
+            testName = testInfo.displayName,
+            romPath = "samesuite/dma/hdma_lcd_off.gb",
+            duration = 500,
+            machineMode = MachineMode.CGB_COMPAT,
+        )
+    }
+
+    @Test
     @Order(145)
     fun `magenTests-hblank_vram_dma`(testInfo: TestInfo) {
         runTest(
@@ -1002,6 +1024,16 @@ class RomTestRunner {
         private const val TEST_RESULTS_HTML_FILE = "test-results.html"
         private const val TEST_RUNS_FILE = "runs.json"
         private const val TEST_RUNS_HTML_FILE = "runs.html"
+
+        /** Color-aware comparison for CGB tests whose pass/fail differs by HUE, not luminance
+         *  (e.g. hblank_vram_dma: green = pass, red = fail). A per-channel tolerance absorbs the
+         *  RGB555->RGB888 expansion mismatch between our output formula and the reference PNG's,
+         *  while staying far below the distance between the discrete colors a test ROM uses.
+         *
+         *  TODO: CHANNEL_TOLERANCE is a heuristic, not a measured formula gap. If a future test
+         *  pairs two *close* colors with larger expansion artifacts, calibrate it (intra-color
+         *  noise vs inter-color distance) — otherwise it could false-pass or false-fail. */
+        private const val CHANNEL_TOLERANCE = 8  // per-channel delta, 0..255
 
         private val resultFile = File("$TEST_RESULTS_PATH/$TEST_RESULTS_HTML_FILE")
         private val runsFile = File("$TEST_RESULTS_PATH/$TEST_RUNS_FILE")
@@ -1152,7 +1184,11 @@ class RomTestRunner {
                 val reference = requireNotNull(ClassLoader.getSystemResourceAsStream("references/$pngPath"))
                 val output = File("$TEST_RESULTS_PATH/$captureName").inputStream()
 
-                val passed = matchesReference(output, reference)
+                val passed = if (machineMode == MachineMode.DMG || (machineMode == MachineMode.CGB_COMPAT && skipBoot)) {
+                    matchesReference(output, reference)
+                } else {
+                    matchesReferenceColor(output, reference)
+                }
 
                 val status = if (passed) "PASS" else "FAIL"
 
@@ -1279,10 +1315,39 @@ class RomTestRunner {
             return out
         }
 
+        /** PNG -> packed 0xAARRGGBB pixels. Same loading contract as pngToShades:
+         *  closes the stream, fails loudly on a missing decoder, enforces 160x144. */
+        private fun pngToArgb(stream: InputStream): IntArray {
+            val img = stream.use { ImageIO.read(it) }
+                ?: error("PNG illisible (aucun décodeur ImageIO ou flux vide)")
+            require(img.width == 160 && img.height == 144) {
+                "attendu 160x144, reçu ${img.width}x${img.height}"
+            }
+            // Bulk read: fine for a 160x144 buffer, avoids per-pixel getRGB overhead.
+            return img.getRGB(0, 0, 160, 144, IntArray(160 * 144), 0, 160)
+        }
+
         fun matchesReference(output: InputStream, reference: InputStream): Boolean {
             val outputShades = pngToShades(output)
             val referenceShades = pngToShades(reference)
             return outputShades.contentEquals(referenceShades)
+        }
+
+        fun matchesReferenceColor(
+            output: InputStream,
+            reference: InputStream,
+            tolerance: Int = CHANNEL_TOLERANCE,
+        ): Boolean {
+            val out = pngToArgb(output)
+            val ref = pngToArgb(reference)
+            for (i in out.indices) {
+                val o = out[i]; val r = ref[i]
+                // Alpha ignored: some encoders emit it, it carries no test signal.
+                if (abs(((o ushr 16) and 0xFF) - ((r ushr 16) and 0xFF)) > tolerance) return false
+                if (abs(((o ushr 8)  and 0xFF) - ((r ushr 8)  and 0xFF)) > tolerance) return false
+                if (abs(( o          and 0xFF) - ( r          and 0xFF)) > tolerance) return false
+            }
+            return true
         }
     }
 }
