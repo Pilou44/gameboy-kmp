@@ -101,6 +101,9 @@ class Bus(
     val isDmaActive: Boolean get() = dmaCounter in 1..160 || dmaRestartDelay > 0
 
     var ppuMode: Int = 0
+    // Bus: plain primitive field, flipped by the PPU when the first-frame window opens/closes.
+    var ppuSamplingActive: Boolean = false
+
 
     /**
      * Callback invoked when the APU is powered off (NR52 bit 7: 1 -> 0).
@@ -195,7 +198,13 @@ class Bus(
     }
 
     fun read(address: Int): Int {
-        ppuSampler?.invoke(address)?.let { return it }   // dot-accurate override, null = fall through
+        // Cheap gate: one boolean test on the common path, no call, no boxing.
+        if (ppuSamplingActive) {
+            ppuSampler?.invoke(address)?.let { return it }   // dot-accurate override, null = fall through
+            // TODO replace with:
+//            val sampled = samplePpuRead(address) // concrete method, Int sentinel, NOT a (Int)->Int?
+//            if (sampled >= 0) return sampled
+        }
 
         // CGB-only registers are resolved before the DMG when() below, so that path
         // stays byte-for-byte identical on DMG. null = not a CGB register, fall through.
