@@ -27,7 +27,7 @@ class Ppu(
     private var firstFrameAfterLcdOn = false
         set(value) {
             field = value
-            bus.ppuSamplingActive = value
+            bus.ppuDotOverrideActive = value
         }
 
     private val bgpDots = IntArray(200)

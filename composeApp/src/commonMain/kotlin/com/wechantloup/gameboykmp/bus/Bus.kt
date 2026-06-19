@@ -102,7 +102,7 @@ class Bus(
 
     var ppuMode: Int = 0
     // Bus: plain primitive field, flipped by the PPU when the first-frame window opens/closes.
-    var ppuSamplingActive: Boolean = false
+    var ppuDotOverrideActive: Boolean = false
 
 
     /**
@@ -199,7 +199,7 @@ class Bus(
 
     fun read(address: Int): Int {
         // Cheap gate: one boolean test on the common path, no call, no boxing.
-        if (ppuSamplingActive) {
+        if (ppuDotOverrideActive) {
             ppuSampler?.invoke(address)?.let { return it }   // dot-accurate override, null = fall through
             // TODO replace with:
 //            val sampled = samplePpuRead(address) // concrete method, Int sentinel, NOT a (Int)->Int?
@@ -259,7 +259,9 @@ class Bus(
 
     fun write(address: Int, value: Int) {
         val v = value and 0xFF
-        if (ppuWriteIntercept?.invoke(address, v) == true) return
+        if (ppuDotOverrideActive) {
+            if (ppuWriteIntercept?.invoke(address, v) == true) return
+        }
 
         // CGB-only register writes are intercepted before the DMG path (same rationale
         // as read). v is the already-masked value.
