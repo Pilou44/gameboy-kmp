@@ -8,7 +8,6 @@ class Cpu(
     private val onMachineCycleTick: () -> Unit,
 ) {
     val registers = Registers() // Visible for tests
-    var isHalted = false // Visible for tests
     private var isStopped = false
     var ime = false // Visible for tests
 
@@ -37,8 +36,8 @@ class Cpu(
 
         if (pending != 0) {
             // Wake from HALT regardless of IME
-            if (isHalted) {
-                isHalted = false
+            if (bus.cpuHalted) {
+                bus.cpuHalted = false
                 if (!ime) {
                     // IME=false: just wake, no extra M-cycle consumed.
                     // Next step() will fetch the instruction after HALT normally.
@@ -90,7 +89,7 @@ class Cpu(
             }
         }
 
-        if (isHalted) {
+        if (bus.cpuHalted) {
             onMachineCycleTick()
             return
         }
@@ -108,7 +107,7 @@ class Cpu(
     fun reset() {
         ime = false
         registers.reset()
-        isHalted = false
+        bus.cpuHalted = false
     }
 
     internal fun getRegister(code: Int): Int {
@@ -155,7 +154,7 @@ class Cpu(
                 if (pending != 0 && !ime) {
                     haltBug = true  // halt bug regardless of IME state
                 } else {
-                    isHalted = true
+                    bus.cpuHalted = true
                 }
             }
 

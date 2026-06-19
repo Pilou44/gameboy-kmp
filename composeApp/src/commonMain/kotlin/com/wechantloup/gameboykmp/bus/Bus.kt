@@ -72,6 +72,7 @@ class Bus(
     var isDoubleSpeed = false
         private set
     private var speedSwitchArmed = false
+    var cpuHalted: Boolean = false
 
 
     // CGB palette RAM: 8 palettes × 4 colors × 2 bytes each, stored raw as RGB555 LE.
@@ -440,6 +441,48 @@ class Bus(
         return true
     }
 
+    /**
+     * Transfers a single 16-byte block of an active HBlank DMA.
+     *
+     * Called by the PPU on every mode 3 -> mode 0 edge (one HBlank per visible
+     * scanline). The PPU stays ignorant of HDMA: it only reports the edge; the Bus
+     * decides whether a transfer is pending and whether it is allowed to run.
+     *
+     * Relies on this HDMA state (map the names to your existing infra):
+     *  - hdmaActive          : true while an HBlank DMA is in progress
+     *  - hdmaSource          : running source address, 16-aligned, set at FF55 start
+     *  - hdmaDest            : running VRAM offset (0x0000-0x1FF0), set at FF55 start
+     *  - hdmaBlocksRemaining : 16-byte blocks left; FF55 read-back = (this - 1)
+     *  - cpuHalted           : published by the CPU
+     */
+    fun stepHblankDma() {
+        if (!hdmaActive) return
+        if (cpuHalted) return   // MagenTests quirk: HBlank DMA is suspended while the CPU is halted
+
+        // One block = 16 bytes. The destination is written into the *current* VBK bank:
+        // reading VBK live (single-arg writeVram) also handles a game changing VBK
+        // mid-transfer, which is the hardware behaviour.
+        // The source is never VRAM/OAM, so no PPU access gating applies.
+        for (i in 0 until 16) {
+            val byte = readDmaSource(hdmaSource + i)    // banked source read (MBC honoured)
+            writeVram(hdmaDest + i, byte)       // single-arg -> current VBK bank
+        }
+
+        hdmaSource = (hdmaSource + 16) and 0xFFFF
+        hdmaDest = (hdmaDest + 16) and 0x1FFF     // stay within the 8 KiB VRAM bank
+
+        hdmaRemaining--
+        if (hdmaRemaining == 0) {
+            hdmaActive = false
+            // FF55 must now read 0xFF. Make sure your read-back derives that from
+            // hdmaActive == false rather than from a stale length byte.
+        }
+
+        // TODO (T-state tier): the CPU is not stalled for the per-block transfer cycles
+        // (~8 M-cycles, doubled in double-speed). Deferred to the T-state refactor;
+        // functionally the block still lands in the correct HBlank.
+    }
+
     private fun buttonMask(button: JoypadButton): Int = when (button) {
         JoypadButton.RIGHT  -> 0x01
         JoypadButton.LEFT   -> 0x02
@@ -711,8 +754,14 @@ class Bus(
             hdmaDest = dest
             hdmaRemaining = (value and 0x7F) + 1   // number of 0x10-byte chunks
             hdmaActive = true
-            // TODO: if started while the PPU is already in mode 0 on a visible line, the
-            //  first chunk must transfer immediately. Handled with the PPU mode-0 hook.
+
+            // First-chunk-immediate quirk: if armed while the PPU is already in a visible-line
+            // HBlank, the first block transfers now instead of waiting for the next 3->0 edge.
+            // The LCD-on guard is mandatory: ppuMode also reads 0 while the LCD is off, and
+            // arming during LCD-off must NOT transfer (hdma_lcd_off).
+            if (ppuMode == 0 && (read(0xFF40) and 0x80) != 0) {
+                stepHblankDma()
+            }
         }
     }
 
@@ -720,7 +769,6 @@ class Bus(
         // CGB_COMPAT skip-boot fallback. The real CGB boot ROM preloads the compatibility
         // palettes; we skip it, so seed a neutral grey ramp so the screen isn't black.
         // white → black, RGB555 (5 bits/channel).
-        // TODO: replace with the boot ROM's auto-colourisation palette to match SameBoy.
         val COMPAT_GREY = intArrayOf(0x7FFF, 0x56B5, 0x294A, 0x0000)
 
         // BG palette 0 (the compat attribute map is all zeros → every BG tile uses palette 0).

@@ -1537,11 +1537,11 @@ class CpuTest {
         cpu.registers.f = 0x00
         cpu.registers.pc = 0xC000
         cpu.ime = false
-        cpu.isHalted = true
+        bus.cpuHalted = true
         bus.write(0xFFFF, 0x01)  // IE: V-Blank enabled
         bus.setIF(0x01)  // IF: V-Blank pending
         cpu.step()
-        assertFalse(cpu.isHalted)
+        assertFalse(bus.cpuHalted)
         cpu.step()           // NOP at 0x0101 executes, IME activates
         assertEquals(0xC001, cpu.registers.pc)
 

@@ -84,10 +84,10 @@ class InterruptsTest {
         h.bus.setIF(0x00)          // IF = 0
 
         h.step()  // HALT
-        assertTrue(h.cpu.isHalted, "CPU should be halted")
+        assertTrue(h.bus.cpuHalted, "CPU should be halted")
 
         // 4096 cycles to overflow + 4 for IF to be set + 4 for CPU to detect it on next step
         h.stepCycles(4096 + 8)
-        assertFalse(h.cpu.isHalted, "CPU should have exited HALT after timer interrupt")
+        assertFalse(h.bus.cpuHalted, "CPU should have exited HALT after timer interrupt")
     }
 }

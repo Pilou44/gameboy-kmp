@@ -170,6 +170,7 @@ class Ppu(
 
                 renderScanline(lcdc)
                 mode = 0
+                bus.stepHblankDma()
                 updateStat(0)
             }
 
