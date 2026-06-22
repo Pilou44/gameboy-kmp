@@ -617,7 +617,7 @@ class Bus(
         // TODO: during PPU mode 3 these reads must return 0xFF (CGB palette access lock).
         0xFF69 -> bgPaletteRam[bgPaletteIndex]
         0xFF6B -> objPaletteRam[objPaletteIndex]
-        0xFF55 -> if (hdmaActive) (hdmaRemaining - 1) and 0x7F else 0xFF  // bit 7 = 0 while active
+        0xFF55 -> (if (hdmaActive) 0x00 else 0x80) or ((hdmaRemaining - 1) and 0x7F)
         else -> null
     }
 
@@ -715,18 +715,11 @@ class Bus(
     }
 
     private fun startHdma(value: Int) {
-//        // TODO: remove this diagnostic once HBlank DMA is pumped.
-//        if (value and 0x80 != 0) {
-//            Logger.debug("Bus", "HDMA arm: HBlank, ${(value and 0x7F) + 1} chunks")
-//        } else if (!hdmaActive) {
-//            Logger.debug("Bus", "HDMA arm: GDMA, ${(value and 0x7F) + 1} chunks")
-//        }
-
-
         // Writing bit 7 = 0 while an HBlank DMA is in progress aborts it (HDMA5 then
         // reads back with bit 7 set). It does not start a GDMA.
         if (value and 0x80 == 0 && hdmaActive) {
             hdmaActive = false
+            hdmaRemaining = (value and 0x7F) + 1   // FF55 low 7 bits latch the written length on stop
             return
         }
 
@@ -738,12 +731,6 @@ class Bus(
             // TODO: GDMA halts the CPU for (length / 0x10) * 8 M-cycles (normal speed),
             //  doubled in double-speed. Not accounted yet.
             val length = ((value and 0x7F) + 1) * 0x10
-            // TODO: remove this diagnostic once the GDMA path is validated on SMB Deluxe.
-            Logger.debug(
-                "Bus",
-                "GDMA src=${source.toString(16)} dst=${(0x8000 + dest).toString(16)} " +
-                        "len=$length vbk=$vramBank"
-            )
             for (i in 0 until length) {
                 writeVram((dest + i) and 0x1FFF, readDmaSource(source + i))
             }
