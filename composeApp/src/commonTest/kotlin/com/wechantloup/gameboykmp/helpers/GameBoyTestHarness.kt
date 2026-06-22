@@ -12,15 +12,17 @@ import com.wechantloup.gameboykmp.timer.Timer
  * Full Game Boy test harness, mirroring the real emulation loop.
  * All components are wired together exactly as in production.
  */
-class GameBoyTestHarness {
+class GameBoyTestHarness(
+    machineMode: MachineMode,
+) {
     val cartridge = FakeCartridge()
-    val bus = Bus(cartridge, MachineMode.DMG, bootRom = null)
+    val bus = Bus(cartridge, machineMode, bootRom = null)
     val cpu = Cpu(bus, ::step1).also { it.reset() }
     val timer = Timer(bus)
     val ppu = Ppu(bus)
     val apu = Apu(bus)
 
-    private var totalCycles = 0
+    var totalCycles = 0
     private var cycleDebt = 0
 
     /**
@@ -69,7 +71,7 @@ class GameBoyTestHarness {
  *   assertEquals(0x02, h.cpu.registers.a)
  */
 fun gameBoyTest(block: GameBoyTestHarness.() -> Unit): GameBoyTestHarness {
-    return GameBoyTestHarness().apply(block)
+    return GameBoyTestHarness(machineMode = MachineMode.DMG).apply(block)
 }
 
 /** Configure CPU registers in the DSL. */
