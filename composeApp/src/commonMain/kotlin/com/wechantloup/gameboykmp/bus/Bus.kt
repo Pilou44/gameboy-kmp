@@ -755,11 +755,14 @@ class Bus(
             hdmaRemaining = (value and 0x7F) + 1   // number of 0x10-byte chunks
             hdmaActive = true
 
-            // First-chunk-immediate quirk: if armed while the PPU is already in a visible-line
-            // HBlank, the first block transfers now instead of waiting for the next 3->0 edge.
-            // The LCD-on guard is mandatory: ppuMode also reads 0 while the LCD is off, and
-            // arming during LCD-off must NOT transfer (hdma_lcd_off).
-            if (ppuMode == 0 && (read(0xFF40) and 0x80) != 0) {
+            // First-chunk-immediate quirk. ppuMode == 0 is true in two cases that BOTH must
+            // transfer one block right now:
+            //   - LCD on, visible-line HBlank (the normal quirk), or
+            //   - LCD off, where ppuMode is pinned to 0 and there will be no HBlank to pump the
+            //     rest — hardware does exactly one block, then the transfer stalls (verified by
+            //     gdma_addr_mask / hdma_lcd_off).
+            // The LCD-off case is then frozen by the PPU's early return until the LCD comes back.
+            if (ppuMode == 0) {
                 stepHblankDma()
             }
         }
