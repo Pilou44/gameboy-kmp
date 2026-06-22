@@ -16,6 +16,13 @@ class Cpu(
     private var haltBug = false
 
     fun step() {
+        // A general-purpose DMA started by the previous instruction freezes the CPU for the entire
+        // transfer. Drain it here, at the instruction boundary, before anything else: the timer/PPU
+        // advance during the stall, and any interrupt that comes due is then seen by the pending
+        // check below — serviced right after the transfer, as on hardware (the CPU cannot dispatch
+        // while frozen).
+        drainGdmaStall()
+
         // STOP mode (DMG): frozen until a selected joypad input line goes low.
         // Checked before the interrupt logic: unlike HALT, a pending interrupt does
         // NOT wake STOP (here IE=IF=0x01 / VBlank pending when STOP runs).
@@ -798,6 +805,20 @@ class Cpu(
         registers.sp = (registers.sp + 1) and 0xFFFF
         onMachineCycleTick()  // read high byte
         return (high shl 8) or low
+    }
+
+    /**
+     * Consumes the CPU stall published by a general-purpose DMA. GDMA freezes the CPU for the
+     * whole transfer; the Bus only publishes the M-cycle count (it cannot tick), so the CPU drains
+     * it through the same machine-cycle tick as everything else, advancing timer/PPU/APU by exactly
+     * the transfer duration. Speed is already baked into the published count (8 M-cycles per block
+     * in normal speed, 16 in double speed).
+     */
+    private fun drainGdmaStall() {
+        val stallMCycles = bus.pendingGdmaStallMCycles
+        if (stallMCycles == 0) return
+        bus.pendingGdmaStallMCycles = 0
+        repeat(stallMCycles) { onMachineCycleTick() }
     }
 
     /**

@@ -66,6 +66,11 @@ class Bus(
     private var hdmaDest = 0       // running dest offset within VRAM (0x0000-0x1FF0)
     private var hdmaRemaining = 0  // remaining 0x10-byte chunks
 
+    // M-cycles the CPU must be stalled by the general-purpose DMA that just started. Published as
+    // a primitive (like cpuHalted / ppuMode) because the Bus cannot call the CPU: the CPU drains
+    // this via onMachineCycleTick at the next instruction boundary, then resets it to 0.
+    var pendingGdmaStallMCycles = 0
+
     // Near the other CGB state (e.g. after the hdma fields):
     // Double-speed (CGB). CPU, timer/DIV and serial run twice as fast in double speed;
     // the PPU and APU keep their normal rate. Armed via KEY1 bit 0, committed by STOP.
@@ -728,12 +733,17 @@ class Bus(
 
         if (value and 0x80 == 0) {
             // General Purpose DMA: copy the whole block at once into the current VBK bank.
-            // TODO: GDMA halts the CPU for (length / 0x10) * 8 M-cycles (normal speed),
-            //  doubled in double-speed. Not accounted yet.
-            val length = ((value and 0x7F) + 1) * 0x10
+            val blocks = (value and 0x7F) + 1
+            val length = blocks * 0x10
             for (i in 0 until length) {
                 writeVram((dest + i) and 0x1FFF, readDmaSource(source + i))
             }
+            // GDMA freezes the CPU for the entire transfer: 8 M-cycles per 0x10-byte block in normal
+            // speed, 16 in double speed (same ~8us/block wall time either way). The bytes are already
+            // copied above; this figure only drives the timer/PPU advance.
+            // TODO: not consumed yet — the CPU must drain pendingGdmaStallMCycles via onMachineCycleTick
+            //  at the next instruction boundary, then reset it to 0.
+            pendingGdmaStallMCycles = blocks * (if (isDoubleSpeed) 16 else 8)
         } else {
             // HBlank DMA: 0x10 bytes per HBlank (mode 0), LY 0-143. Chunks are pumped by
             // the PPU hook (next step).
