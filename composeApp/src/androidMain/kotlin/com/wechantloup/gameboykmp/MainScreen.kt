@@ -8,15 +8,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalConfiguration
 import com.wechantloup.gameboykmp.apu.Apu
 import com.wechantloup.gameboykmp.ui.MobileScreen
-import io.github.vinceglb.filekit.FileKit
-import io.github.vinceglb.filekit.PlatformFile
-import io.github.vinceglb.filekit.dialogs.openFilePicker
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
-import kotlinx.coroutines.withContext
 
 @Composable
 fun MainScreen() {
@@ -25,15 +20,8 @@ fun MainScreen() {
 
     MobileScreen(
         isPortrait = isPortrait,
-        pickRom = ::pickRom,
         startAudio = ::startAudio,
     )
-}
-
-private suspend fun pickRom(): PlatformFile? {
-    return withContext(Dispatchers.IO) {
-        FileKit.openFilePicker()
-    }
 }
 
 private suspend fun startAudio(audioSamplesChannel: Channel<FloatArray>) {

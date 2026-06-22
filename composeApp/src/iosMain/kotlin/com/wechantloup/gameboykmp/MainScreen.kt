@@ -4,9 +4,6 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.runtime.Composable
 import com.wechantloup.gameboykmp.logger.Logger
 import com.wechantloup.gameboykmp.ui.MobileScreen
-import io.github.vinceglb.filekit.FileKit
-import io.github.vinceglb.filekit.PlatformFile
-import io.github.vinceglb.filekit.dialogs.openFilePicker
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.ObjCObjectVar
@@ -17,10 +14,7 @@ import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
 import kotlinx.cinterop.usePinned
 import kotlinx.cinterop.value
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.withContext
 import platform.AVFAudio.AVAudioEngine
 import platform.AVFAudio.AVAudioFormat
 import platform.AVFAudio.AVAudioPCMBuffer
@@ -37,15 +31,8 @@ fun MainScreen() {
         val isPortrait = maxHeight > maxWidth
         MobileScreen(
             isPortrait = isPortrait,
-            pickRom = ::pickRom,
             startAudio = ::startAudio,
         )
-    }
-}
-
-private suspend fun pickRom(): PlatformFile? {
-    return withContext(Dispatchers.IO) {
-        FileKit.openFilePicker()
     }
 }
 
