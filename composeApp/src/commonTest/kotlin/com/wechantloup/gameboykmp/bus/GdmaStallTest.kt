@@ -4,6 +4,9 @@ import com.wechantloup.gameboykmp.MachineMode
 import com.wechantloup.gameboykmp.helpers.GameBoyTestHarness
 import com.wechantloup.gameboykmp.helpers.registers
 import com.wechantloup.gameboykmp.helpers.rom
+import com.wechantloup.gameboykmp.logger.Logger
+import com.wechantloup.gameboykmp.logger.NoOpLogSink
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -94,4 +97,10 @@ class GdmaStallTest {
         val divDelta = (cgbDiv - dmgDiv) and 0xFF
         assertTrue(divDelta >= 3, "expected DIV to advance with the stall, got $divDelta")
     }
+
+    @BeforeTest
+    fun setup() {
+        Logger.sink = NoOpLogSink
+    }
+
 }
