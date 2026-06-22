@@ -1,4 +1,4 @@
-package com.wechantloup.gameboykmp.blarrgtests.helpers
+package com.wechantloup.gameboykmp.helpers
 
 import com.wechantloup.gameboykmp.MachineMode
 import com.wechantloup.gameboykmp.apu.Apu

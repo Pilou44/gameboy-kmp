@@ -38,7 +38,24 @@ class RomTestRunner {
     @Test
     @Order(2)
     fun `acid-dmg-acid2`(testInfo: TestInfo) {
-        runTest(testInfo.displayName, "acid/dmg-acid2.gb", 200)
+        runTest(
+            testName = testInfo.displayName,
+            romPath = "acid/dmg-acid2.gb",
+            duration = 200,
+            machineMode = MachineMode.DMG,
+        )
+    }
+
+    @Test
+    @Order(2)
+    fun `acid-dmg-acid2_cgb`(testInfo: TestInfo) {
+        runTest(
+            testName = testInfo.displayName,
+            romPath = "acid/dmg-acid2.gb",
+            duration = 200,
+            captureNameSuffix = "_cgb",
+            machineMode = MachineMode.CGB_COMPAT,
+        )
     }
 
     @Test
@@ -50,6 +67,17 @@ class RomTestRunner {
             duration = 500,
         )
     }
+
+    // ToDo T-cycle precision is mandatory for this one
+//    @Test
+//    @Order(2)
+//    fun `acid-cgb-acid-hell`(testInfo: TestInfo) {
+//        runTest(
+//            testName = testInfo.displayName,
+//            romPath = "acid/cgb-acid-hell.gbc",
+//            duration = 500,
+//        )
+//    }
 
     @Test
     @Order(3)
@@ -142,7 +170,6 @@ class RomTestRunner {
     @Test
     @Order(16)
     fun `blarrg-interrupt_time`(testInfo: TestInfo) {
-        // ToDo reference image indicates fail, but it's good for dmg only emulator. To fix when implementing GBC
         runTest(testInfo.displayName, "blarrg/interrupt_time.gb", 1_000)
     }
 

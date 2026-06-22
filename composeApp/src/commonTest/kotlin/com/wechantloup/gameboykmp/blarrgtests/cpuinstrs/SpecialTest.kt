@@ -1,8 +1,8 @@
-package com.wechantloup.gameboykmp.blarrgtests.tests.cpuinstrs
+package com.wechantloup.gameboykmp.blarrgtests.cpuinstrs
 
-import com.wechantloup.gameboykmp.blarrgtests.helpers.gameBoyTest
-import com.wechantloup.gameboykmp.blarrgtests.helpers.registers
-import com.wechantloup.gameboykmp.blarrgtests.helpers.rom
+import com.wechantloup.gameboykmp.helpers.gameBoyTest
+import com.wechantloup.gameboykmp.helpers.registers
+import com.wechantloup.gameboykmp.helpers.rom
 import kotlin.test.Test
 import kotlin.test.assertEquals
 

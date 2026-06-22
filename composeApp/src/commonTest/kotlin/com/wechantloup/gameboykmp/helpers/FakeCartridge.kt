@@ -1,4 +1,4 @@
-package com.wechantloup.gameboykmp.blarrgtests.helpers
+package com.wechantloup.gameboykmp.helpers
 
 import com.wechantloup.gameboykmp.cartridge.Cartridge
 import kotlinx.coroutines.flow.MutableStateFlow

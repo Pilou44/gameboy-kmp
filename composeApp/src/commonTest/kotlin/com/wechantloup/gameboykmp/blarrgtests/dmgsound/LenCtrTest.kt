@@ -1,7 +1,7 @@
-package com.wechantloup.gameboykmp.blarrgtests.tests.dmgsound
+package com.wechantloup.gameboykmp.blarrgtests.dmgsound
 
-import com.wechantloup.gameboykmp.blarrgtests.helpers.GameBoyTestHarness
-import com.wechantloup.gameboykmp.blarrgtests.helpers.gameBoyTest
+import com.wechantloup.gameboykmp.helpers.GameBoyTestHarness
+import com.wechantloup.gameboykmp.helpers.gameBoyTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
