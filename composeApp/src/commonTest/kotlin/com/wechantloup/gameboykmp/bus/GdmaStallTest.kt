@@ -65,6 +65,27 @@ class GdmaStallTest {
     }
 
     @Test
+    fun `CGB GDMA stalls 16 M-cycles per block in double speed`() {
+        fun doubleSpeedCycles(lengthByte: Int): Int {
+            val h = GameBoyTestHarness(MachineMode.CGB)
+            h.bus.write(0xFF51, 0x00); h.bus.write(0xFF52, 0x00)
+            h.bus.write(0xFF53, 0x00); h.bus.write(0xFF54, 0x00)
+            // Arm KEY1 (bit0), commit with STOP -> double speed, then fire the GDMA.
+            // LD A,01 ; LDH (4D),A ; STOP ; LD A,len ; LDH (55),A ; JR -2
+            h.rom(0x0100, 0x3E, 0x01, 0xE0, 0x4D, 0x10, 0x00, 0x3E, lengthByte, 0xE0, 0x55, 0x18, 0xFE)
+            h.registers { pc = 0x0100 }
+            val before = h.totalCycles
+            h.step(10)
+            // Guard the test's own premise: the prelude must really have engaged double speed.
+            assertTrue(h.bus.isDoubleSpeed, "KEY1 + STOP did not engage double speed")
+            return h.totalCycles - before
+        }
+        // Length-differential cancels the identical prelude (KEY1/STOP/fetches/JR); only the per-block
+        // stall differs. 16 M-cycles per block in double speed vs the 8 pinned by the single-speed tests.
+        assertEquals((64 - 1) * 16 * 4, doubleSpeedCycles(0x3F) - doubleSpeedCycles(0x00))
+    }
+
+    @Test
     fun `CGB GDMA stall is linear in block count`() {
         val oneBlock = systemCycles(MachineMode.CGB, 0x00)
         val sixtyFour = systemCycles(MachineMode.CGB, 0x3F)
