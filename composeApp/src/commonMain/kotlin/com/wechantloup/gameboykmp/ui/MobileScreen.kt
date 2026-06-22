@@ -45,7 +45,9 @@ import com.wechantloup.gameboykmp.ui.dmg.ABButtons
 import com.wechantloup.gameboykmp.ui.dmg.DMG_SHELL_COLOR
 import com.wechantloup.gameboykmp.ui.dmg.DPad
 import com.wechantloup.gameboykmp.ui.dmg.StartSelectButton
+import io.github.vinceglb.filekit.FileKit
 import io.github.vinceglb.filekit.PlatformFile
+import io.github.vinceglb.filekit.dialogs.openFilePicker
 import io.github.vinceglb.filekit.nameWithoutExtension
 import io.github.vinceglb.filekit.readBytes
 import kotlinx.coroutines.Dispatchers
@@ -58,7 +60,6 @@ import kotlin.math.min
 @Composable
 fun MobileScreen(
     isPortrait: Boolean,
-    pickRom: suspend () -> PlatformFile?,
     startAudio: suspend (Channel<FloatArray>) -> Unit,
 ) {
     val owner = checkNotNull(LocalViewModelStoreOwner.current)
@@ -97,7 +98,6 @@ fun MobileScreen(
             buttonChannel = buttonChannel,
             selectedPalette = selectedPalette,
             loadRom = gameBoyViewModel::loadRom,
-            pickRom = pickRom,
         )
     } else {
         LandscapeEmulator(
@@ -105,12 +105,9 @@ fun MobileScreen(
             buttonChannel = buttonChannel,
             selectedPalette = selectedPalette,
             loadRom = gameBoyViewModel::loadRom,
-            pickRom = pickRom,
         )
     }
 }
-
-
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -119,7 +116,6 @@ private fun PortraitEmulator(
     buttonChannel: Channel<JoypadEvent>,
     selectedPalette: MutableState<Palette>,
     loadRom: (ByteArray, String) -> Unit,
-    pickRom: suspend () -> PlatformFile?,
 ) {
     val scope = rememberCoroutineScope()
     Scaffold(
@@ -200,7 +196,6 @@ private fun LandscapeEmulator(
     buttonChannel: Channel<JoypadEvent>,
     selectedPalette: MutableState<Palette>,
     loadRom: (ByteArray, String) -> Unit,
-    pickRom: suspend () -> PlatformFile?,
 ) {
     Scaffold(
         containerColor = Color(DMG_SHELL_COLOR),
@@ -250,7 +245,6 @@ private fun LandscapeEmulator(
             RightControls(
                 buttonChannel = buttonChannel,
                 loadRom = loadRom,
-                pickRom = pickRom,
                 modifier = Modifier
                     .weight(0.5f)
                     .fillMaxHeight(),
@@ -361,7 +355,6 @@ private fun LeftControls(
 private fun RightControls(
     buttonChannel: Channel<JoypadEvent>,
     loadRom: (ByteArray, String) -> Unit,
-    pickRom: suspend () -> PlatformFile?,
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
@@ -404,5 +397,11 @@ private fun RightControls(
             onReleased = { onButtonReleased(JoypadButton.START) },
             modifier = Modifier.align(Alignment.BottomCenter),
         )
+    }
+}
+
+private suspend fun pickRom(): PlatformFile? {
+    return withContext(Dispatchers.IO) {
+        FileKit.openFilePicker()
     }
 }
