@@ -611,7 +611,6 @@ class Bus(
      * CGB-only register reads. Returns null when the address is not a CGB register,
      * letting read() fall through to the unchanged DMG path.
      *
-     * TODO: KEY1 (0xFF4D) and OPRI (0xFF6C) still to wire as their steps land.
      * TODO: in CGB_COMPAT the real boot ROM locks the palette registers after setup.
      *   Harmless for a DMG game (never accesses them), but the lock read-back semantics
      *   must be verified vs Pan Docs at the auto-palette step.
