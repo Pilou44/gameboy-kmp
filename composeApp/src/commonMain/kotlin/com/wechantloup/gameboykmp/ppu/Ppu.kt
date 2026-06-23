@@ -2,6 +2,7 @@ package com.wechantloup.gameboykmp.ppu
 
 import com.wechantloup.gameboykmp.MachineMode
 import com.wechantloup.gameboykmp.bus.Bus
+import com.wechantloup.gameboykmp.logger.Logger
 import kotlinx.coroutines.channels.Channel
 
 class Ppu(
@@ -308,16 +309,26 @@ class Ppu(
 
         when (bus.machineMode) {
             MachineMode.DMG -> {
-                if (lcdc and 0x01 != 0) renderBackground(lcdc)
-                if (lcdc and 0x20 != 0) renderWindow(lcdc)
+                if (lcdc and 0x01 != 0) {
+                    renderBackground(lcdc)
+                    if (lcdc and 0x20 != 0) renderWindow(lcdc)
+                } else {
+                    // DMG: LCDC.0 = 0 disables BG *and* window; the line shows BGP colour 0.
+                    fillBgColorZeroDmg()
+                }
                 if (lcdc and 0x02 != 0) renderSprites(lcdc)
             }
             MachineMode.CGB_COMPAT -> {
                 // DMG game on CGB hardware: DMG rendering rules (LCDC.0 = BG enable, bank-0
                 // tiles, no per-tile attributes, BGP/OBP shade mapping), but the resolved DMG
                 // shade indexes the CGB palettes instead of the four greys.
-                if (lcdc and 0x01 != 0) renderBackgroundCompat(lcdc)
-                if (lcdc and 0x20 != 0) renderWindowCompat(lcdc)
+                if (lcdc and 0x01 != 0) {
+                    renderBackgroundCompat(lcdc)
+                    if (lcdc and 0x20 != 0) renderWindowCompat(lcdc)
+                } else {
+                    // DMG semantics: LCDC.0 = 0 disables BG *and* window; the line shows BGP colour 0.
+                    fillBgColorZeroCompat()
+                }
                 if (lcdc and 0x02 != 0) renderSpritesCompat(lcdc)
             }
             MachineMode.CGB -> {
@@ -326,6 +337,28 @@ class Ppu(
                 if (lcdc and 0x02 != 0) renderSpritesCgb(lcdc)
             }
         }
+    }
+
+    private fun fillBgColorZeroDmg() {
+        // LCDC.0 = 0: BG forced to colour index 0, mapped through BGP. frameBuffer holds raw DMG
+        // shades here, so write the shade BGP maps colour 0 to (not an RGB555 value). Skipping the
+        // render would leave shade 0, which only looks right when BGP[0] == 0. bgColorIndexBuffer
+        // stays 0, so sprites correctly treat the BG as colour 0.
+        val shade0 = (bus.read(0xFF47)) and 0x03
+        val base = ly * 160
+        for (x in 0 until 160) frameBuffer[base + x] = shade0
+    }
+
+    private fun fillBgColorZeroCompat() {
+        // LCDC.0 = 0 under DMG rules: the BG layer is forced to colour index 0, mapped through BGP.
+        // In compat that DMG shade indexes CGB BG palette 0, so we write its CGB colour. Skipping
+        // the render (as the LCDC.0 != 0 path does) would leave the frame buffer at RGB555 0x0000
+        // (black) — the dmg-acid2 hair band. bgColorIndexBuffer stays 0 (already reset for the line),
+        // so sprites correctly treat the BG as colour 0 and show on top.
+        val shade0 = bus.read(0xFF47) and 0x03
+        val color = bus.bgColorRgb555(0, shade0)
+        val base = ly * 160
+        for (x in 0 until 160) frameBuffer[base + x] = color
     }
 
     private fun renderSprites(lcdc: Int) {

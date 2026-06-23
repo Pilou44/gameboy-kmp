@@ -52,9 +52,10 @@ class RomTestRunner {
         runTest(
             testName = testInfo.displayName,
             romPath = "acid/dmg-acid2.gb",
-            duration = 200,
+            duration = 3500,
             captureNameSuffix = "_cgb",
             machineMode = MachineMode.CGB_COMPAT,
+            skipBoot = false,
         )
     }
 
