@@ -89,6 +89,12 @@ class Bus(
     private var objPaletteIndex = 0      // OCPS bits 0-5
     private var objPaletteAutoInc = false
 
+    // OPRI (FF6C) bit 0: OBJ priority mode. Read-back latch ONLY — the priority mode is latched at
+    // boot and hardcoded per render path (see Ppu), so this value never drives rendering, matching
+    // hardware where post-boot writes have no effect on priority. With a boot ROM the boot writes it
+    // ($01 in DMG-compat, untouched/$00 in CGB); without one we reproduce that residue here.
+    private var opri = if (bootRom == null && machineMode == MachineMode.CGB_COMPAT) 1 else 0
+
     private val oam = IntArray(0xA0) // 160 bytes = 40 sprites × 4 bytes
     @Volatile
     private var joypadState = 0xFF  // all buttons released
@@ -622,6 +628,8 @@ class Bus(
         // TODO: during PPU mode 3 these reads must return 0xFF (CGB palette access lock).
         0xFF69 -> bgPaletteRam[bgPaletteIndex]
         0xFF6B -> objPaletteRam[objPaletteIndex]
+        // OPRI: bit 0 = OBJ priority mode (read-back only), bits 1-7 read as 1.
+        0xFF6C -> opri or 0xFE
         0xFF55 -> (if (hdmaActive) 0x00 else 0x80) or ((hdmaRemaining - 1) and 0x7F)
         else -> null
     }
@@ -629,8 +637,6 @@ class Bus(
     /**
      * CGB-only register writes. Returns true when handled (write() returns early),
      * false to fall through to the DMG path.
-     *
-     * TODO: KEY1 (0xFF4D) and OPRI (0xFF6C) still to wire (see readCgbRegister).
      */
     private fun writeCgbRegister(address: Int, value: Int): Boolean = when (address) {
         // Only bit 0 (prepare switch) is writable; bit 7 in the written value is ignored
@@ -650,6 +656,11 @@ class Bus(
         0xFF6B -> {
             objPaletteRam[objPaletteIndex] = value
             if (objPaletteAutoInc) objPaletteIndex = (objPaletteIndex + 1) and 0x3F
+            true
+        }
+        0xFF6C -> {
+            // OPRI: only bit 0 is writable
+            opri = value and 0x01
             true
         }
         0xFF51 -> {

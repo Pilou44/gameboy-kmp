@@ -2,7 +2,6 @@ package com.wechantloup.gameboykmp.ppu
 
 import com.wechantloup.gameboykmp.MachineMode
 import com.wechantloup.gameboykmp.bus.Bus
-import com.wechantloup.gameboykmp.logger.Logger
 import kotlinx.coroutines.channels.Channel
 
 class Ppu(
@@ -552,9 +551,11 @@ class Ppu(
 
         val masterPriority = lcdc and 0x01 != 0   // LCDC.0 on CGB = BG/OBJ master priority
 
-        // CGB priority is by OAM index only (no X sort): lowest index wins. The list is in
-        // ascending OAM order, so iterating it reversed paints the lowest index last = on top.
-        // TODO: OPRI (0xFF6C) can switch back to DMG X-coordinate priority; not wired yet.
+        // CGB priority is by OAM index only (no X sort): lowest index wins. The list is in ascending
+        // OAM order, so iterating it reversed paints the lowest index last = on top.
+        // OPRI (FF6C) is latched by the boot ROM (0 here in CGB mode, 1 in DMG-compat) and has no
+        // effect when written post-boot, so the priority mode is fixed per machine mode and correctly
+        // hardcoded per render path — there is nothing to switch at runtime.
         for (spriteIndex in spriteIndexesToDisplay.reversed()) {
             val positionY = bus.readOam(spriteIndex * 4)
             val positionX = bus.readOam(spriteIndex * 4 + 1)
