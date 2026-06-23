@@ -664,22 +664,22 @@ class Bus(
         }
         0xFF51 -> {
             hdma1 = value
-            Logger.debug("Bus", "W HDMA1=${value.toString(16)}")
+//            Logger.debug("Bus", "W HDMA1=${value.toString(16)}")
             true
         }
         0xFF52 -> {
             hdma2 = value
-            Logger.debug("Bus", "W HDMA2=${value.toString(16)}")
+//            Logger.debug("Bus", "W HDMA2=${value.toString(16)}")
             true
         }
         0xFF53 -> {
             hdma3 = value
-            Logger.debug("Bus", "W HDMA3=${value.toString(16)}")
+//            Logger.debug("Bus", "W HDMA3=${value.toString(16)}")
             true
         }
         0xFF54 -> {
             hdma4 = value
-            Logger.debug("Bus", "W HDMA4=${value.toString(16)}")
+//            Logger.debug("Bus", "W HDMA4=${value.toString(16)}")
             true
         }
         0xFF55 -> {

@@ -54,6 +54,15 @@ class GameBoyViewModel : ViewModel() {
     private var cartridge: Cartridge? = null
     var frameCycles = 0
 
+    // Benchmark mode: records pure frame-generation time (excludes the throttle delay).
+    // Keep false during normal playback.
+    var benchmarkMode = true // ToDo
+
+    private var benchFrameCount = 0
+    private var benchTotalNanos = 0L
+    private var benchMaxNanos = 0L
+
+
     private val dmgPalette: Palette
         get() = stateFlow.value.dmgPalette
 
@@ -148,9 +157,25 @@ class GameBoyViewModel : ViewModel() {
                         frameStartMark = currentTimeMark()
                     }
 
+                    val benchMark = if (benchmarkMode) currentTimeMark() else null
+
                     frameCycles = 0
                     while (frameCycles < 70224) {
                         cpu.step()
+                    }
+
+                    if (benchmarkMode && benchMark != null) {
+                        val elapsed = benchMark.elapsedNow().inWholeNanoseconds
+                        benchTotalNanos += elapsed
+                        if (elapsed > benchMaxNanos) benchMaxNanos = elapsed
+                        if (++benchFrameCount >= BENCH_WINDOW_FRAMES) {
+                            val avgMs = benchTotalNanos / benchFrameCount / 1_000_000.0
+                            val maxMs = benchMaxNanos / 1_000_000.0
+                            Logger.debug(TAG, "Bench: avg=${avgMs}ms max=${maxMs}ms over $benchFrameCount frames")
+                            benchFrameCount = 0
+                            benchTotalNanos = 0L
+                            benchMaxNanos = 0L
+                        }
                     }
 
                     frameStartMark += frameDuration
@@ -258,5 +283,6 @@ class GameBoyViewModel : ViewModel() {
     companion object {
         private const val TAG = "GameBoyViewModel"
         private const val FRAME_DURATION_NS = (1_000_000_000.0 / 59.7275).toLong()  // ≈ 16_742_706
+        private const val BENCH_WINDOW_FRAMES = 3600
     }
 }
