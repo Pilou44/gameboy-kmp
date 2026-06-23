@@ -42,6 +42,10 @@ class Ppu(
             updateLycFlag()
             refreshStatInterrupt()
         }
+        // TODO step 2: this sampler, the write-intercept below, and the PpuTiming object are all
+        //  removed once the live per-dot machine drives the lcd-on observable directly. This lambda
+        //  is also the source of the per-access Int boxing (a function type over a primitive) — the
+        //  main perf cost the T-state refactor eliminates.
         bus.ppuSampler = sampler@{ addr ->
 
             if (!firstFrameAfterLcdOn) return@sampler null
@@ -53,19 +57,19 @@ class Ppu(
                 0xFF44 -> s.ly
                 in 0xFE00..0xFE9F -> when {
                     s.oamBlocked    -> 0xFF
-                    bus.isDmaActive -> 0xFF                    // OAM inaccessible pendant DMA
-                    else            -> bus.readOam(addr - 0xFE00)   // modèle dot seul, bypass ppuMode
+                    bus.isDmaActive -> 0xFF                    // OAM inaccessible during DMA
+                    else            -> bus.readOam(addr - 0xFE00)   // dot-only model, bypasses ppuMode
                 }
                 in 0x8000..0x9FFF -> if (s.vramBlocked) 0xFF else bus.readVram(addr - 0x8000)
                 else -> null
             }
         }
         bus.ppuWriteIntercept = wi@{ addr, v ->
-            if (!firstFrameAfterLcdOn) return@wi false          // hors 1re frame → write() normal
+            if (!firstFrameAfterLcdOn) return@wi false          // outside the first frame → normal write()
             when (addr) {
                 in 0xFE00..0xFE9F -> {
                     if (!PpuTiming.oamWriteBlocked(lcdOnDot) && !bus.isDmaActive) bus.writeOam(addr - 0xFE00, v)
-                    true                                         // géré (drop OU écrit) → court-circuite ppuMode
+                    true                                         // handled (dropped OR written) → short-circuits ppuMode
                 }
                 in 0x8000..0x9FFF -> {
                     if (!PpuTiming.vramWriteBlocked(lcdOnDot)) bus.writeVram(addr - 0x8000, v)
@@ -76,7 +80,7 @@ class Ppu(
         }
         bus.onBgpWrite = { v ->
             if (mode == 3 && bgpCount < bgpDots.size) {
-                bgpDots[bgpCount] = modeClock   // dot du mode 3 au moment de l'écriture
+                bgpDots[bgpCount] = modeClock   // mode-3 dot at the time of the write
                 bgpVals[bgpCount] = v
                 bgpCount++
             }
@@ -84,6 +88,14 @@ class Ppu(
     }
 
     fun step(cycles: Int) {
+        // Apply a queued STAT mode change at the M-cycle boundary, as the block model did. The
+        // transition is *detected* at the exact dot in advanceOneDot(), but its observable effect
+        // (bus.ppuMode, STAT mode bits, IRQ re-eval) stays aligned to the boundary, so the CPU
+        // sees identical timing. No artificial dot delay here — that was wrong (added one M-cycle).
+        // TODO T-state precision (after step 2): hardware applies the internal mode + access
+        //  blocking immediately and lags only the 0xFF41 mode bits; the IRQ follows the real
+        //  transition with per-source quirks (mode 2 checked at one M-cycle, can't block; LYC
+        //  delayed ~1 cycle after mode 2). Validated one source at a time.
         pendingStatMode?.let { m ->
             statMode = m
             bus.ppuMode = m
@@ -93,7 +105,13 @@ class Ppu(
             pendingStatMode = null
         }
 
+        // Read once per M-cycle: the CPU cannot change LCDC between dots of the same M-cycle
+        // (it only touches the bus on M-cycle boundaries), so LCDC is stable across these dots.
         val lcdc = bus.read(0xFF40)
+
+        // lcdOnDot is consumed only by PpuTiming (the lcd-on observable), not by the live
+        // dot machine. It must keep its original step-level phase until PpuTiming is removed
+        // in step 2 — advancing it per dot shifts the rising-edge step by +4 dots.
         if (firstFrameAfterLcdOn) lcdOnDot += cycles
 
         if (lcdc and 0x80 == 0) {
@@ -141,7 +159,20 @@ class Ppu(
             checkLyc()
         }
 
-        modeClock += cycles
+        // Advance one dot at a time so mode transitions, LY and access blocking land on the exact
+        // dot, not on a 4-dot (2 in double speed) block boundary. cycles is 4, or 2 in double
+        // speed. Per-dot work is integer counters + threshold tests only — no allocation — so this
+        // stays cheaper than the sampler path it will let us remove.
+        repeat(cycles) {
+            advanceOneDot(lcdc)
+        }
+    }
+
+    private fun advanceOneDot(lcdc: Int) {
+        // NOTE: lcdOnDot is intentionally NOT incremented here — see step(). Only modeClock
+        // and the mode state machine advance per dot in step 1.
+
+        modeClock++
 
         when (mode) {
             // Mode 2 - OAM Search
@@ -156,6 +187,9 @@ class Ppu(
                 bgpVals[0] = bus.readRaw(0xFF47)
                 val scx = bus.read(0xFF43)
                 val penalty = scxPenalty(scx) + spriteMode3Penalty(lcdc, scx)
+                // TODO FIFO / level B (conditional — only if these formula-based durations leave
+                //  timing reds): mode-3 duration should become emergent from the fetcher/FIFO instead
+                //  of being computed here. Not a planned step; depends on level-A results.
                 mode3Duration = 172 + penalty
                 mode0Duration = 204 - penalty
                 updateStat(3)
@@ -183,12 +217,12 @@ class Ppu(
                 if (isFirstScanline) {
                     isFirstScanline = false
                     mode0Duration = 200
-                    mode3Duration = 172      // ← ligne 0 : pas de pénalité SCX, chemin lcdon inchangé
+                    mode3Duration = 172      // line 0: no SCX penalty, lcdon path unchanged
                     mode = 3
                     updateStat(3)
                 } else {
                     // Normal HBlank exit
-                    mode0Duration = 204 // Reset to standard (adjusted for SCX in fix 4)
+                    mode0Duration = 204 // Reset to the standard mode-0 duration (SCX adjustment is reapplied at the mode 2→3 transition)
                     ly++
                     bus.write(0xFF44, ly)
                     checkLyc()
@@ -249,7 +283,15 @@ class Ppu(
     }
 
     private fun updateStat(newMode: Int) {
-        pendingStatMode = newMode      // bits STAT + IRQ : appliqués au step suivant (+4 dots)
+        // Queue the STAT mode change; applied at the top of the next step() — i.e. on the next
+        // M-cycle boundary, NOT after a fixed dot delay. The transition is detected at the exact
+        // dot in advanceOneDot(), but its observable effect stays boundary-aligned so CPU-visible
+        // timing is unchanged.
+        // TODO T-state precision (after step 2): hardware changes the internal mode + access
+        //  blocking immediately and lags only the 0xFF41 mode bits (~4 dots); the IRQ follows the
+        //  real transition with per-source quirks (mode 2 checked at one M-cycle, can't block; LYC
+        //  delayed ~1 cycle after mode 2). Validated one source at a time.
+        pendingStatMode = newMode
     }
 
     private fun checkLyc() {
@@ -792,7 +834,7 @@ class Ppu(
     private fun renderBackground(lcdc: Int) {
         val scy = bus.read(0xFF42)
         val scx = bus.read(0xFF43)
-        val warmup = 6 + (scx and 7)          // dot du mode 3 où sort le pixel x=0
+        val warmup = 6 + (scx and 7)          // mode-3 dot at which pixel x=0 is emitted
 
         // Bit 3: BG tile map — 0=0x9800, 1=0x9C00
         val tileMapBase = if (lcdc and 0x08 != 0) 0x1C00 else 0x1800  // VRAM offsets
@@ -836,7 +878,7 @@ class Ppu(
     private fun renderBackgroundCompat(lcdc: Int) {
         val scy = bus.read(0xFF42)
         val scx = bus.read(0xFF43)
-        val warmup = 3 + (scx and 7)          // dot du mode 3 où sort le pixel x=0
+        val warmup = 3 + (scx and 7)          // mode-3 dot at which pixel x=0 is emitted
 
         // Bit 3: BG tile map — 0=0x9800, 1=0x9C00
         val tileMapBase = if (lcdc and 0x08 != 0) 0x1C00 else 0x1800  // VRAM offsets
@@ -946,16 +988,16 @@ class Ppu(
     }
 
     private fun spriteMode3Penalty(lcdc: Int, scx: Int): Int {
-        if (lcdc and 0x02 == 0) return 0                 // sprites désactivés
+        if (lcdc and 0x02 == 0) return 0                 // sprites disabled
         val height = if (lcdc and 0x04 != 0) 16 else 8
         val xs = ArrayList<Int>(10)
         var i = 0
-        while (i < 40 && xs.size < 10) {                 // scan mode 2 : 10 max, ordre OAM, par Y
+        while (i < 40 && xs.size < 10) {                 // mode 2 scan: max 10, OAM order, by Y
             val y = bus.readOam(i * 4)
             if (ly + 16 >= y && ly + 16 < y + height) xs.add(bus.readOam(i * 4 + 1))
             i++
         }
-        xs.removeAll { it >= 168 }                        // hors écran à droite : pas de pénalité
+        xs.removeAll { it >= 168 }                        // off-screen to the right: no penalty
         xs.sort()
         var p = 0; var lastTile = -1
         for (x in xs) {
@@ -963,6 +1005,6 @@ class Ppu(
             val tile = (x + scx) / 8
             if (tile != lastTile) { p += maxOf(0, 5 - ((x + scx) and 7)); lastTile = tile }
         }
-        return (p / 4) * 4                                // ← tronqué au M-cycle (floor)
+        return (p / 4) * 4                                // truncated to the M-cycle (floor)
     }
 }
