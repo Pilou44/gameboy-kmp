@@ -3,6 +3,24 @@ package com.wechantloup.gameboykmp.cpu
 import com.wechantloup.gameboykmp.MachineMode
 import com.wechantloup.gameboykmp.bus.Bus
 
+/**
+ * Sharp SM83 CPU core.
+ *
+ * Timing contract: the CPU drives the rest of the system through [onMachineCycleTick], fired
+ * once per machine cycle (M-cycle = 4 T-cycles). This granularity is deliberate, not a
+ * simplification. The SM83 performs at most one bus access per M-cycle (opcode fetch, operand
+ * read, or data read/write); between M-cycles it only does internal work (ALU, decode) that is
+ * invisible to other components. Every externally observable CPU event therefore lands on an
+ * M-cycle boundary, so ticking more often would gain no information — a finer callback would
+ * fire 3 ticks out of 4 with nothing to report.
+ *
+ * Sub-M-cycle (per-dot) timing is the PPU's concern: each tick advances the PPU by a fixed
+ * number of dots (4, or 2 in double-speed mode), and the PPU subdivides that span internally.
+ * Dot-accurate behavior belongs there, never in this class.
+ *
+ * @param bus system bus the CPU reads from and writes to.
+ * @param onMachineCycleTick callback fired once per M-cycle; see the timing contract above.
+ */
 class Cpu(
     private val bus: Bus,
     private val onMachineCycleTick: () -> Unit,
