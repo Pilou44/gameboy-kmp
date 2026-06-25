@@ -212,7 +212,7 @@ class Bus(
     fun read(address: Int): Int {
         // Cheap gate: one boolean test on the common path, no call, no boxing.
         if (ppuDotOverrideActive) {
-            ppuSampler?.invoke(address)?.let { return it }   // dot-accurate override, null = fall through
+//            ppuSampler?.invoke(address)?.let { return it }   // dot-accurate override, null = fall through
             // TODO replace with:
 //            val sampled = samplePpuRead(address) // concrete method, Int sentinel, NOT a (Int)->Int?
 //            if (sampled >= 0) return sampled

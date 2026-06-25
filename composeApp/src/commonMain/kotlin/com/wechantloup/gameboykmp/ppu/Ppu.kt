@@ -2,6 +2,7 @@ package com.wechantloup.gameboykmp.ppu
 
 import com.wechantloup.gameboykmp.MachineMode
 import com.wechantloup.gameboykmp.bus.Bus
+import com.wechantloup.gameboykmp.logger.Logger
 import kotlinx.coroutines.channels.Channel
 
 class Ppu(
@@ -33,6 +34,7 @@ class Ppu(
     private val bgpDots = IntArray(200)
     private val bgpVals = IntArray(200)
     private var bgpCount = 0
+    private var dbgDotsSinceOn = 0   // TEMP diagnosis — real dot count since LCD-on
 
     private var ly153Wrapped = false
 
@@ -150,9 +152,15 @@ class Ppu(
             lcdWasOn = true
             ly = 0
             modeClock = 0
+            dbgDotsSinceOn = 0
             mode = 0           // Line 0 starts in mode 0, skipping mode 2
             isFirstScanline = true
-            mode0Duration = 80 // Short initial mode 0: 80 T-cycles before mode 3
+
+            // Line 0 initial mode-0 length before mode 3 (lcdon). Was 80 (mode-2 duration,
+            //  copied by analogy) — wrong but masked by PpuTiming until the read sampler was
+            //  unplugged. 65 aligns with PpuTiming's validated L0_MODE3_START.
+            mode0Duration = 65
+
             bus.ppuMode = 0
             updateLycFlag()    // comparison clock resumes: re-evaluate LY(0) == LYC first
             updateStat(0)
@@ -173,6 +181,7 @@ class Ppu(
         // and the mode state machine advance per dot in step 1.
 
         modeClock++
+        dbgDotsSinceOn++
 
         when (mode) {
             // Mode 2 - OAM Search
@@ -216,7 +225,10 @@ class Ppu(
                 modeClock -= mode0Duration
                 if (isFirstScanline) {
                     isFirstScanline = false
-                    mode0Duration = 200
+                    // Final mode-0 of line 0. Line-0 total = 65 + 172 + 204 = 441
+                    //  (PpuTiming L0_LEN) → LY ticks to 1 at the right dot. Was 200,
+                    //  another phantom value the sampler used to hide.
+                    mode0Duration = 204
                     mode3Duration = 172      // line 0: no SCX penalty, lcdon path unchanged
                     mode = 3
                     updateStat(3)
@@ -225,6 +237,9 @@ class Ppu(
                     mode0Duration = 204 // Reset to the standard mode-0 duration (SCX adjustment is reapplied at the mode 2→3 transition)
                     ly++
                     bus.write(0xFF44, ly)
+                    if (firstFrameAfterLcdOn && ly <= 2) {
+                        Logger.debug("Ppu", "first frame: LY -> $ly at dot=$dbgDotsSinceOn")
+                    }
                     checkLyc()
                     if (ly == 144) {
                         firstFrameAfterLcdOn = false
