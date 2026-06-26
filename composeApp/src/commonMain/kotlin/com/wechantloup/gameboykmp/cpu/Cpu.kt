@@ -22,6 +22,14 @@ class Cpu(
     private val bus: CpuBus,
     private val onMachineCycleTick: () -> Unit,
 ) {
+    // ── Micro-op pipeline (T-cycle CPU core) ─────────────────────────────────────
+    // WZ latches: 8-bit data in flight between T-cycles of the current instruction.
+    private var latchW = 0
+    private var latchZ = 0
+
+    private val pipeline = RingBuffer<MicroOp>(32)
+    private var microTCounter = 0   // T within the current M-cycle of the running sequence (0..3)
+
     val registers = Registers() // Visible for tests
     private var isStopped = false
     var ime = false // Visible for tests
@@ -903,26 +911,27 @@ class Cpu(
         sp = 0xFFFE
     }
 
-    // ── Phase A micro-op engine ──────────────────────────────────────────────────
-// WZ latches: data in flight between M-cycles of the current instruction.
-    private var latchW = 0
-    private var latchZ = 0
-
     /**
-     * Runs an instruction's micro-op sequence. Phase A plays the whole sequence within step(): each op
-     * does its bus access at T0 then the M-cycle's tick fires — byte-for-byte identical to the legacy
-     * read-then-tick. Phase B will instead consume ONE op per cpu.tick() (persistent index), and the
-     * harness will prove THAT change neutral too.
+     * Phase A: push the instruction's micro-ops, then drain them fully here, firing onMachineCycleTick
+     * every 4 T. Access happens whenever its micro-op runs within the M-cycle — invisible to the harness,
+     * which only sees (mCycle, op, addr, value). The full-drain is phase-A staging: phase B will instead
+     * pop ONE micro-op per external tick(), the pipeline persisting across ticks.
      */
     private fun runMicroSequence(seq: Array<MicroOp>) {
-        for (op in seq) {
-            perform(op)
-            onMachineCycleTick()   // access happened at T0; TODO phase C: place it at the real T
+        for (op in seq) pipeline.push(op)
+        microTCounter = 0
+        while (!pipeline.isEmpty) {
+            perform(pipeline.pop())
+            if (++microTCounter == 4) {
+                microTCounter = 0
+                onMachineCycleTick()   // one M-cycle elapsed; producers still batched (step 1)
+            }
         }
     }
 
     private fun perform(op: MicroOp) {
         when (op) {
+            MicroOp.Idle -> Unit
             is MicroOp.ReadImmediate -> {
                 val v = bus.read(registers.pc)
                 registers.pc = (registers.pc + 1) and 0xFFFF
@@ -934,7 +943,7 @@ class Cpu(
         }
     }
 
-    private fun setLatch(l: Latch, v: Int) { when (l) { Latch.W -> latchW = v; Latch.Z -> latchZ = v } }
+    private fun setLatch(l: Latch, v: Int) { when (l) { Latch.W -> latchW = v and 0xFF; Latch.Z -> latchZ = v and 0xFF } }
 
     private fun addr16(a: Addr16): Int = when (a) {
         Addr16.BC -> registers.bc
@@ -945,14 +954,18 @@ class Cpu(
     }
 
     private fun src8(s: Src8): Int = when (s) {
-        Src8.A -> registers.a
-        Src8.B -> registers.b
-        Src8.C -> registers.c
-        Src8.D -> registers.d
-        Src8.E -> registers.e
-        Src8.H -> registers.h
-        Src8.L -> registers.l
-        Src8.W -> latchW
-        Src8.Z -> latchZ
+        Src8.A -> registers.a; Src8.B -> registers.b; Src8.C -> registers.c; Src8.D -> registers.d
+        Src8.E -> registers.e; Src8.H -> registers.h; Src8.L -> registers.l
+        Src8.W -> latchW; Src8.Z -> latchZ
+    }
+
+    /** INC effect on the Z latch (+ flags), reused by INC (HL) and later INC r. C is untouched. */
+    internal fun microIncZ() {
+        val old = latchZ
+        val v = (old + 1) and 0xFF
+        latchZ = v
+        registers.flagZ = v == 0
+        registers.flagN = false
+        registers.flagH = (old and 0x0F) == 0x0F
     }
 }
