@@ -35,6 +35,27 @@ object MicroCode {
             MicroOp.Idle,
             MicroOp.WriteMem(Addr16.HL, Src8.Z),
         )
+
+        this[0xC5] = arrayOf(
+            // PUSH BC
+            // M1 (after fetch): internal SP-prep M-cycle, no bus access, no decrement here —
+            // matches push()'s leading onMachineCycleTick() before any SP--.
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            // M2: SP-- then write high byte (B) to [SP]. Decrement precedes the access (data dependency).
+            MicroOp.Internal { it.microDecSp() },
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.SP, Src8.B),
+            // M3: SP-- then write low byte (C) to [SP].
+            MicroOp.Internal { it.microDecSp() },
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.SP, Src8.C),
+        )
+
         // TODO migrate distinct shapes next: push (pre-dec SP), LDI (post-inc HL), JR cc (conditional
         //  push to pipeline), ISR — to prove the MicroOp set has no dead-end before bulk-filling.
     }

@@ -968,4 +968,7 @@ class Cpu(
         registers.flagN = false
         registers.flagH = (old and 0x0F) == 0x0F
     }
+
+    /** Pre-decrement SP. Its own T-cycle (one MicroOp = one T); shared by PUSH/CALL/RST. */
+    internal fun microDecSp() { registers.sp = (registers.sp - 1) and 0xFFFF }
 }
