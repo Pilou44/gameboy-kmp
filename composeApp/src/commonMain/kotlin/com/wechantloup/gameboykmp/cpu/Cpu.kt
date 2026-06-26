@@ -178,8 +178,6 @@ class Cpu(
 
     private fun execute(opcode: Int) {
         when (opcode) {
-            0x00 -> Unit /* NOP - do nothing */
-
             0x76 -> {
                 val pending = bus.ie and bus.iF and 0x1F
                 if (pending != 0 && !ime) {
@@ -215,11 +213,11 @@ class Cpu(
             0x1E -> registers.e = fetch()
             0x26 -> registers.h = fetch()
             0x2E -> registers.l = fetch()
-            0x36 -> {  // LD (H
-                val value = fetch()
-                bus.write(registers.hl, value)
-                onMachineCycleTick()
-            }
+//            0x36 -> {  // LD (H
+//                val value = fetch()
+//                bus.write(registers.hl, value)
+//                onMachineCycleTick()
+//            }
             0x3E -> registers.a = fetch()
 
             /* --- 8-bit loads: register to register (0x40–0x7F, 0x76=HALT handled above) --- */
@@ -252,28 +250,6 @@ class Cpu(
             0xF9 -> {
                 registers.sp = registers.hl        // LD SP, HL
                 onMachineCycleTick()
-            }
-
-            /* --- LD (HL±), A / LD A, (HL±) --- */
-            0x22 -> {
-                bus.write(registers.hl, registers.a)
-                onMachineCycleTick()
-                registers.hl = (registers.hl + 1) and 0xFFFF
-            }
-            0x32 -> {
-                bus.write(registers.hl, registers.a)
-                onMachineCycleTick()
-                registers.hl = (registers.hl - 1) and 0xFFFF
-            }
-            0x2A -> {
-                registers.a = bus.read(registers.hl)
-                onMachineCycleTick()
-                registers.hl = (registers.hl + 1) and 0xFFFF
-            }
-            0x3A -> {
-                registers.a = bus.read(registers.hl)
-                onMachineCycleTick()
-                registers.hl = (registers.hl - 1) and 0xFFFF
             }
 
             /* --- LD (BC/DE), A / LD A, (BC/DE) --- */
@@ -351,7 +327,7 @@ class Cpu(
             0x1C -> inc(3)
             0x24 -> inc(4)
             0x2C -> inc(5)
-            0x34 -> inc(6)
+//            0x34 -> inc(6)
             0x3C -> inc(7)
 
             0x05 -> dec(0)
@@ -502,12 +478,7 @@ class Cpu(
                 ime = true
             }
 
-            /* --- PUSH / POP --- */
-            0xC5 -> push(registers.bc)
-            0xD5 -> push(registers.de)
-            0xE5 -> push(registers.hl)
-            0xF5 -> push(registers.af)
-
+            /* --- POP --- */
             0xC1 -> registers.bc = pop()
             0xD1 -> registers.de = pop()
             0xE1 -> registers.hl = pop()
@@ -954,9 +925,16 @@ class Cpu(
     }
 
     private fun src8(s: Src8): Int = when (s) {
-        Src8.A -> registers.a; Src8.B -> registers.b; Src8.C -> registers.c; Src8.D -> registers.d
-        Src8.E -> registers.e; Src8.H -> registers.h; Src8.L -> registers.l
-        Src8.W -> latchW; Src8.Z -> latchZ
+        Src8.A -> registers.a
+        Src8.B -> registers.b
+        Src8.C -> registers.c
+        Src8.D -> registers.d
+        Src8.E -> registers.e
+        Src8.F -> registers.f and 0xF0
+        Src8.H -> registers.h
+        Src8.L -> registers.l
+        Src8.W -> latchW
+        Src8.Z -> latchZ
     }
 
     /** INC effect on the Z latch (+ flags), reused by INC (HL) and later INC r. C is untouched. */

@@ -56,6 +56,66 @@ object MicroCode {
             MicroOp.WriteMem(Addr16.SP, Src8.C),
         )
 
+        this[0xD5] = arrayOf(
+            // PUSH DE
+            // M1 (after fetch): internal SP-prep M-cycle, no bus access, no decrement here —
+            // matches push()'s leading onMachineCycleTick() before any SP--.
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            // M2: SP-- then write high byte (D) to [SP]. Decrement precedes the access (data dependency).
+            MicroOp.Internal { it.microDecSp() },
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.SP, Src8.D),
+            // M3: SP-- then write low byte (E) to [SP].
+            MicroOp.Internal { it.microDecSp() },
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.SP, Src8.E),
+        )
+
+        this[0xE5] = arrayOf(
+            // PUSH HL
+            // M1 (after fetch): internal SP-prep M-cycle, no bus access, no decrement here —
+            // matches push()'s leading onMachineCycleTick() before any SP--.
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            // M2: SP-- then write high byte (H) to [SP]. Decrement precedes the access (data dependency).
+            MicroOp.Internal { it.microDecSp() },
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.SP, Src8.H),
+            // M3: SP-- then write low byte (L) to [SP].
+            MicroOp.Internal { it.microDecSp() },
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.SP, Src8.L),
+        )
+
+        this[0xF5] = arrayOf(
+            // PUSH AF
+            // M1 (after fetch): internal SP-prep M-cycle, no bus access, no decrement here —
+            // matches push()'s leading onMachineCycleTick() before any SP--.
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            // M2: SP-- then write high byte (A) to [SP]. Decrement precedes the access (data dependency).
+            MicroOp.Internal { it.microDecSp() },
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.SP, Src8.A),
+            // M3: SP-- then write low byte (F) to [SP].
+            MicroOp.Internal { it.microDecSp() },
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.SP, Src8.F),
+        )
+
         this[0x22] = arrayOf(
             // LD (HL+), A
             MicroOp.WriteMem(Addr16.HL, Src8.A),

@@ -39,4 +39,4 @@ enum class Latch { W, Z }
 enum class Addr16 { BC, DE, HL, SP, WZ }   // TODO add immediate-nn / 0xFF00+C as opcodes need them
 
 /** 8-bit value sources for a write. */
-enum class Src8 { A, B, C, D, E, H, L, W, Z }
+enum class Src8 { A, B, C, D, E, F, H, L, W, Z }
