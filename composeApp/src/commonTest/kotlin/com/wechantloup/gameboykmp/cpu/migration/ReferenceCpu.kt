@@ -1,4 +1,8 @@
-package com.wechantloup.gameboykmp.cpu
+package com.wechantloup.gameboykmp.cpu.migration
+
+import com.wechantloup.gameboykmp.cpu.CpuBus
+import com.wechantloup.gameboykmp.cpu.MachineMode
+import com.wechantloup.gameboykmp.cpu.Registers
 
 /**
  * Sharp SM83 CPU core.
@@ -18,7 +22,7 @@ package com.wechantloup.gameboykmp.cpu
  * @param bus system bus the CPU reads from and writes to.
  * @param onMachineCycleTick callback fired once per M-cycle; see the timing contract above.
  */
-class Cpu(
+class ReferenceCpu(
     private val bus: CpuBus,
     private val onMachineCycleTick: () -> Unit,
 ) {

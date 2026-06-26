@@ -4,12 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.CreationExtras
-import com.wechantloup.gameboykmp.MachineMode
 import com.wechantloup.gameboykmp.apu.Apu
 import com.wechantloup.gameboykmp.bus.Bus
 import com.wechantloup.gameboykmp.cartridge.Cartridge
 import com.wechantloup.gameboykmp.cartridge.CartridgeFactory
 import com.wechantloup.gameboykmp.cpu.Cpu
+import com.wechantloup.gameboykmp.cpu.MachineMode
 import com.wechantloup.gameboykmp.joypad.JoypadEvent
 import com.wechantloup.gameboykmp.logger.Logger
 import com.wechantloup.gameboykmp.ppu.Ppu
@@ -216,6 +216,21 @@ class GameBoyViewModel : ViewModel() {
     private suspend fun getBootRom(): ByteArray {
         return Res.readBytes("files/cgb_boot.bin")
     }
+
+    // ToDo Final tick function
+//    private fun tick() {
+//        compteur++
+//        cpu.tick()                       // the only new part: CPU advances 1 T
+//        if (compteur % 4 == 0) {
+//            // EXACT current onMachineCycleTick body — untouched, ppuCycles still inside the args
+//            ppu.step(ppuCycles)          // 4 or 2 — double speed handled here, like today
+//            timer.step(4)
+//            apu.step(ppuCycles)
+//            bus.stepDma()
+//            cartridge.stepRtc(ppuCycles)
+//            frameCycles += ppuCycles
+//        }
+//    }
 
     private fun onMachineCycleTick() {
         // PPU and APU stay at their normal rate: in double speed the loop ticks twice as

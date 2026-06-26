@@ -1,7 +1,7 @@
 package com.wechantloup.gameboykmp.bus
 
-import com.wechantloup.gameboykmp.MachineMode
 import com.wechantloup.gameboykmp.cartridge.RomRamCartridge
+import com.wechantloup.gameboykmp.cpu.MachineMode
 import dev.mokkery.mock
 import kotlin.test.Test
 import kotlin.test.assertEquals

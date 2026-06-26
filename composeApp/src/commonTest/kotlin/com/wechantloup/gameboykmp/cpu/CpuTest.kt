@@ -1,6 +1,5 @@
 package com.wechantloup.gameboykmp.cpu
 
-import com.wechantloup.gameboykmp.MachineMode
 import com.wechantloup.gameboykmp.bus.Bus
 import com.wechantloup.gameboykmp.cartridge.RomRamCartridge
 import dev.mokkery.mock

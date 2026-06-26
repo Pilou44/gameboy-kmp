@@ -1,6 +1,6 @@
 package com.wechantloup.gameboykmp.ppu
 
-import com.wechantloup.gameboykmp.MachineMode
+import com.wechantloup.gameboykmp.cpu.MachineMode
 import com.wechantloup.gameboykmp.helpers.GameBoyTestHarness
 import kotlin.test.Test
 import kotlin.test.assertEquals

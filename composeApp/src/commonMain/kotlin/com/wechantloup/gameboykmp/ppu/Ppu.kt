@@ -1,7 +1,7 @@
 package com.wechantloup.gameboykmp.ppu
 
-import com.wechantloup.gameboykmp.MachineMode
 import com.wechantloup.gameboykmp.bus.Bus
+import com.wechantloup.gameboykmp.cpu.MachineMode
 import kotlinx.coroutines.channels.Channel
 
 class Ppu(

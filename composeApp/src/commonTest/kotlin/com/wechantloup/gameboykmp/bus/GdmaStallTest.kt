@@ -1,6 +1,6 @@
 package com.wechantloup.gameboykmp.bus
 
-import com.wechantloup.gameboykmp.MachineMode
+import com.wechantloup.gameboykmp.cpu.MachineMode
 import com.wechantloup.gameboykmp.helpers.GameBoyTestHarness
 import com.wechantloup.gameboykmp.helpers.registers
 import com.wechantloup.gameboykmp.helpers.rom

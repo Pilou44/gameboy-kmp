@@ -1,9 +1,9 @@
 package com.wechantloup.gameboykmp.helpers
 
-import com.wechantloup.gameboykmp.MachineMode
 import com.wechantloup.gameboykmp.apu.Apu
 import com.wechantloup.gameboykmp.bus.Bus
 import com.wechantloup.gameboykmp.cpu.Cpu
+import com.wechantloup.gameboykmp.cpu.MachineMode
 import com.wechantloup.gameboykmp.cpu.Registers
 import com.wechantloup.gameboykmp.ppu.Ppu
 import com.wechantloup.gameboykmp.timer.Timer

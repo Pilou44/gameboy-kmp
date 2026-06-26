@@ -1,5 +1,6 @@
 package com.wechantloup.gameboykmp
 
+import com.wechantloup.gameboykmp.cpu.MachineMode
 import com.wechantloup.gameboykmp.joypad.JoypadButton
 import com.wechantloup.gameboykmp.joypad.JoypadEvent
 import com.wechantloup.gameboykmp.logger.Logger

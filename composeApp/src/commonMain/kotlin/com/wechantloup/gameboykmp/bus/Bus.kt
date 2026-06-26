@@ -1,9 +1,9 @@
 package com.wechantloup.gameboykmp.bus
 
-import com.wechantloup.gameboykmp.MachineMode
 import com.wechantloup.gameboykmp.cartridge.Cartridge
+import com.wechantloup.gameboykmp.cpu.CpuBus
+import com.wechantloup.gameboykmp.cpu.MachineMode
 import com.wechantloup.gameboykmp.joypad.JoypadButton
-import com.wechantloup.gameboykmp.logger.Logger
 import kotlin.concurrent.Volatile
 
 /**
@@ -25,9 +25,9 @@ import kotlin.concurrent.Volatile
  */
 class Bus(
     private val cartridge: Cartridge,
-    val machineMode: MachineMode,
-    val bootRom: ByteArray?,
-) {
+    override val machineMode: MachineMode,
+    override val bootRom: ByteArray?,
+): CpuBus {
 
     private var bootRomEnabled: Boolean = bootRom != null
 
@@ -37,8 +37,8 @@ class Bus(
     // Bit 3 : Serial   - Serial transfer complete
     // Bit 4 : Joypad   - Joypad button pressed (high-to-low transition)
     // Bits 5-7 : unused, always read as 1
-    val ie: Int get() = read(0xFFFF) // Enabled interrupts
-    val iF: Int get() = read(0xFF0F) // Requested interrupts
+    override val ie: Int get() = read(0xFFFF) // Enabled interrupts
+    override val iF: Int get() = read(0xFF0F) // Requested interrupts
 
     private val internalRam = IntArray(0x10000).also {
         if (bootRom == null) initPostBootRegisters(it)
@@ -69,7 +69,7 @@ class Bus(
     // M-cycles the CPU must be stalled by the general-purpose DMA that just started. Published as
     // a primitive (like cpuHalted / ppuMode) because the Bus cannot call the CPU: the CPU drains
     // this via onMachineCycleTick at the next instruction boundary, then resets it to 0.
-    var pendingGdmaStallMCycles = 0
+    override var pendingGdmaStallMCycles = 0
 
     // Near the other CGB state (e.g. after the hdma fields):
     // Double-speed (CGB). CPU, timer/DIV and serial run twice as fast in double speed;
@@ -77,7 +77,7 @@ class Bus(
     var isDoubleSpeed = false
         private set
     private var speedSwitchArmed = false
-    var cpuHalted: Boolean = false
+    override var cpuHalted: Boolean = false
 
 
     // CGB palette RAM: 8 palettes × 4 colors × 2 bytes each, stored raw as RGB555 LE.
@@ -209,7 +209,7 @@ class Bus(
         else -> readWram(address - 0x2000) // $E000-$FFFF: WRAM echo
     }
 
-    fun read(address: Int): Int {
+    override fun read(address: Int): Int {
         // Cheap gate: one boolean test on the common path, no call, no boxing.
         if (ppuDotOverrideActive) {
             ppuSampler?.invoke(address)?.let { return it }   // dot-accurate override, null = fall through
@@ -269,7 +269,7 @@ class Bus(
         }
     }
 
-    fun write(address: Int, value: Int) {
+    override fun write(address: Int, value: Int) {
         val v = value and 0xFF
         if (ppuDotOverrideActive) {
             if (ppuWriteIntercept?.invoke(address, v) == true) return
@@ -445,7 +445,7 @@ class Bus(
      * was armed, the speed toggles and the armed flag clears. Returns true if a switch
      * actually happened, so STOP knows it was a speed switch rather than a normal stop.
      */
-    fun performSpeedSwitch(): Boolean {
+    override fun performSpeedSwitch(): Boolean {
         if (!speedSwitchArmed) return false
         isDoubleSpeed = !isDoubleSpeed
         speedSwitchArmed = false
@@ -713,7 +713,7 @@ class Bus(
     fun readOam(address: Int): Int = oam[address]
     fun writeOam(address: Int, value: Int) { oam[address] = value }
 
-    fun setIF(value: Int) = write(0xFF0F, value)
+    override fun setIF(value: Int) = write(0xFF0F, value)
 
     // Reads a CGB BG color from palette RAM as a raw 15-bit RGB555 value (little-endian,
     // as stored). The RGB555 → ARGB expansion happens at display time, not here.
