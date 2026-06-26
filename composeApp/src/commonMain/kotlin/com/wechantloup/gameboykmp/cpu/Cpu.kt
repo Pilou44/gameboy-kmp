@@ -123,7 +123,8 @@ class Cpu(
             imeScheduled = false
         }
 
-        execute(opcode)
+        val seq = MicroCode.TABLE[opcode]
+        if (seq != null) runMicroSequence(seq) else execute(opcode)   // migrated path vs legacy
     }
 
     fun reset() {
@@ -900,5 +901,58 @@ class Cpu(
         }
         pc = 0x0100
         sp = 0xFFFE
+    }
+
+    // ── Phase A micro-op engine ──────────────────────────────────────────────────
+// WZ latches: data in flight between M-cycles of the current instruction.
+    private var latchW = 0
+    private var latchZ = 0
+
+    /**
+     * Runs an instruction's micro-op sequence. Phase A plays the whole sequence within step(): each op
+     * does its bus access at T0 then the M-cycle's tick fires — byte-for-byte identical to the legacy
+     * read-then-tick. Phase B will instead consume ONE op per cpu.tick() (persistent index), and the
+     * harness will prove THAT change neutral too.
+     */
+    private fun runMicroSequence(seq: Array<MicroOp>) {
+        for (op in seq) {
+            perform(op)
+            onMachineCycleTick()   // access happened at T0; TODO phase C: place it at the real T
+        }
+    }
+
+    private fun perform(op: MicroOp) {
+        when (op) {
+            is MicroOp.ReadImmediate -> {
+                val v = bus.read(registers.pc)
+                registers.pc = (registers.pc + 1) and 0xFFFF
+                setLatch(op.into, v)
+            }
+            is MicroOp.ReadMem  -> setLatch(op.into, bus.read(addr16(op.addr)))
+            is MicroOp.WriteMem -> bus.write(addr16(op.addr), src8(op.value))
+            is MicroOp.Internal -> op.effect(this)
+        }
+    }
+
+    private fun setLatch(l: Latch, v: Int) { when (l) { Latch.W -> latchW = v; Latch.Z -> latchZ = v } }
+
+    private fun addr16(a: Addr16): Int = when (a) {
+        Addr16.BC -> registers.bc
+        Addr16.DE -> registers.de
+        Addr16.HL -> registers.hl
+        Addr16.SP -> registers.sp
+        Addr16.WZ -> (latchW shl 8) or latchZ
+    }
+
+    private fun src8(s: Src8): Int = when (s) {
+        Src8.A -> registers.a
+        Src8.B -> registers.b
+        Src8.C -> registers.c
+        Src8.D -> registers.d
+        Src8.E -> registers.e
+        Src8.H -> registers.h
+        Src8.L -> registers.l
+        Src8.W -> latchW
+        Src8.Z -> latchZ
     }
 }
