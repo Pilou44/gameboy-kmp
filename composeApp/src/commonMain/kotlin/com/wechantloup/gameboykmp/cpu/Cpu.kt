@@ -971,4 +971,11 @@ class Cpu(
 
     /** Pre-decrement SP. Its own T-cycle (one MicroOp = one T); shared by PUSH/CALL/RST. */
     internal fun microDecSp() { registers.sp = (registers.sp - 1) and 0xFFFF }
+
+    /** Post-increment / post-decrement HL. Own T-cycle; shared by LD (HL±),A and LD A,(HL±). */
+    internal fun microIncHl() { registers.hl = (registers.hl + 1) and 0xFFFF }
+    internal fun microDecHl() { registers.hl = (registers.hl - 1) and 0xFFFF }
+
+    /** Copy the Z latch into A. Internal T-cycle; shared by LD A,(HL±) and later LD A,(HL)/LD r,(HL). */
+    internal fun microZtoA() { registers.a = latchZ }
 }

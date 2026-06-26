@@ -56,6 +56,35 @@ object MicroCode {
             MicroOp.WriteMem(Addr16.SP, Src8.C),
         )
 
+        this[0x22] = arrayOf(
+            // LD (HL+), A
+            MicroOp.WriteMem(Addr16.HL, Src8.A),
+            MicroOp.Internal { it.microIncHl() },
+            MicroOp.Idle,
+            MicroOp.Idle,
+        )
+        this[0x32] = arrayOf(
+            // LD (HL-), A
+            MicroOp.WriteMem(Addr16.HL, Src8.A),
+            MicroOp.Internal { it.microDecHl() },
+            MicroOp.Idle,
+            MicroOp.Idle,
+        )
+        this[0x2A] = arrayOf(
+            // LD A, (HL+)
+            MicroOp.ReadMem(Addr16.HL, Latch.Z),
+            MicroOp.Internal { it.microIncHl() },
+            MicroOp.Internal { it.microZtoA() },
+            MicroOp.Idle,
+        )
+        this[0x3A] = arrayOf(
+            // LD A, (HL-)
+            MicroOp.ReadMem(Addr16.HL, Latch.Z),
+            MicroOp.Internal { it.microDecHl() },
+            MicroOp.Internal { it.microZtoA() },
+            MicroOp.Idle,
+        )
+
         // TODO migrate distinct shapes next: push (pre-dec SP), LDI (post-inc HL), JR cc (conditional
         //  push to pipeline), ISR — to prove the MicroOp set has no dead-end before bulk-filling.
     }
