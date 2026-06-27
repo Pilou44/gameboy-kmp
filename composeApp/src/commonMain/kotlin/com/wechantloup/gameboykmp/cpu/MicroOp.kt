@@ -40,3 +40,6 @@ enum class Addr16 { BC, DE, HL, SP, WZ }   // TODO add immediate-nn / 0xFF00+C a
 
 /** 8-bit value sources for a write. */
 enum class Src8 { A, B, C, D, E, F, H, L, W, Z }
+
+/** Branch condition for JR/JP/RET/CALL cc. Evaluated against the flags by Cpu.testCondition. */
+enum class Condition { NZ, Z, NC, C }

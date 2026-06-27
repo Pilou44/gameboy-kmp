@@ -145,7 +145,18 @@ object MicroCode {
             MicroOp.Idle,
         )
 
+        this[0x20] = jrCc(Condition.NZ)   // JR NZ, e
+        this[0x28] = jrCc(Condition.Z)    // JR Z, e
+        this[0x30] = jrCc(Condition.NC)   // JR NC, e
+        this[0x38] = jrCc(Condition.C)    // JR C, e
+
         // TODO migrate distinct shapes next: push (pre-dec SP), LDI (post-inc HL), JR cc (conditional
         //  push to pipeline), ISR — to prove the MicroOp set has no dead-end before bulk-filling.
     }
+
+    /** JR cc, e: read signed offset into Z (M2), then resolve — jrResolve pushes the taken M-cycle. */
+    private fun jrCc(c: Condition): Array<MicroOp> = arrayOf(
+        MicroOp.ReadImmediate(Latch.Z), MicroOp.Idle, MicroOp.Idle,
+        MicroOp.Internal { it.jrResolve(c) },
+    )
 }

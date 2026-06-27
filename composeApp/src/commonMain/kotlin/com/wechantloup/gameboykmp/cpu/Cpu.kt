@@ -451,10 +451,6 @@ class Cpu(
             0xE9 -> registers.pc = registers.hl  // JP HL
 
             0x18 -> jr()
-            0x20 -> jr(!registers.flagZ)
-            0x28 -> jr(registers.flagZ)
-            0x30 -> jr(!registers.flagC)
-            0x38 -> jr(registers.flagC)
 
             /* --- CALL / RET --- */
             0xCD -> call()
@@ -956,4 +952,27 @@ class Cpu(
 
     /** Copy the Z latch into A. Internal T-cycle; shared by LD A,(HL±) and later LD A,(HL)/LD r,(HL). */
     internal fun microZtoA() { registers.a = latchZ }
+
+    internal fun testCondition(c: Condition): Boolean = when (c) {
+        Condition.NZ -> !registers.flagZ
+        Condition.Z  ->  registers.flagZ
+        Condition.NC -> !registers.flagC
+        Condition.C  ->  registers.flagC
+    }
+
+    /**
+     * JR cc resolution, run as an Internal AFTER the signed offset has been read into Z. If the branch is
+     * taken, applies PC += (signed)Z and pushes ONE extra internal micro-op (the M-cycle hardware spends
+     * updating PC). Not taken: nothing pushed, so the instruction ends one M-cycle shorter — exactly the
+     * legacy jr() shape. This is the first opcode where the pipeline is fed conditionally at run time.
+     */
+    internal fun jrResolve(c: Condition) {
+        if (!testCondition(c)) return                         // not taken: no extra M-cycle
+        val offset = latchZ.toByte().toInt()                  // Z holds the raw offset byte; sign-extend
+        registers.pc = (registers.pc + offset) and 0xFFFF
+        pipeline.push(MicroOp.Idle)                           // taken: the extra internal M-cycle (4 T)
+        pipeline.push(MicroOp.Idle)
+        pipeline.push(MicroOp.Idle)
+        pipeline.push(MicroOp.Idle)
+    }
 }
