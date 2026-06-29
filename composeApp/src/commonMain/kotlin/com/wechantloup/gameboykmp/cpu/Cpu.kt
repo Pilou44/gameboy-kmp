@@ -43,7 +43,10 @@ class Cpu(
     private val retReadHigh = MicroOp.ReadMem(Addr16.SP, Latch.W)
     private val opIncSp     = MicroOp.Internal { it.microIncSp() }
     private val opPopPc     = MicroOp.Internal { it.microWZtoPc() }
-    private val opWZtoPc = MicroOp.Internal { it.microWZtoPc() }
+    private val opWZtoPc    = MicroOp.Internal { it.microWZtoPc() }
+    private val opDecSp     = MicroOp.Internal { it.microDecSp() }
+    private val opWritePch  = MicroOp.WriteMem(Addr16.SP, Src8.PCH)
+    private val opWritePcl  = MicroOp.WriteMem(Addr16.SP, Src8.PCL)
 
     fun step() {
         // A general-purpose DMA started by the previous instruction freezes the CPU for the entire
@@ -428,13 +431,6 @@ class Cpu(
 
             /* --- Jumps --- */
             0xE9 -> registers.pc = registers.hl  // JP HL
-
-            /* --- CALL / RET --- */
-            0xCD -> call()
-            0xC4 -> call(!registers.flagZ)
-            0xCC -> call(registers.flagZ)
-            0xD4 -> call(!registers.flagC)
-            0xDC -> call(registers.flagC)
 
             /* --- RST --- */
             0xC7 -> rst(0x00)
@@ -938,6 +934,26 @@ class Cpu(
         pipeline.push(MicroOp.Idle)
         pipeline.push(MicroOp.Idle)
         pipeline.push(MicroOp.Idle)
+    }
+
+    internal fun callResolve(c: Condition) {
+        if (!testCondition(c)) return                         // not taken: no extra M-cycle
+
+        // M3
+        pipeline.push(MicroOp.Idle)
+        pipeline.push(MicroOp.Idle)
+        pipeline.push(MicroOp.Idle)
+        pipeline.push(MicroOp.Idle)
+        // M4: SP-- then write PC high byte to [SP].
+        pipeline.push(opDecSp)
+        pipeline.push(MicroOp.Idle)
+        pipeline.push(MicroOp.Idle)
+        pipeline.push(opWritePch)
+        // M5: SP-- then write PC low byte to [SP], then jump (PC <- WZ = nn).
+        pipeline.push(opDecSp)
+        pipeline.push(MicroOp.Idle)
+        pipeline.push(opWritePcl)
+        pipeline.push(opWZtoPc)
     }
 
     /**

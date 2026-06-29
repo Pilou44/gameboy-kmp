@@ -338,6 +338,11 @@ object MicroCode {
             MicroOp.Internal { it.microWZtoPc() },
         )
 
+        this[0xC4] = callCc(Condition.NZ)
+        this[0xCC] = callCc(Condition.Z)
+        this[0xD4] = callCc(Condition.NC)
+        this[0xDC] = callCc(Condition.C)
+
         // TODO migrate distinct shapes next: push (pre-dec SP), LDI (post-inc HL), JR cc (conditional
         //  push to pipeline), ISR — to prove the MicroOp set has no dead-end before bulk-filling.
     }
@@ -368,5 +373,18 @@ object MicroCode {
         MicroOp.Idle,
         MicroOp.Idle,
         MicroOp.Internal { it.retResolve(c) },
+    )
+
+    private fun callCc(c: Condition): Array<MicroOp> = arrayOf(
+        // M1
+        MicroOp.ReadImmediate(Latch.Z),
+        MicroOp.Idle,
+        MicroOp.Idle,
+        MicroOp.Idle,
+        // M2
+        MicroOp.ReadImmediate(Latch.W),
+        MicroOp.Idle,
+        MicroOp.Idle,
+        MicroOp.Internal { it.callResolve(c) },
     )
 }
