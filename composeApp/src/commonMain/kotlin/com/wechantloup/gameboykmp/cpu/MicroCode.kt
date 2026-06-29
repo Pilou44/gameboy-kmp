@@ -12,6 +12,58 @@ object MicroCode {
     val TABLE: Array<Array<MicroOp>?> = arrayOfNulls<Array<MicroOp>>(256).apply {
         this[0x00] = emptyArray()                                  // NOP
 
+        this[0x01] = arrayOf(
+            // M1
+            MicroOp.ReadImmediate(Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            // M2
+            MicroOp.ReadImmediate(Latch.W),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Internal { it.microWZtoBc() },
+        )
+
+        this[0x11] = arrayOf(
+            // M1
+            MicroOp.ReadImmediate(Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            // M2
+            MicroOp.ReadImmediate(Latch.W),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Internal { it.microWZtoDe() },
+        )
+
+        this[0x21] = arrayOf(
+            // M1
+            MicroOp.ReadImmediate(Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            // M2
+            MicroOp.ReadImmediate(Latch.W),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Internal { it.microWZtoHl() },
+        )
+
+        this[0x31] = arrayOf(
+            // M1
+            MicroOp.ReadImmediate(Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            // M2
+            MicroOp.ReadImmediate(Latch.W),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Internal { it.microWZtoSp() },
+        )
+
         this[0x36] = arrayOf(
             // LD (HL), n
             MicroOp.ReadImmediate(Latch.Z),
@@ -46,7 +98,7 @@ object MicroCode {
             // M2: read high byte into W, SP++, then assemble (W<<8)|Z into BC (internal, no bus access).
             MicroOp.ReadMem(Addr16.SP, Latch.W),
             MicroOp.Internal { it.microIncSp() },
-            MicroOp.Internal { it.microPopBc() },
+            MicroOp.Internal { it.microWZtoBc() },
             MicroOp.Idle,
         )
 
@@ -60,7 +112,7 @@ object MicroCode {
             // M2: read high byte into W, SP++, then assemble (W<<8)|Z into DE (internal, no bus access).
             MicroOp.ReadMem(Addr16.SP, Latch.W),
             MicroOp.Internal { it.microIncSp() },
-            MicroOp.Internal { it.microPopDe() },
+            MicroOp.Internal { it.microWZtoDe() },
             MicroOp.Idle,
         )
 
@@ -74,7 +126,7 @@ object MicroCode {
             // M2: read high byte into W, SP++, then assemble (W<<8)|Z into HL (internal, no bus access).
             MicroOp.ReadMem(Addr16.SP, Latch.W),
             MicroOp.Internal { it.microIncSp() },
-            MicroOp.Internal { it.microPopHl() },
+            MicroOp.Internal { it.microWZtoHl() },
             MicroOp.Idle,
         )
 

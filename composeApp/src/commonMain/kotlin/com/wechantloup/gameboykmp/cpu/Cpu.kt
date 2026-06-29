@@ -233,12 +233,6 @@ class Cpu(
             /* --- 8-bit loads: register to register (0x40–0x7F, 0x76=HALT handled above) --- */
             in 0x40..0x7F -> load(opcode)
 
-            /* --- 16-bit loads: immediate --- */
-            0x01 -> registers.bc = fetch16()
-            0x11 -> registers.de = fetch16()
-            0x21 -> registers.hl = fetch16()
-            0x31 -> registers.sp = fetch16()
-
             /* --- 16-bit loads: special --- */
             0x08 -> {                                   // LD (nn), SP
                 val addr = fetch16()
@@ -962,10 +956,13 @@ class Cpu(
     internal fun microIncSp() { registers.sp = (registers.sp + 1) and 0xFFFF }
 
     /** Assemble the popped pair from the WZ latches (W=high, Z=low) into BC. */
-    internal fun microPopBc() { registers.bc = (latchW shl 8) or latchZ }
-    internal fun microPopDe() { registers.de = (latchW shl 8) or latchZ }
-    internal fun microPopHl() { registers.hl = (latchW shl 8) or latchZ }
+    internal fun microWZtoBc() { registers.bc = (latchW shl 8) or latchZ }
+    internal fun microWZtoDe() { registers.de = (latchW shl 8) or latchZ }
+    internal fun microWZtoHl() { registers.hl = (latchW shl 8) or latchZ }
     internal fun microWZtoPc() { registers.pc = (latchW shl 8) or latchZ }
+    /** Assemble WZ (W=high, Z=low) into SP. Used by LD SP,nn — SP is never a POP target. */
+    internal fun microWZtoSp() { registers.sp = (latchW shl 8) or latchZ }
+
     /**
      * Assemble the popped pair into AF. Unlike the other pairs, F holds only its top 4 bits in hardware,
      * so the low nibble of the popped low byte (which lands in F) is masked off — POP AF can never set

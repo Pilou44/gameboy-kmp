@@ -108,6 +108,9 @@ class CpuSequencingParityTest {
             // reads nn and stops (3 M-cycles). Both branches of callResolve must be exercised.
             Case("CALL Z taken")     { b, r -> r.pc = 0xC000; r.sp = 0xD000; r.flagZ = true;  b.load(0xC000, 0xCC, 0x00, 0xC2) },
             Case("CALL Z not taken") { b, r -> r.pc = 0xC000; r.sp = 0xD000; r.flagZ = false; b.load(0xC000, 0xCC, 0x00, 0xC2) },
+
+            // LD rr,nn: read nn into WZ (two immediate reads), assemble into the pair — no extra M-cycle.
+            Case("LD BC,nn") { b, r -> r.pc = 0xC000; b.load(0xC000, 0x01, 0x34, 0x12) },   // BC <- 0x1234
         )
     }
 }
