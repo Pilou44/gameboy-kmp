@@ -89,6 +89,12 @@ class CpuSequencingParityTest {
             Case("JR Z taken")     { b, r -> r.pc = 0xC000; r.flagZ = true; b.load(0xC000, 0x28, 0x05) },
             Case("JR NC taken")    { b, r -> r.pc = 0xC000; r.flagC = false; b.load(0xC000, 0x30, 0x05) },
             Case("JR C taken")     { b, r -> r.pc = 0xC000; r.flagC = true; b.load(0xC000, 0x38, 0x05) },
+
+            // RET cc: the conditional counterpart of RET. The condition-check M-cycle is always spent (even when
+            // not taken), so the two branches differ in duration — not-taken is 2 M-cycles, taken is 5. Both
+            // branches must be exercised: taken drives retResolve's dynamic push, not-taken drives the early return.
+            Case("RET Z taken")     { b, r -> r.pc = 0xC000; r.sp = 0xCFFE; r.flagZ = true;  b.poke(0xCFFE, 0x00); b.poke(0xCFFF, 0xC2); b.load(0xC000, 0xC8) },
+            Case("RET Z not taken") { b, r -> r.pc = 0xC000; r.sp = 0xCFFE; r.flagZ = false; b.load(0xC000, 0xC8) },
         )
     }
 }
