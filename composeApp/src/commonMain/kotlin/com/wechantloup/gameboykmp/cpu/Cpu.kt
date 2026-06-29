@@ -449,12 +449,6 @@ class Cpu(
                 ime = true
             }
 
-            /* --- POP --- */
-            0xC1 -> registers.bc = pop()
-            0xD1 -> registers.de = pop()
-            0xE1 -> registers.hl = pop()
-            0xF1 -> registers.af = pop()
-
             /* --- RST --- */
             0xC7 -> rst(0x00)
             0xCF -> rst(0x08)
@@ -973,4 +967,18 @@ class Cpu(
 
     internal fun addSpE()  { registers.sp = spOffsetResult() }   // 0xE8
     internal fun ldHlSpE() { registers.hl = spOffsetResult() }   // 0xF8
+
+    /** Post-increment SP. Own T-cycle; the read/pop counterpart of microDecSp (PUSH/CALL). */
+    internal fun microIncSp() { registers.sp = (registers.sp + 1) and 0xFFFF }
+
+    /** Assemble the popped pair from the WZ latches (W=high, Z=low) into BC. */
+    internal fun microPopBc() { registers.bc = (latchW shl 8) or latchZ }
+    internal fun microPopDe() { registers.de = (latchW shl 8) or latchZ }
+    internal fun microPopHl() { registers.hl = (latchW shl 8) or latchZ }
+    /**
+     * Assemble the popped pair into AF. Unlike the other pairs, F holds only its top 4 bits in hardware,
+     * so the low nibble of the popped low byte (which lands in F) is masked off — POP AF can never set
+     * flag bits 0..3.
+     */
+    internal fun microPopAf() { registers.af = (latchW shl 8) or (latchZ and 0xF0) }
 }

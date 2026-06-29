@@ -36,6 +36,62 @@ object MicroCode {
             MicroOp.WriteMem(Addr16.HL, Src8.Z),
         )
 
+        this[0xC1] = arrayOf(
+            // POP BC
+            // M1 (after fetch): read low byte into Z, then SP++. Increment follows the read (data dependency).
+            MicroOp.ReadMem(Addr16.SP, Latch.Z),
+            MicroOp.Internal { it.microIncSp() },
+            MicroOp.Idle,
+            MicroOp.Idle,
+            // M2: read high byte into W, SP++, then assemble (W<<8)|Z into BC (internal, no bus access).
+            MicroOp.ReadMem(Addr16.SP, Latch.W),
+            MicroOp.Internal { it.microIncSp() },
+            MicroOp.Internal { it.microPopBc() },
+            MicroOp.Idle,
+        )
+
+        this[0xD1] = arrayOf(
+            // POP DE
+            // M1 (after fetch): read low byte into Z, then SP++. Increment follows the read (data dependency).
+            MicroOp.ReadMem(Addr16.SP, Latch.Z),
+            MicroOp.Internal { it.microIncSp() },
+            MicroOp.Idle,
+            MicroOp.Idle,
+            // M2: read high byte into W, SP++, then assemble (W<<8)|Z into DE (internal, no bus access).
+            MicroOp.ReadMem(Addr16.SP, Latch.W),
+            MicroOp.Internal { it.microIncSp() },
+            MicroOp.Internal { it.microPopDe() },
+            MicroOp.Idle,
+        )
+
+        this[0xE1] = arrayOf(
+            // POP HL
+            // M1 (after fetch): read low byte into Z, then SP++. Increment follows the read (data dependency).
+            MicroOp.ReadMem(Addr16.SP, Latch.Z),
+            MicroOp.Internal { it.microIncSp() },
+            MicroOp.Idle,
+            MicroOp.Idle,
+            // M2: read high byte into W, SP++, then assemble (W<<8)|Z into HL (internal, no bus access).
+            MicroOp.ReadMem(Addr16.SP, Latch.W),
+            MicroOp.Internal { it.microIncSp() },
+            MicroOp.Internal { it.microPopHl() },
+            MicroOp.Idle,
+        )
+
+        this[0xF1] = arrayOf(
+            // POP HL
+            // M1 (after fetch): read low byte into Z, then SP++. Increment follows the read (data dependency).
+            MicroOp.ReadMem(Addr16.SP, Latch.Z),
+            MicroOp.Internal { it.microIncSp() },
+            MicroOp.Idle,
+            MicroOp.Idle,
+            // M2: read high byte into W, SP++, then assemble (W<<8)|Z into HL (internal, no bus access).
+            MicroOp.ReadMem(Addr16.SP, Latch.W),
+            MicroOp.Internal { it.microIncSp() },
+            MicroOp.Internal { it.microPopAf() },
+            MicroOp.Idle,
+        )
+
         this[0xC5] = arrayOf(
             // PUSH BC
             // M1 (after fetch): internal SP-prep M-cycle, no bus access, no decrement here —
