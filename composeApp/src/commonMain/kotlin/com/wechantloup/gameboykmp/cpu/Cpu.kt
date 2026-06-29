@@ -427,8 +427,6 @@ class Cpu(
             0xDA -> jp(registers.flagC)
             0xE9 -> registers.pc = registers.hl  // JP HL
 
-            0x18 -> jr()
-
             /* --- CALL / RET --- */
             0xCD -> call()
             0xC4 -> call(!registers.flagZ)
@@ -945,9 +943,12 @@ class Cpu(
      */
     internal fun jrResolve(c: Condition) {
         if (!testCondition(c)) return                         // not taken: no extra M-cycle
+        jrResolve()
+    }
+    internal fun jrResolve() {
         val offset = latchZ.toByte().toInt()                  // Z holds the raw offset byte; sign-extend
         registers.pc = (registers.pc + offset) and 0xFFFF
-        pipeline.push(MicroOp.Idle)                           // taken: the extra internal M-cycle (4 T)
+        pipeline.push(MicroOp.Idle)                    // taken: the extra internal M-cycle (4 T)
         pipeline.push(MicroOp.Idle)
         pipeline.push(MicroOp.Idle)
         pipeline.push(MicroOp.Idle)

@@ -60,6 +60,7 @@ class CpuSequencingParityTest {
             Case("JR taken")       { b, r -> r.pc = 0xC000; b.load(0xC000, 0x18, 0x05) },
             Case("JR NZ not taken"){ b, r -> r.pc = 0xC000; r.flagZ = true; b.load(0xC000, 0x20, 0x05) },
             Case("ADD HL,DE")      { b, r -> r.pc = 0xC000; r.hl = 0x0FFF; r.de = 0x0001; b.load(0xC000, 0x19) },
+
             // ADD SP,e (0xE8) and LD HL,SP+e (0xF8): flags H/C are on the UNSIGNED add of SP's low byte vs the
             // offset byte, Z=N=0 always. Inputs chosen so H and C are actually toggled (not trivially 0), with
             // both a positive and a negative offset, since sign-extension of e is part of what's under test.
@@ -67,6 +68,26 @@ class CpuSequencingParityTest {
             Case("ADD SP,e neg")    { b, r -> r.pc = 0xC000; r.sp = 0xC010; b.load(0xC000, 0xE8, 0xF0) }, // -16: low-byte borrow path
             Case("LD HL,SP+e +carry"){ b, r -> r.pc = 0xC000; r.sp = 0x00FF; b.load(0xC000, 0xF8, 0x01) }, // +1: H and C set, dest HL
             Case("LD HL,SP+e neg")  { b, r -> r.pc = 0xC000; r.sp = 0xC010; b.load(0xC000, 0xF8, 0xF0) }, // -16
+
+            // Push: DE/HL are the same shape as BC (form regressions, cheap). AF carries the F-mask path.
+            Case("PUSH DE")        { b, r -> r.pc = 0xC000; r.sp = 0xD000; r.de = 0x5678; b.load(0xC000, 0xD5) },
+            Case("PUSH HL")        { b, r -> r.pc = 0xC000; r.sp = 0xD000; r.hl = 0x9ABC; b.load(0xC000, 0xE5) },
+            // PUSH AF exercises Src8.F's `and 0xF0`. With a flag-derived F the low nibble is already 0, so this
+            // guards the form/regression but cannot differentially trigger the mask itself.
+            // TODO: confirm in Registers whether `f` can hold low-nibble bits; if so, add a case that sets them.
+            Case("PUSH AF")        { b, r -> r.pc = 0xC000; r.sp = 0xD000; r.a = 0x42; r.flagZ = true; r.flagN = true; r.flagH = true; r.flagC = true; b.load(0xC000, 0xF5) },
+
+            // LD (HL±),A and LD A,(HL±): bus access + pointer post-modify (reads also go through microZtoA).
+            Case("LD (HL+),A")     { b, r -> r.pc = 0xC000; r.hl = 0xC100; r.a = 0x99; b.load(0xC000, 0x22) },
+            Case("LD (HL-),A")     { b, r -> r.pc = 0xC000; r.hl = 0xC100; r.a = 0x99; b.load(0xC000, 0x32) },
+            Case("LD A,(HL+)")     { b, r -> r.pc = 0xC000; r.hl = 0xC100; b.poke(0xC100, 0x77); b.load(0xC000, 0x2A) },
+            Case("LD A,(HL-)")     { b, r -> r.pc = 0xC000; r.hl = 0xC100; b.poke(0xC100, 0x77); b.load(0xC000, 0x3A) },
+
+            // JR cc taken: hits the testCondition==true branch of jrResolve(c) — no current case does (0x18 is
+            // unconditional, 0x20 is not-taken). 0x30/0x38 taken are form duplicates, included for free.
+            Case("JR Z taken")     { b, r -> r.pc = 0xC000; r.flagZ = true; b.load(0xC000, 0x28, 0x05) },
+            Case("JR NC taken")    { b, r -> r.pc = 0xC000; r.flagC = false; b.load(0xC000, 0x30, 0x05) },
+            Case("JR C taken")     { b, r -> r.pc = 0xC000; r.flagC = true; b.load(0xC000, 0x38, 0x05) },
         )
     }
 }

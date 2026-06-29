@@ -145,6 +145,12 @@ object MicroCode {
             MicroOp.Idle,
         )
 
+        this[0x18] = arrayOf(
+            MicroOp.ReadImmediate(Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Internal { it.jrResolve() },
+        )
         this[0x20] = jrCc(Condition.NZ)   // JR NZ, e
         this[0x28] = jrCc(Condition.Z)    // JR Z, e
         this[0x30] = jrCc(Condition.NC)   // JR NC, e
