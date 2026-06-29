@@ -678,24 +678,6 @@ class Cpu(
         registers.pc = vector
     }
 
-    private fun jp(condition: Boolean = true) {
-        val value = fetch16()
-
-        if (!condition) return
-
-        registers.pc = value
-        onMachineCycleTick()  // internal M-cycle (PC update)
-    }
-
-    private fun call(condition: Boolean = true) {
-        val value = fetch16()
-
-        if (!condition) return
-
-        push(registers.pc)
-        registers.pc = value
-    }
-
     private fun fetch(): Int {
         val data = bus.read(registers.pc) and 0xFF
         if (haltBug) {
