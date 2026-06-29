@@ -310,6 +310,34 @@ object MicroCode {
         this[0xD2] = jpCc(Condition.NC)
         this[0xDA] = jpCc(Condition.C)
 
+        this[0xCD] = arrayOf(
+            // M1
+            MicroOp.ReadImmediate(Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            // M2
+            MicroOp.ReadImmediate(Latch.W),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            // M3
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            // M4: SP-- then write PC high byte to [SP].
+            MicroOp.Internal { it.microDecSp() },
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.SP, Src8.PCH),
+            // M5: SP-- then write PC low byte to [SP], then jump (PC <- WZ = nn).
+            MicroOp.Internal { it.microDecSp() },
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.SP, Src8.PCL),
+            MicroOp.Internal { it.microWZtoPc() },
+        )
+
         // TODO migrate distinct shapes next: push (pre-dec SP), LDI (post-inc HL), JR cc (conditional
         //  push to pipeline), ISR — to prove the MicroOp set has no dead-end before bulk-filling.
     }

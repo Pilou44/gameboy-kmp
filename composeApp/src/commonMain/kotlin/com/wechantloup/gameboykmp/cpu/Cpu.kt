@@ -860,6 +860,8 @@ class Cpu(
         Src8.L -> registers.l
         Src8.W -> latchW
         Src8.Z -> latchZ
+        Src8.PCH -> (registers.pc shr 8) and 0xFF
+        Src8.PCL -> registers.pc and 0xFF
     }
 
     /** INC effect on the Z latch (+ flags), reused by INC (HL) and later INC r. C is untouched. */
