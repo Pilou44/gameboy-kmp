@@ -105,7 +105,7 @@ object MicroCode {
             MicroOp.Idle,
             MicroOp.Idle,
             // M3: internal jump M-cycle — assemble (W<<8)|Z into PC.
-            MicroOp.Internal { it.microPopPc() },
+            MicroOp.Internal { it.microWZtoPc() },
             MicroOp.Idle,
             MicroOp.Idle,
             MicroOp.Idle,
@@ -129,7 +129,7 @@ object MicroCode {
             MicroOp.Idle,
             MicroOp.Idle,
             // M3: internal jump M-cycle — assemble PC, then enable interrupts.
-            MicroOp.Internal { it.microPopPc() },
+            MicroOp.Internal { it.microWZtoPc() },
             MicroOp.Internal { it.microSetIme() },
             MicroOp.Idle,
             MicroOp.Idle,
@@ -287,6 +287,29 @@ object MicroCode {
             MicroOp.Idle,
         )
 
+        this[0xC3] = arrayOf(
+            // M1
+            MicroOp.ReadImmediate(Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            // M2
+            MicroOp.ReadImmediate(Latch.W),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            // M3
+            MicroOp.Internal { it.microWZtoPc() },
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+        )
+
+        this[0xC2] = jpCc(Condition.NZ)
+        this[0xCA] = jpCc(Condition.Z)
+        this[0xD2] = jpCc(Condition.NC)
+        this[0xDA] = jpCc(Condition.C)
+
         // TODO migrate distinct shapes next: push (pre-dec SP), LDI (post-inc HL), JR cc (conditional
         //  push to pipeline), ISR — to prove the MicroOp set has no dead-end before bulk-filling.
     }
@@ -297,6 +320,19 @@ object MicroCode {
         MicroOp.Idle,
         MicroOp.Idle,
         MicroOp.Internal { it.jrResolve(c) },
+    )
+
+    private fun jpCc(c: Condition): Array<MicroOp> = arrayOf(
+        // M1
+        MicroOp.ReadImmediate(Latch.Z),
+        MicroOp.Idle,
+        MicroOp.Idle,
+        MicroOp.Idle,
+        // M2
+        MicroOp.ReadImmediate(Latch.W),
+        MicroOp.Idle,
+        MicroOp.Idle,
+        MicroOp.Internal { it.jpResolve(c) },
     )
 
     private fun retCc(c: Condition): Array<MicroOp> = arrayOf(

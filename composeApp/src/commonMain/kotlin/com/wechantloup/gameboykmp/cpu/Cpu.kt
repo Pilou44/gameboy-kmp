@@ -42,7 +42,8 @@ class Cpu(
     private val retReadLow  = MicroOp.ReadMem(Addr16.SP, Latch.Z)
     private val retReadHigh = MicroOp.ReadMem(Addr16.SP, Latch.W)
     private val opIncSp     = MicroOp.Internal { it.microIncSp() }
-    private val opPopPc     = MicroOp.Internal { it.microPopPc() }
+    private val opPopPc     = MicroOp.Internal { it.microWZtoPc() }
+    private val opWZtoPc = MicroOp.Internal { it.microWZtoPc() }
 
     fun step() {
         // A general-purpose DMA started by the previous instruction freezes the CPU for the entire
@@ -426,11 +427,6 @@ class Cpu(
             }
 
             /* --- Jumps --- */
-            0xC3 -> jp()
-            0xC2 -> jp(!registers.flagZ)
-            0xCA -> jp(registers.flagZ)
-            0xD2 -> jp(!registers.flagC)
-            0xDA -> jp(registers.flagC)
             0xE9 -> registers.pc = registers.hl  // JP HL
 
             /* --- CALL / RET --- */
@@ -903,10 +899,20 @@ class Cpu(
         if (!testCondition(c)) return                         // not taken: no extra M-cycle
         jrResolve()
     }
+
     internal fun jrResolve() {
         val offset = latchZ.toByte().toInt()                  // Z holds the raw offset byte; sign-extend
         registers.pc = (registers.pc + offset) and 0xFFFF
         pipeline.push(MicroOp.Idle)                    // taken: the extra internal M-cycle (4 T)
+        pipeline.push(MicroOp.Idle)
+        pipeline.push(MicroOp.Idle)
+        pipeline.push(MicroOp.Idle)
+    }
+
+    internal fun jpResolve(c: Condition) {
+        if (!testCondition(c)) return                         // not taken: no extra M-cycle
+
+        pipeline.push(opWZtoPc)
         pipeline.push(MicroOp.Idle)
         pipeline.push(MicroOp.Idle)
         pipeline.push(MicroOp.Idle)
@@ -959,7 +965,7 @@ class Cpu(
     internal fun microPopBc() { registers.bc = (latchW shl 8) or latchZ }
     internal fun microPopDe() { registers.de = (latchW shl 8) or latchZ }
     internal fun microPopHl() { registers.hl = (latchW shl 8) or latchZ }
-    internal fun microPopPc() { registers.pc = (latchW shl 8) or latchZ }
+    internal fun microWZtoPc() { registers.pc = (latchW shl 8) or latchZ }
     /**
      * Assemble the popped pair into AF. Unlike the other pairs, F holds only its top 4 bits in hardware,
      * so the low nibble of the popped low byte (which lands in F) is masked off — POP AF can never set

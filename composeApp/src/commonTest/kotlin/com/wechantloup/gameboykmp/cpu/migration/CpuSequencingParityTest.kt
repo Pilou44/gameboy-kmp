@@ -95,6 +95,14 @@ class CpuSequencingParityTest {
             // branches must be exercised: taken drives retResolve's dynamic push, not-taken drives the early return.
             Case("RET Z taken")     { b, r -> r.pc = 0xC000; r.sp = 0xCFFE; r.flagZ = true;  b.poke(0xCFFE, 0x00); b.poke(0xCFFF, 0xC2); b.load(0xC000, 0xC8) },
             Case("RET Z not taken") { b, r -> r.pc = 0xC000; r.sp = 0xCFFE; r.flagZ = false; b.load(0xC000, 0xC8) },
+
+            // JP nn: read nn into WZ (two immediate reads), then an internal jump M-cycle loads PC from WZ.
+            Case("JP nn") { b, r -> r.pc = 0xC000; b.load(0xC000, 0xC3, 0x00, 0xC2) },   // jump to 0xC200
+
+            // JP cc: like JR cc but with a 16-bit immediate target. Taken drives jpResolve's push, not-taken
+            // drives the early return (the two nn reads happen either way; only the jump M-cycle is conditional).
+            Case("JP Z taken")     { b, r -> r.pc = 0xC000; r.flagZ = true;  b.load(0xC000, 0xCA, 0x00, 0xC2) },
+            Case("JP Z not taken") { b, r -> r.pc = 0xC000; r.flagZ = false; b.load(0xC000, 0xCA, 0x00, 0xC2) },
         )
     }
 }
