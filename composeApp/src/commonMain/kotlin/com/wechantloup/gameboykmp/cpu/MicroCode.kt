@@ -92,6 +92,49 @@ object MicroCode {
             MicroOp.Idle,
         )
 
+        this[0xC9] = arrayOf(
+            // RET
+            // M1 (after fetch): read low byte into Z, SP++.
+            MicroOp.ReadMem(Addr16.SP, Latch.Z),
+            MicroOp.Internal { it.microIncSp() },
+            MicroOp.Idle,
+            MicroOp.Idle,
+            // M2: read high byte into W, SP++.
+            MicroOp.ReadMem(Addr16.SP, Latch.W),
+            MicroOp.Internal { it.microIncSp() },
+            MicroOp.Idle,
+            MicroOp.Idle,
+            // M3: internal jump M-cycle — assemble (W<<8)|Z into PC.
+            MicroOp.Internal { it.microPopPc() },
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+        )
+
+        this[0xC0] = retCc(Condition.NZ)
+        this[0xC8] = retCc(Condition.Z)
+        this[0xD0] = retCc(Condition.NC)
+        this[0xD8] = retCc(Condition.C)
+
+        this[0xD9] = arrayOf(
+            // RETI
+            // M1 (after fetch): read low byte into Z, SP++.
+            MicroOp.ReadMem(Addr16.SP, Latch.Z),
+            MicroOp.Internal { it.microIncSp() },
+            MicroOp.Idle,
+            MicroOp.Idle,
+            // M2: read high byte into W, SP++.
+            MicroOp.ReadMem(Addr16.SP, Latch.W),
+            MicroOp.Internal { it.microIncSp() },
+            MicroOp.Idle,
+            MicroOp.Idle,
+            // M3: internal jump M-cycle — assemble PC, then enable interrupts.
+            MicroOp.Internal { it.microPopPc() },
+            MicroOp.Internal { it.microSetIme() },
+            MicroOp.Idle,
+            MicroOp.Idle,
+        )
+
         this[0xC5] = arrayOf(
             // PUSH BC
             // M1 (after fetch): internal SP-prep M-cycle, no bus access, no decrement here —
@@ -250,7 +293,16 @@ object MicroCode {
 
     /** JR cc, e: read signed offset into Z (M2), then resolve — jrResolve pushes the taken M-cycle. */
     private fun jrCc(c: Condition): Array<MicroOp> = arrayOf(
-        MicroOp.ReadImmediate(Latch.Z), MicroOp.Idle, MicroOp.Idle,
+        MicroOp.ReadImmediate(Latch.Z),
+        MicroOp.Idle,
+        MicroOp.Idle,
         MicroOp.Internal { it.jrResolve(c) },
+    )
+
+    private fun retCc(c: Condition): Array<MicroOp> = arrayOf(
+        MicroOp.Idle,
+        MicroOp.Idle,
+        MicroOp.Idle,
+        MicroOp.Internal { it.retResolve(c) },
     )
 }

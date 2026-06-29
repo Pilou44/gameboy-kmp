@@ -38,6 +38,12 @@ class Cpu(
 
     private var haltBug = false
 
+    // Pre-built, shared micro-ops for the dynamic RET-taken tail (pushed by reference, zero alloc per RET).
+    private val retReadLow  = MicroOp.ReadMem(Addr16.SP, Latch.Z)
+    private val retReadHigh = MicroOp.ReadMem(Addr16.SP, Latch.W)
+    private val opIncSp     = MicroOp.Internal { it.microIncSp() }
+    private val opPopPc     = MicroOp.Internal { it.microPopPc() }
+
     fun step() {
         // A general-purpose DMA started by the previous instruction freezes the CPU for the entire
         // transfer. Drain it here, at the instruction boundary, before anything else: the timer/PPU
@@ -434,21 +440,6 @@ class Cpu(
             0xD4 -> call(!registers.flagC)
             0xDC -> call(registers.flagC)
 
-            0xC9 -> {
-                registers.pc = pop()
-                onMachineCycleTick()
-            }
-            0xC0 -> ret(!registers.flagZ)
-            0xC8 -> ret(registers.flagZ)
-            0xD0 -> ret(!registers.flagC)
-            0xD8 -> ret(registers.flagC)
-            0xD9 -> {
-                // RETI
-                registers.pc = pop()
-                onMachineCycleTick()
-                ime = true
-            }
-
             /* --- RST --- */
             0xC7 -> rst(0x00)
             0xCF -> rst(0x08)
@@ -704,15 +695,6 @@ class Cpu(
         onMachineCycleTick()  // internal M-cycle (PC update)
     }
 
-    private fun jr(condition: Boolean = true) {
-        val offset = fetch().toByte().toInt()
-
-        if (!condition) return
-
-        registers.pc = (registers.pc + offset) and 0xFFFF
-        onMachineCycleTick()  // internal M-cycle (PC update)
-    }
-
     private fun call(condition: Boolean = true) {
         val value = fetch16()
 
@@ -720,14 +702,6 @@ class Cpu(
 
         push(registers.pc)
         registers.pc = value
-    }
-
-    private fun ret(condition: Boolean = true) {
-        onMachineCycleTick()  // condition check M-cycle (always)
-        if (!condition) return
-
-        registers.pc = pop()
-        onMachineCycleTick()  // jump M-cycle
     }
 
     private fun fetch(): Int {
@@ -755,16 +729,6 @@ class Cpu(
         registers.sp = (registers.sp - 1) and 0xFFFF
         bus.write(registers.sp, address and 0xFF)
         onMachineCycleTick()  // write low byte
-    }
-
-    private fun pop(): Int {
-        val low = bus.read(registers.sp)
-        registers.sp = (registers.sp + 1) and 0xFFFF
-        onMachineCycleTick()  // read low byte
-        val high = bus.read(registers.sp)
-        registers.sp = (registers.sp + 1) and 0xFFFF
-        onMachineCycleTick()  // read high byte
-        return (high shl 8) or low
     }
 
     /**
@@ -948,6 +912,26 @@ class Cpu(
         pipeline.push(MicroOp.Idle)
     }
 
+    internal fun retResolve(c: Condition) {
+        if (!testCondition(c)) return                         // not taken: no extra M-cycle
+        // RET
+        // M1: read low byte into Z, SP++.
+        pipeline.push(retReadLow)
+        pipeline.push(opIncSp)
+        pipeline.push(MicroOp.Idle)
+        pipeline.push(MicroOp.Idle)
+        // M2: read high byte into W, SP++.
+        pipeline.push(retReadHigh)
+        pipeline.push(opIncSp)
+        pipeline.push(MicroOp.Idle)
+        pipeline.push(MicroOp.Idle)
+        // M3: internal jump M-cycle — assemble (W<<8)|Z into PC.
+        pipeline.push(opPopPc)
+        pipeline.push(MicroOp.Idle)
+        pipeline.push(MicroOp.Idle)
+        pipeline.push(MicroOp.Idle)
+    }
+
     /**
      * Shared core of ADD SP,e (0xE8) and LD HL,SP+e (0xF8). Z holds the raw offset byte (sign-extended
      * here). Flags use the unsigned add of SP's low byte vs the offset byte — Z and N are always 0 — via
@@ -975,10 +959,13 @@ class Cpu(
     internal fun microPopBc() { registers.bc = (latchW shl 8) or latchZ }
     internal fun microPopDe() { registers.de = (latchW shl 8) or latchZ }
     internal fun microPopHl() { registers.hl = (latchW shl 8) or latchZ }
+    internal fun microPopPc() { registers.pc = (latchW shl 8) or latchZ }
     /**
      * Assemble the popped pair into AF. Unlike the other pairs, F holds only its top 4 bits in hardware,
      * so the low nibble of the popped low byte (which lands in F) is masked off — POP AF can never set
      * flag bits 0..3.
      */
     internal fun microPopAf() { registers.af = (latchW shl 8) or (latchZ and 0xF0) }
+
+    internal fun microSetIme() { ime = true }
 }
