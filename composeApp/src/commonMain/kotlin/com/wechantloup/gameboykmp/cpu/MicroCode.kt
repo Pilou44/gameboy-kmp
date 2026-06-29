@@ -150,6 +150,38 @@ object MicroCode {
         this[0x30] = jrCc(Condition.NC)   // JR NC, e
         this[0x38] = jrCc(Condition.C)    // JR C, e
 
+        this[0xE8] = arrayOf(
+            // ADD SP, e — 4 M-cycles
+            // M2: Z <- e
+            MicroOp.ReadImmediate(Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            // M3: compute + write SP
+            MicroOp.Internal { it.addSpE() },
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            // M4: internal settle
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+        )
+        this[0xF8] = arrayOf(
+            // LD HL, SP+e — 3 M-cycles
+            // M2: Z <- e
+            MicroOp.ReadImmediate(Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            // M3: compute + write HL
+            MicroOp.Internal { it.ldHlSpE() },
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+        )
+
         // TODO migrate distinct shapes next: push (pre-dec SP), LDI (post-inc HL), JR cc (conditional
         //  push to pipeline), ISR — to prove the MicroOp set has no dead-end before bulk-filling.
     }

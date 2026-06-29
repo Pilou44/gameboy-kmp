@@ -237,16 +237,6 @@ class Cpu(
                 bus.write(addr + 1, (registers.sp shr 8) and 0xFF)
                 onMachineCycleTick()
             }
-            0xF8 -> {                                   // LD HL, SP+n
-                val offset = fetch().toByte().toInt()
-                val result = (registers.sp + offset) and 0xFFFF
-                registers.flagZ = false
-                registers.flagN = false
-                registers.flagH = (registers.sp xor offset xor result) and 0x10 != 0
-                registers.flagC = (registers.sp xor offset xor result) and 0x100 != 0
-                registers.hl = result
-                onMachineCycleTick()
-            }
             0xF9 -> {
                 registers.sp = registers.hl        // LD SP, HL
                 onMachineCycleTick()
@@ -379,19 +369,6 @@ class Cpu(
             0x19 -> addHL(registers.de)
             0x29 -> addHL(registers.hl)
             0x39 -> addHL(registers.sp)
-
-            /* --- ADD SP, n --- */
-            0xE8 -> {
-                val offset = fetch().toByte().toInt()
-                val result = (registers.sp + offset) and 0xFFFF
-                registers.flagZ = false
-                registers.flagN = false
-                registers.flagH = (registers.sp xor offset xor result) and 0x10 != 0
-                registers.flagC = (registers.sp xor offset xor result) and 0x100 != 0
-                registers.sp = result
-                onMachineCycleTick()  // internal M-cycle 1
-                onMachineCycleTick()  // internal M-cycle 2
-            }
 
             /* --- Rotate accumulator --- */
             0x07 -> {  // RLCA
@@ -975,4 +952,24 @@ class Cpu(
         pipeline.push(MicroOp.Idle)
         pipeline.push(MicroOp.Idle)
     }
+
+    /**
+     * Shared core of ADD SP,e (0xE8) and LD HL,SP+e (0xF8). Z holds the raw offset byte (sign-extended
+     * here). Flags use the unsigned add of SP's low byte vs the offset byte — Z and N are always 0 — via
+     * the (sp xor offset xor result) trick, kept identical to the legacy execute() so the harness matches.
+     * Caller decides the destination; the M-cycle count differs (4 for SP, 3 for HL) and is set by the
+     * number of Idle micro-ops in each sequence, not here.
+     */
+    private fun spOffsetResult(): Int {
+        val offset = latchZ.toByte().toInt()
+        val result = (registers.sp + offset) and 0xFFFF
+        registers.flagZ = false
+        registers.flagN = false
+        registers.flagH = (registers.sp xor offset xor result) and 0x10 != 0
+        registers.flagC = (registers.sp xor offset xor result) and 0x100 != 0
+        return result
+    }
+
+    internal fun addSpE()  { registers.sp = spOffsetResult() }   // 0xE8
+    internal fun ldHlSpE() { registers.hl = spOffsetResult() }   // 0xF8
 }

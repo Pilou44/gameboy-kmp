@@ -60,6 +60,13 @@ class CpuSequencingParityTest {
             Case("JR taken")       { b, r -> r.pc = 0xC000; b.load(0xC000, 0x18, 0x05) },
             Case("JR NZ not taken"){ b, r -> r.pc = 0xC000; r.flagZ = true; b.load(0xC000, 0x20, 0x05) },
             Case("ADD HL,DE")      { b, r -> r.pc = 0xC000; r.hl = 0x0FFF; r.de = 0x0001; b.load(0xC000, 0x19) },
+            // ADD SP,e (0xE8) and LD HL,SP+e (0xF8): flags H/C are on the UNSIGNED add of SP's low byte vs the
+            // offset byte, Z=N=0 always. Inputs chosen so H and C are actually toggled (not trivially 0), with
+            // both a positive and a negative offset, since sign-extension of e is part of what's under test.
+            Case("ADD SP,e +carry") { b, r -> r.pc = 0xC000; r.sp = 0x00FF; b.load(0xC000, 0xE8, 0x01) }, // +1: H and C set
+            Case("ADD SP,e neg")    { b, r -> r.pc = 0xC000; r.sp = 0xC010; b.load(0xC000, 0xE8, 0xF0) }, // -16: low-byte borrow path
+            Case("LD HL,SP+e +carry"){ b, r -> r.pc = 0xC000; r.sp = 0x00FF; b.load(0xC000, 0xF8, 0x01) }, // +1: H and C set, dest HL
+            Case("LD HL,SP+e neg")  { b, r -> r.pc = 0xC000; r.sp = 0xC010; b.load(0xC000, 0xF8, 0xF0) }, // -16
         )
     }
 }
