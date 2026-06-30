@@ -30,6 +30,8 @@ sealed interface MicroOp {
     /** Write register to Z latch **/
     data class RegToZ(val src: Reg8) : MicroOp
 
+    data class AddHl(val src: Reg16) : MicroOp
+
     /**
      * A T-cycle of internal work: no bus access, just an effect on CPU state (ALU, flags, a taken/
      * not-taken decision, a latch combine). [effect] is capture-free — it reads/writes only through
@@ -43,6 +45,8 @@ enum class Latch { W, Z }
 
 /** 16-bit address sources for a memory access. */
 enum class Addr16 { BC, DE, HL, SP, WZ }   // TODO add immediate-nn / 0xFF00+C as opcodes need them
+
+enum class Reg16 {  BC, DE, HL, SP }
 
 /** 8-bit value sources for a write. */
 enum class Src8 { A, B, C, D, E, F, H, L, W, Z, PCH, PCL }

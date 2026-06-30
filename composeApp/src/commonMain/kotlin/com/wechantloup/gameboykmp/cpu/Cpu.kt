@@ -369,12 +369,6 @@ class Cpu(
 
             0x35 -> dec(6)
 
-            /* --- ADD HL, rr --- */
-            0x09 -> addHL(registers.bc)
-            0x19 -> addHL(registers.de)
-            0x29 -> addHL(registers.hl)
-            0x39 -> addHL(registers.sp)
-
             /* --- RST --- */
             0xC7 -> rst(0x00)
             0xCF -> rst(0x08)
@@ -772,8 +766,25 @@ class Cpu(
                 Reg8.H -> registers.h
                 Reg8.L -> registers.l
             }
+            is MicroOp.AddHl -> addHl16(op.src)
             is MicroOp.Internal -> op.effect(this)
         }
+    }
+
+    private fun addHl16(src: Reg16) {
+        val value = when (src) {
+            Reg16.BC -> registers.bc
+            Reg16.DE -> registers.de
+            Reg16.HL -> registers.hl
+            Reg16.SP -> registers.sp
+        }
+
+        val hl = registers.hl
+        val result = hl + value
+        registers.hl = result and 0xFFFF
+        registers.flagN = false
+        registers.flagH = (hl and 0x0FFF) + (value and 0x0FFF) > 0x0FFF
+        registers.flagC = result > 0xFFFF
     }
 
     private fun setLatch(l: Latch, v: Int) { when (l) { Latch.W -> latchW = v and 0xFF; Latch.Z -> latchZ = v and 0xFF } }

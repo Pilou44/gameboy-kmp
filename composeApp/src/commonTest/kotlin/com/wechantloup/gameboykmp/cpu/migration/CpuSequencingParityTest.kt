@@ -124,6 +124,11 @@ class CpuSequencingParityTest {
             // INC/DEC rr (16-bit): one internal M-cycle, no flags touched. Wrap cases catch a missing & 0xFFFF.
             Case("INC BC") { b, r -> r.pc = 0xC000; r.bc = 0x12FF; b.load(0xC000, 0x03) },   // -> 0x1300
             Case("DEC BC") { b, r -> r.pc = 0xC000; r.bc = 0x1300; b.load(0xC000, 0x0B) },   // -> 0x12FF
+
+            // ADD HL,rr: 16-bit add into HL. flagC is the bit-15 carry, flagH the bit-11 carry, Z untouched.
+            // The seeded ADD HL,DE only exercises H. These add the C path and the HL+HL (0x29) doubling shape.
+            Case("ADD HL,BC carry") { b, r -> r.pc = 0xC000; r.hl = 0xFFFF; r.bc = 0x0001; b.load(0xC000, 0x09) }, // -> 0x0000, H+C set
+            Case("ADD HL,HL")       { b, r -> r.pc = 0xC000; r.hl = 0x8800; b.load(0xC000, 0x29) },                 // HL+HL, C set (bit15)
         )
     }
 }

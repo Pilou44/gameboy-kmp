@@ -521,6 +521,31 @@ object MicroCode {
             MicroOp.Idle,
         )
 
+        this[0x09] = arrayOf(
+            MicroOp.AddHl(Reg16.BC),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle
+        )
+        this[0x19] = arrayOf(
+            MicroOp.AddHl(Reg16.DE),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle
+        )
+        this[0x29] = arrayOf(
+            MicroOp.AddHl(Reg16.HL),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle
+        )
+        this[0x39] = arrayOf(
+            MicroOp.AddHl(Reg16.SP),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle
+        )
+
         // TODO migrate distinct shapes next: push (pre-dec SP), LDI (post-inc HL), JR cc (conditional
         //  push to pipeline), ISR — to prove the MicroOp set has no dead-end before bulk-filling.
     }
