@@ -114,6 +114,12 @@ class CpuSequencingParityTest {
 
             // LD r,n: read immediate into Z, then ZtoReg moves it into the destination register.
             Case("LD B,n") { b, r -> r.pc = 0xC000; b.load(0xC000, 0x06, 0x42) },   // B <- 0x42
+
+            // LD (rr),A and LD A,(rr): single bus access in one M-cycle (write A out, or read into A via ZtoReg).
+            Case("LD (BC),A") { b, r -> r.pc = 0xC000; r.bc = 0xC100; r.a = 0x99; b.load(0xC000, 0x02) },
+            Case("LD (DE),A") { b, r -> r.pc = 0xC000; r.de = 0xC100; r.a = 0x99; b.load(0xC000, 0x12) },
+            Case("LD A,(BC)") { b, r -> r.pc = 0xC000; r.bc = 0xC100; b.poke(0xC100, 0x77); b.load(0xC000, 0x0A) },
+            Case("LD A,(DE)") { b, r -> r.pc = 0xC000; r.de = 0xC100; b.poke(0xC100, 0x77); b.load(0xC000, 0x1A) },
         )
     }
 }

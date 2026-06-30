@@ -315,24 +315,6 @@ class Cpu(
                 onMachineCycleTick()
             }
 
-            /* --- LD (BC/DE), A / LD A, (BC/DE) --- */
-            0x02 -> {
-                bus.write(registers.bc, registers.a)
-                onMachineCycleTick()
-            }
-            0x12 -> {
-                bus.write(registers.de, registers.a)
-                onMachineCycleTick()
-            }
-            0x0A -> {
-                registers.a = bus.read(registers.bc)
-                onMachineCycleTick()
-            }
-            0x1A -> {
-                registers.a = bus.read(registers.de)
-                onMachineCycleTick()
-            }
-
             /* --- I/O loads --- */
             0xE0 -> {
                 val value = fetch()
@@ -870,9 +852,6 @@ class Cpu(
     /** Post-increment / post-decrement HL. Own T-cycle; shared by LD (HL±),A and LD A,(HL±). */
     internal fun microIncHl() { registers.hl = (registers.hl + 1) and 0xFFFF }
     internal fun microDecHl() { registers.hl = (registers.hl - 1) and 0xFFFF }
-
-    /** Copy the Z latch into A. Internal T-cycle; shared by LD A,(HL±) and later LD A,(HL)/LD r,(HL). */
-    internal fun microZtoA() { registers.a = latchZ }
 
     internal fun testCondition(c: Condition): Boolean = when (c) {
         Condition.NZ -> !registers.flagZ

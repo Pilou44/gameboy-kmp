@@ -64,6 +64,34 @@ object MicroCode {
             MicroOp.Internal { it.microWZtoSp() },
         )
 
+        this[0x02] = arrayOf(
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.BC, Src8.A),
+            MicroOp.Idle,
+        )
+
+        this[0x12] = arrayOf(
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.DE, Src8.A),
+            MicroOp.Idle,
+        )
+
+        this[0x0A] = arrayOf(
+            MicroOp.ReadMem(Addr16.BC, Latch.Z),
+            MicroOp.ZtoReg(Reg8.A),
+            MicroOp.Idle,
+            MicroOp.Idle,
+        )
+
+        this[0x1A] = arrayOf(
+            MicroOp.ReadMem(Addr16.DE, Latch.Z),
+            MicroOp.ZtoReg(Reg8.A),
+            MicroOp.Idle,
+            MicroOp.Idle,
+        )
+
         this[0x06] = arrayOf(
             MicroOp.ReadImmediate(Latch.Z),
             MicroOp.Idle,
@@ -334,14 +362,14 @@ object MicroCode {
             // LD A, (HL+)
             MicroOp.ReadMem(Addr16.HL, Latch.Z),
             MicroOp.Internal { it.microIncHl() },
-            MicroOp.Internal { it.microZtoA() },
+            MicroOp.ZtoReg(Reg8.A),
             MicroOp.Idle,
         )
         this[0x3A] = arrayOf(
             // LD A, (HL-)
             MicroOp.ReadMem(Addr16.HL, Latch.Z),
             MicroOp.Internal { it.microDecHl() },
-            MicroOp.Internal { it.microZtoA() },
+            MicroOp.ZtoReg(Reg8.A),
             MicroOp.Idle,
         )
 
