@@ -68,42 +68,42 @@ object MicroCode {
             MicroOp.ReadImmediate(Latch.Z),
             MicroOp.Idle,
             MicroOp.Idle,
-            MicroOp.ZtoReg(Dst8.B),
+            MicroOp.ZtoReg(Reg8.B),
         )
 
         this[0x0E] = arrayOf(
             MicroOp.ReadImmediate(Latch.Z),
             MicroOp.Idle,
             MicroOp.Idle,
-            MicroOp.ZtoReg(Dst8.C),
+            MicroOp.ZtoReg(Reg8.C),
         )
 
         this[0x16] = arrayOf(
             MicroOp.ReadImmediate(Latch.Z),
             MicroOp.Idle,
             MicroOp.Idle,
-            MicroOp.ZtoReg(Dst8.D),
+            MicroOp.ZtoReg(Reg8.D),
         )
 
         this[0x1E] = arrayOf(
             MicroOp.ReadImmediate(Latch.Z),
             MicroOp.Idle,
             MicroOp.Idle,
-            MicroOp.ZtoReg(Dst8.E),
+            MicroOp.ZtoReg(Reg8.E),
         )
 
         this[0x26] = arrayOf(
             MicroOp.ReadImmediate(Latch.Z),
             MicroOp.Idle,
             MicroOp.Idle,
-            MicroOp.ZtoReg(Dst8.H),
+            MicroOp.ZtoReg(Reg8.H),
         )
 
         this[0x2E] = arrayOf(
             MicroOp.ReadImmediate(Latch.Z),
             MicroOp.Idle,
             MicroOp.Idle,
-            MicroOp.ZtoReg(Dst8.L),
+            MicroOp.ZtoReg(Reg8.L),
         )
 
         this[0x36] = arrayOf(
@@ -122,7 +122,7 @@ object MicroCode {
             MicroOp.ReadImmediate(Latch.Z),
             MicroOp.Idle,
             MicroOp.Idle,
-            MicroOp.ZtoReg(Dst8.A),
+            MicroOp.ZtoReg(Reg8.A),
         )
 
         this[0x34] = arrayOf(

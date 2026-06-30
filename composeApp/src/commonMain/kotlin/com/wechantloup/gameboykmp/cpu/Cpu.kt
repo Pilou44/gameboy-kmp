@@ -188,6 +188,9 @@ class Cpu(
 
     private fun execute(opcode: Int) {
         when (opcode) {
+
+// --- Phase B: 1-M-cycle-with-effect, effect lands in the fetch M-cycle ---
+
             0x76 -> {
                 val pending = bus.ie and bus.iF and 0x1F
                 if (pending != 0 && !ime) {
@@ -215,6 +218,86 @@ class Cpu(
                     bus.write(0xFF04, 0x00)
                 }
             }
+
+            0x04 -> inc(0)
+            0x0C -> inc(1)
+            0x14 -> inc(2)
+            0x1C -> inc(3)
+            0x24 -> inc(4)
+            0x2C -> inc(5)
+            0x3C -> inc(7)
+
+            0x05 -> dec(0)
+            0x0D -> dec(1)
+            0x15 -> dec(2)
+            0x1D -> dec(3)
+            0x25 -> dec(4)
+            0x2D -> dec(5)
+            0x3D -> dec(7)
+
+            /* --- Misc --- */
+            0x27 -> daa()
+            0x2F -> {
+                // CPL
+                registers.a = registers.a.inv() and 0xFF
+                registers.flagN = true
+                registers.flagH = true
+            }
+            0x37 -> {
+                // SCF
+                registers.flagN = false
+                registers.flagH = false
+                registers.flagC = true
+            }
+            0x3F -> {
+                // CCF
+                registers.flagN = false
+                registers.flagH = false
+                registers.flagC = !registers.flagC
+            }
+
+            /* --- Jumps --- */
+            0xE9 -> registers.pc = registers.hl  // JP HL
+
+            /* --- Rotate accumulator --- */
+            0x07 -> {  // RLCA
+                val bit7 = (registers.a shr 7) and 1
+                registers.a = ((registers.a shl 1) or bit7) and 0xFF
+                registers.flagZ = false
+                registers.flagN = false
+                registers.flagH = false
+                registers.flagC = bit7 != 0
+            }
+            0x0F -> {  // RRCA
+                val bit0 = registers.a and 1
+                registers.a = (registers.a ushr 1) or (bit0 shl 7)
+                registers.flagZ = false
+                registers.flagN = false
+                registers.flagH = false
+                registers.flagC = bit0 != 0
+            }
+            0x17 -> {  // RLA
+                val oldC = if (registers.flagC) 1 else 0
+                val bit7 = (registers.a shr 7) and 1
+                registers.a = ((registers.a shl 1) or oldC) and 0xFF
+                registers.flagZ = false
+                registers.flagN = false
+                registers.flagH = false
+                registers.flagC = bit7 != 0
+            }
+            0x1F -> {  // RRA
+                val oldC = if (registers.flagC) 1 else 0
+                val bit0 = registers.a and 1
+                registers.a = (registers.a ushr 1) or (oldC shl 7)
+                registers.flagZ = false; registers.flagN = false; registers.flagH = false
+                registers.flagC = bit0 != 0
+            }
+
+            /* --- Interrupts --- */
+            0xF3 -> ime = false
+            0xFB -> imeScheduled = true
+
+// --- End Section Phase B ---
 
             /* --- 8-bit loads: register to register (0x40–0x7F, 0x76=HALT handled above) --- */
             in 0x40..0x7F -> load(opcode)
@@ -301,23 +384,8 @@ class Cpu(
             0xFE -> subImmediate(fetch(), storeResult = false)  // CP n
 
             /* --- 8-bit INC/DEC --- */
-            0x04 -> inc(0)
-            0x0C -> inc(1)
-            0x14 -> inc(2)
-            0x1C -> inc(3)
-            0x24 -> inc(4)
-            0x2C -> inc(5)
-//            0x34 -> inc(6)
-            0x3C -> inc(7)
 
-            0x05 -> dec(0)
-            0x0D -> dec(1)
-            0x15 -> dec(2)
-            0x1D -> dec(3)
-            0x25 -> dec(4)
-            0x2D -> dec(5)
             0x35 -> dec(6)
-            0x3D -> dec(7)
 
             /* --- 16-bit INC/DEC --- */
             0x03 -> {
@@ -360,58 +428,6 @@ class Cpu(
             0x29 -> addHL(registers.hl)
             0x39 -> addHL(registers.sp)
 
-            /* --- Rotate accumulator --- */
-            0x07 -> {  // RLCA
-                val bit7 = (registers.a shr 7) and 1
-                registers.a = ((registers.a shl 1) or bit7) and 0xFF
-                registers.flagZ = false; registers.flagN = false; registers.flagH = false
-                registers.flagC = bit7 != 0
-            }
-            0x0F -> {  // RRCA
-                val bit0 = registers.a and 1
-                registers.a = (registers.a ushr 1) or (bit0 shl 7)
-                registers.flagZ = false; registers.flagN = false; registers.flagH = false
-                registers.flagC = bit0 != 0
-            }
-            0x17 -> {  // RLA
-                val oldC = if (registers.flagC) 1 else 0
-                val bit7 = (registers.a shr 7) and 1
-                registers.a = ((registers.a shl 1) or oldC) and 0xFF
-                registers.flagZ = false; registers.flagN = false; registers.flagH = false
-                registers.flagC = bit7 != 0
-            }
-            0x1F -> {  // RRA
-                val oldC = if (registers.flagC) 1 else 0
-                val bit0 = registers.a and 1
-                registers.a = (registers.a ushr 1) or (oldC shl 7)
-                registers.flagZ = false; registers.flagN = false; registers.flagH = false
-                registers.flagC = bit0 != 0
-            }
-
-            /* --- Misc --- */
-            0x27 -> daa()
-            0x2F -> {
-                // CPL
-                registers.a = registers.a.inv() and 0xFF
-                registers.flagN = true
-                registers.flagH = true
-            }
-            0x37 -> {
-                // SCF
-                registers.flagN = false
-                registers.flagH = false
-                registers.flagC = true
-            }
-            0x3F -> {
-                // CCF
-                registers.flagN = false
-                registers.flagH = false
-                registers.flagC = !registers.flagC
-            }
-
-            /* --- Jumps --- */
-            0xE9 -> registers.pc = registers.hl  // JP HL
-
             /* --- RST --- */
             0xC7 -> rst(0x00)
             0xCF -> rst(0x08)
@@ -421,10 +437,6 @@ class Cpu(
             0xEF -> rst(0x28)
             0xF7 -> rst(0x30)
             0xFF -> rst(0x38)
-
-            /* --- Interrupts --- */
-            0xF3 -> ime = false
-            0xFB -> imeScheduled = true
 
             /* --- CB prefix --- */
             0xCB -> {
@@ -794,14 +806,24 @@ class Cpu(
             is MicroOp.ReadMem  -> setLatch(op.into, bus.read(addr16(op.addr)))
             is MicroOp.WriteMem -> bus.write(addr16(op.addr), src8(op.value))
             is MicroOp.ZtoReg -> when (op.dst) {
-                Dst8.A -> registers.a = latchZ
-                Dst8.B -> registers.b = latchZ
-                Dst8.C -> registers.c = latchZ
-                Dst8.D -> registers.d = latchZ
-                Dst8.E -> registers.e = latchZ
-                Dst8.F -> registers.f = latchZ and 0xF0
-                Dst8.H -> registers.h = latchZ
-                Dst8.L -> registers.l = latchZ
+                Reg8.A -> registers.a = latchZ
+                Reg8.B -> registers.b = latchZ
+                Reg8.C -> registers.c = latchZ
+                Reg8.D -> registers.d = latchZ
+                Reg8.E -> registers.e = latchZ
+                Reg8.F -> registers.f = latchZ and 0xF0
+                Reg8.H -> registers.h = latchZ
+                Reg8.L -> registers.l = latchZ
+            }
+            is MicroOp.RegToZ -> latchZ = when (op.src) {
+                Reg8.A -> registers.a
+                Reg8.B -> registers.b
+                Reg8.C -> registers.c
+                Reg8.D -> registers.d
+                Reg8.E -> registers.e
+                Reg8.F -> registers.f
+                Reg8.H -> registers.h
+                Reg8.L -> registers.l
             }
             is MicroOp.Internal -> op.effect(this)
         }

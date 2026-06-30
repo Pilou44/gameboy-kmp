@@ -25,7 +25,10 @@ sealed interface MicroOp {
     data class WriteMem(val addr: Addr16, val value: Src8) : MicroOp
 
     /** Write Z latch to register **/
-    data class ZtoReg(val dst: Dst8) : MicroOp
+    data class ZtoReg(val dst: Reg8) : MicroOp
+
+    /** Write register to Z latch **/
+    data class RegToZ(val src: Reg8) : MicroOp
 
     /**
      * A T-cycle of internal work: no bus access, just an effect on CPU state (ALU, flags, a taken/
@@ -45,7 +48,7 @@ enum class Addr16 { BC, DE, HL, SP, WZ }   // TODO add immediate-nn / 0xFF00+C a
 enum class Src8 { A, B, C, D, E, F, H, L, W, Z, PCH, PCL }
 
 /** 8-bit value destinations for a write. */
-enum class Dst8 { A, B, C, D, E, F, H, L }
+enum class Reg8 { A, B, C, D, E, F, H, L }
 
 /** Branch condition for JR/JP/RET/CALL cc. Evaluated against the flags by Cpu.testCondition. */
 enum class Condition { NZ, Z, NC, C }
