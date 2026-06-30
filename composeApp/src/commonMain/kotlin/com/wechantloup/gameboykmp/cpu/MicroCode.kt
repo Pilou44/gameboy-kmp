@@ -699,6 +699,44 @@ object MicroCode {
             MicroOp.Rst(0x38),
         )
 
+        this[0xE0] = arrayOf(
+            // LDH (n),A — M2: n -> Z ; M3: W=0xFF then write A to [0xFF00|n]
+            MicroOp.ReadImmediate(Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Internal { it.microHighPageW() },
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.WZ, Src8.A),
+        )
+        this[0xF0] = arrayOf(
+            // LDH A,(n) — M2: n -> Z ; M3: W=0xFF, read [0xFF00|n] -> Z, then Z -> A
+            MicroOp.ReadImmediate(Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Internal { it.microHighPageW() },
+            MicroOp.ReadMem(Addr16.WZ, Latch.Z),
+            MicroOp.Idle,
+            MicroOp.ZtoReg(Reg8.A),
+        )
+
+        this[0xE2] = arrayOf(
+            // LDH (C),A — addr = 0xFF00 | C, write A
+            MicroOp.Internal { it.microHighPageC() },
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.WZ, Src8.A),
+        )
+        this[0xF2] = arrayOf(
+            // LDH A,(C) — addr = 0xFF00 | C, read into A
+            MicroOp.Internal { it.microHighPageC() },
+            MicroOp.ReadMem(Addr16.WZ, Latch.Z),
+            MicroOp.Idle,
+            MicroOp.ZtoReg(Reg8.A),
+        )
+
         this[0xEA] = arrayOf(
             // M1
             MicroOp.ReadImmediate(Latch.Z),

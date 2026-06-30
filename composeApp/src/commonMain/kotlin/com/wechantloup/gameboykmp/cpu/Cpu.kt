@@ -315,26 +315,6 @@ class Cpu(
                 onMachineCycleTick()
             }
 
-            /* --- I/O loads --- */
-            0xE0 -> {
-                val value = fetch()
-                bus.write(0xFF00 + value, registers.a)
-                onMachineCycleTick()
-            }
-            0xF0 -> {
-                val value = fetch()
-                registers.a = bus.read(0xFF00 + value)
-                onMachineCycleTick()
-            }
-            0xE2 -> {
-                bus.write(0xFF00 + registers.c, registers.a)
-                onMachineCycleTick()
-            }
-            0xF2 -> {
-                registers.a = bus.read(0xFF00 + registers.c)
-                onMachineCycleTick()
-            }
-
             /* --- 8-bit arithmetic: register --- */
             in 0x80..0x87 -> add(opcode)
             in 0x88..0x8F -> add(opcode, withCarry = true)
@@ -909,4 +889,11 @@ class Cpu(
     internal fun microPopAf() { registers.af = (latchW shl 8) or (latchZ and 0xF0) }
 
     internal fun microSetIme() { ime = true }
+
+    /** High-page address from C into WZ: W=0xFF, Z=C. For LDH (C),A / LDH A,(C). 0xFF is a literal,
+     *  not a capture, so the Internal stays capture-free. */
+    internal fun microHighPageC() { latchW = 0xFF; latchZ = registers.c }
+
+    /** Set the high-page base in W (0xFF). Z is filled separately (immediate or C). For LDH (n),A / A,(n). */
+    internal fun microHighPageW() { latchW = 0xFF }
 }

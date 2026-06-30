@@ -136,6 +136,14 @@ class CpuSequencingParityTest {
             // LD (nn),A and LD A,(nn): read a 16-bit address into WZ, then a single bus access through Addr16.WZ.
             Case("LD (nn),A") { b, r -> r.pc = 0xC000; r.a = 0x99; b.load(0xC000, 0xEA, 0x00, 0xC1) },               // write A to 0xC100
             Case("LD A,(nn)") { b, r -> r.pc = 0xC000; b.poke(0xC100, 0x77); b.load(0xC000, 0xFA, 0x00, 0xC1) },     // read 0xC100 into A
+
+            // LDH (C),A / LDH A,(C): high-page access addressed by 0xFF00 | C (no immediate fetch).
+            Case("LDH (C),A") { b, r -> r.pc = 0xC000; r.c = 0x80; r.a = 0x99; b.load(0xC000, 0xE2) },   // write A to 0xFF80
+            Case("LDH A,(C)") { b, r -> r.pc = 0xC000; r.c = 0x80; b.poke(0xFF80, 0x77); b.load(0xC000, 0xF2) },
+
+            // LDH (n),A / LDH A,(n): high-page access addressed by 0xFF00 | n, n being an immediate byte.
+            Case("LDH (n),A") { b, r -> r.pc = 0xC000; r.a = 0x99; b.load(0xC000, 0xE0, 0x80) },                 // write A to 0xFF80
+            Case("LDH A,(n)") { b, r -> r.pc = 0xC000; b.poke(0xFF80, 0x77); b.load(0xC000, 0xF0, 0x80) },       // read 0xFF80 into A
         )
     }
 }
