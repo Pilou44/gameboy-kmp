@@ -132,6 +132,10 @@ class CpuSequencingParityTest {
 
             // RST: push PC (return address) then jump to the fixed vector. Same shape as CALL minus the nn reads.
             Case("RST 00h") { b, r -> r.pc = 0xC000; r.sp = 0xD000; b.load(0xC000, 0xC7) },   // push 0xC001, PC <- 0x0000
+
+            // LD (nn),A and LD A,(nn): read a 16-bit address into WZ, then a single bus access through Addr16.WZ.
+            Case("LD (nn),A") { b, r -> r.pc = 0xC000; r.a = 0x99; b.load(0xC000, 0xEA, 0x00, 0xC1) },               // write A to 0xC100
+            Case("LD A,(nn)") { b, r -> r.pc = 0xC000; b.poke(0xC100, 0x77); b.load(0xC000, 0xFA, 0x00, 0xC1) },     // read 0xC100 into A
         )
     }
 }

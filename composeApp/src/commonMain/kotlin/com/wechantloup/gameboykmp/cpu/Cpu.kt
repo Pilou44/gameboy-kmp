@@ -334,16 +334,6 @@ class Cpu(
                 registers.a = bus.read(0xFF00 + registers.c)
                 onMachineCycleTick()
             }
-            0xEA -> {
-                val value = fetch16()
-                bus.write(value, registers.a)
-                onMachineCycleTick()
-            }
-            0xFA -> {
-                val address = fetch16()
-                registers.a = bus.read(address)
-                onMachineCycleTick()
-            }
 
             /* --- 8-bit arithmetic: register --- */
             in 0x80..0x87 -> add(opcode)
@@ -757,7 +747,12 @@ class Cpu(
         registers.flagC = result > 0xFFFF
     }
 
-    private fun setLatch(l: Latch, v: Int) { when (l) { Latch.W -> latchW = v and 0xFF; Latch.Z -> latchZ = v and 0xFF } }
+    private fun setLatch(l: Latch, v: Int) {
+        when (l) {
+            Latch.W -> latchW = v and 0xFF
+            Latch.Z -> latchZ = v and 0xFF
+        }
+    }
 
     private fun addr16(a: Addr16): Int = when (a) {
         Addr16.BC -> registers.bc

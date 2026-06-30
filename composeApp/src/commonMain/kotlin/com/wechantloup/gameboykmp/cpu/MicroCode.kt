@@ -699,6 +699,41 @@ object MicroCode {
             MicroOp.Rst(0x38),
         )
 
+        this[0xEA] = arrayOf(
+            // M1
+            MicroOp.ReadImmediate(Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            // M2
+            MicroOp.ReadImmediate(Latch.W),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            // M3
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.WZ, Src8.A),
+            MicroOp.Idle,
+        )
+        this[0xFA] = arrayOf(
+            // M1
+            MicroOp.ReadImmediate(Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            // M2
+            MicroOp.ReadImmediate(Latch.W),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            // M3
+            MicroOp.ReadMem(Addr16.WZ, Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.ZtoReg(Reg8.A),
+        )
+
         // TODO migrate distinct shapes next: push (pre-dec SP), LDI (post-inc HL), JR cc (conditional
         //  push to pipeline), ISR — to prove the MicroOp set has no dead-end before bulk-filling.
     }
