@@ -129,6 +129,9 @@ class CpuSequencingParityTest {
             // The seeded ADD HL,DE only exercises H. These add the C path and the HL+HL (0x29) doubling shape.
             Case("ADD HL,BC carry") { b, r -> r.pc = 0xC000; r.hl = 0xFFFF; r.bc = 0x0001; b.load(0xC000, 0x09) }, // -> 0x0000, H+C set
             Case("ADD HL,HL")       { b, r -> r.pc = 0xC000; r.hl = 0x8800; b.load(0xC000, 0x29) },                 // HL+HL, C set (bit15)
+
+            // RST: push PC (return address) then jump to the fixed vector. Same shape as CALL minus the nn reads.
+            Case("RST 00h") { b, r -> r.pc = 0xC000; r.sp = 0xD000; b.load(0xC000, 0xC7) },   // push 0xC001, PC <- 0x0000
         )
     }
 }

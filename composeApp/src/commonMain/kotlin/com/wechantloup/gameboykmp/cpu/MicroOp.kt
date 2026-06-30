@@ -32,6 +32,8 @@ sealed interface MicroOp {
 
     data class AddHl(val src: Reg16) : MicroOp
 
+    data class Rst(val vector: Int) : MicroOp
+
     /**
      * A T-cycle of internal work: no bus access, just an effect on CPU state (ALU, flags, a taken/
      * not-taken decision, a latch combine). [effect] is capture-free — it reads/writes only through

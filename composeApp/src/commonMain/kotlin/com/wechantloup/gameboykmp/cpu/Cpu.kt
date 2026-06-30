@@ -369,16 +369,6 @@ class Cpu(
 
             0x35 -> dec(6)
 
-            /* --- RST --- */
-            0xC7 -> rst(0x00)
-            0xCF -> rst(0x08)
-            0xD7 -> rst(0x10)
-            0xDF -> rst(0x18)
-            0xE7 -> rst(0x20)
-            0xEF -> rst(0x28)
-            0xF7 -> rst(0x30)
-            0xFF -> rst(0x38)
-
             /* --- CB prefix --- */
             0xCB -> {
                 val code = fetch()
@@ -553,16 +543,6 @@ class Cpu(
         registers.flagZ = result == 0; registers.flagN = false; registers.flagH = false; registers.flagC = false
     }
 
-    private fun addHL(value: Int) {
-        val hl = registers.hl
-        val result = hl + value
-        registers.hl = result and 0xFFFF
-        registers.flagN = false
-        registers.flagH = (hl and 0x0FFF) + (value and 0x0FFF) > 0x0FFF
-        registers.flagC = result > 0xFFFF
-        onMachineCycleTick() // internal M-cycle (16-bit ALU)
-    }
-
     private fun inc(registerCode: Int) {
         val old = getRegister(registerCode)
         val value = (old + 1) and 0xFF
@@ -607,7 +587,6 @@ class Cpu(
     }
 
     private fun rst(vector: Int) {
-        push(registers.pc)
         registers.pc = vector
     }
 
@@ -626,16 +605,6 @@ class Cpu(
         val low = fetch()
         val high = fetch()
         return (high shl 8) or low
-    }
-
-    private fun push(address: Int) {
-        onMachineCycleTick()  // internal M-cycle (stack pointer prep)
-        registers.sp = (registers.sp - 1) and 0xFFFF
-        bus.write(registers.sp, (address shr 8) and 0xFF)
-        onMachineCycleTick()  // write high byte
-        registers.sp = (registers.sp - 1) and 0xFFFF
-        bus.write(registers.sp, address and 0xFF)
-        onMachineCycleTick()  // write low byte
     }
 
     /**
@@ -768,6 +737,7 @@ class Cpu(
             }
             is MicroOp.AddHl -> addHl16(op.src)
             is MicroOp.Internal -> op.effect(this)
+            is MicroOp.Rst -> rst(op.vector)
         }
     }
 

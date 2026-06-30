@@ -546,6 +546,159 @@ object MicroCode {
             MicroOp.Idle
         )
 
+        this[0xC7] = arrayOf(
+            // RST 00h
+            // M1 (after fetch): internal SP-prep M-cycle, no bus access, no decrement here —
+            // matches push()'s leading onMachineCycleTick() before any SP--.
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            // M2: SP-- then write high byte (PCH) to [SP]. Decrement precedes the access (data dependency).
+            MicroOp.Internal { it.microDecSp() },
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.SP, Src8.PCH),
+            MicroOp.Idle,
+            // M3: SP-- then write low byte (PCL) to [SP], then jump to the vector (PC <- vector).
+            MicroOp.Internal { it.microDecSp() },
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.SP, Src8.PCL),
+            MicroOp.Rst(0x00),
+        )
+        this[0xCF] = arrayOf(
+            // RST 08h
+            // M1 (after fetch): internal SP-prep M-cycle, no bus access, no decrement here —
+            // matches push()'s leading onMachineCycleTick() before any SP--.
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            // M2: SP-- then write high byte (PCH) to [SP]. Decrement precedes the access (data dependency).
+            MicroOp.Internal { it.microDecSp() },
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.SP, Src8.PCH),
+            MicroOp.Idle,
+            // M3: SP-- then write low byte (PCL) to [SP], then jump to the vector (PC <- vector).
+            MicroOp.Internal { it.microDecSp() },
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.SP, Src8.PCL),
+            MicroOp.Rst(0x08),
+        )
+        this[0xD7] = arrayOf(
+            // RST 10h
+            // M1 (after fetch): internal SP-prep M-cycle, no bus access, no decrement here —
+            // matches push()'s leading onMachineCycleTick() before any SP--.
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            // M2: SP-- then write high byte (PCH) to [SP]. Decrement precedes the access (data dependency).
+            MicroOp.Internal { it.microDecSp() },
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.SP, Src8.PCH),
+            MicroOp.Idle,
+            // M3: SP-- then write low byte (PCL) to [SP], then jump to the vector (PC <- vector).
+            MicroOp.Internal { it.microDecSp() },
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.SP, Src8.PCL),
+            MicroOp.Rst(0x10),
+        )
+        this[0xDF] = arrayOf(
+            // RST 18h
+            // M1 (after fetch): internal SP-prep M-cycle, no bus access, no decrement here —
+            // matches push()'s leading onMachineCycleTick() before any SP--.
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            // M2: SP-- then write high byte (PCH) to [SP]. Decrement precedes the access (data dependency).
+            MicroOp.Internal { it.microDecSp() },
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.SP, Src8.PCH),
+            MicroOp.Idle,
+            // M3: SP-- then write low byte (PCL) to [SP], then jump to the vector (PC <- vector).
+            MicroOp.Internal { it.microDecSp() },
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.SP, Src8.PCL),
+            MicroOp.Rst(0x18),
+        )
+        this[0xE7] = arrayOf(
+            // RST 20h
+            // M1 (after fetch): internal SP-prep M-cycle, no bus access, no decrement here —
+            // matches push()'s leading onMachineCycleTick() before any SP--.
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            // M2: SP-- then write high byte (PCH) to [SP]. Decrement precedes the access (data dependency).
+            MicroOp.Internal { it.microDecSp() },
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.SP, Src8.PCH),
+            MicroOp.Idle,
+            // M3: SP-- then write low byte (PCL) to [SP], then jump to the vector (PC <- vector).
+            MicroOp.Internal { it.microDecSp() },
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.SP, Src8.PCL),
+            MicroOp.Rst(0x20),
+        )
+        this[0xEF] = arrayOf(
+            // RST 28h
+            // M1 (after fetch): internal SP-prep M-cycle, no bus access, no decrement here —
+            // matches push()'s leading onMachineCycleTick() before any SP--.
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            // M2: SP-- then write high byte (PCH) to [SP]. Decrement precedes the access (data dependency).
+            MicroOp.Internal { it.microDecSp() },
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.SP, Src8.PCH),
+            MicroOp.Idle,
+            // M3: SP-- then write low byte (PCL) to [SP], then jump to the vector (PC <- vector).
+            MicroOp.Internal { it.microDecSp() },
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.SP, Src8.PCL),
+            MicroOp.Rst(0x28),
+        )
+        this[0xF7] = arrayOf(
+            // RST 30h
+            // M1 (after fetch): internal SP-prep M-cycle, no bus access, no decrement here —
+            // matches push()'s leading onMachineCycleTick() before any SP--.
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            // M2: SP-- then write high byte (PCH) to [SP]. Decrement precedes the access (data dependency).
+            MicroOp.Internal { it.microDecSp() },
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.SP, Src8.PCH),
+            MicroOp.Idle,
+            // M3: SP-- then write low byte (PCL) to [SP], then jump to the vector (PC <- vector).
+            MicroOp.Internal { it.microDecSp() },
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.SP, Src8.PCL),
+            MicroOp.Rst(0x30),
+        )
+        this[0xFF] = arrayOf(
+            // RST 38h
+            // M1 (after fetch): internal SP-prep M-cycle, no bus access, no decrement here —
+            // matches push()'s leading onMachineCycleTick() before any SP--.
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            // M2: SP-- then write high byte (PCH) to [SP]. Decrement precedes the access (data dependency).
+            MicroOp.Internal { it.microDecSp() },
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.SP, Src8.PCH),
+            MicroOp.Idle,
+            // M3: SP-- then write low byte (PCL) to [SP], then jump to the vector (PC <- vector).
+            MicroOp.Internal { it.microDecSp() },
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.SP, Src8.PCL),
+            MicroOp.Rst(0x38),
+        )
+
         // TODO migrate distinct shapes next: push (pre-dec SP), LDI (post-inc HL), JR cc (conditional
         //  push to pipeline), ISR — to prove the MicroOp set has no dead-end before bulk-filling.
     }
