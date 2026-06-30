@@ -111,6 +111,9 @@ class CpuSequencingParityTest {
 
             // LD rr,nn: read nn into WZ (two immediate reads), assemble into the pair — no extra M-cycle.
             Case("LD BC,nn") { b, r -> r.pc = 0xC000; b.load(0xC000, 0x01, 0x34, 0x12) },   // BC <- 0x1234
+
+            // LD r,n: read immediate into Z, then ZtoReg moves it into the destination register.
+            Case("LD B,n") { b, r -> r.pc = 0xC000; b.load(0xC000, 0x06, 0x42) },   // B <- 0x42
         )
     }
 }

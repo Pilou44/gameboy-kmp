@@ -64,6 +64,48 @@ object MicroCode {
             MicroOp.Internal { it.microWZtoSp() },
         )
 
+        this[0x06] = arrayOf(
+            MicroOp.ReadImmediate(Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.ZtoReg(Dst8.B),
+        )
+
+        this[0x0E] = arrayOf(
+            MicroOp.ReadImmediate(Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.ZtoReg(Dst8.C),
+        )
+
+        this[0x16] = arrayOf(
+            MicroOp.ReadImmediate(Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.ZtoReg(Dst8.D),
+        )
+
+        this[0x1E] = arrayOf(
+            MicroOp.ReadImmediate(Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.ZtoReg(Dst8.E),
+        )
+
+        this[0x26] = arrayOf(
+            MicroOp.ReadImmediate(Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.ZtoReg(Dst8.H),
+        )
+
+        this[0x2E] = arrayOf(
+            MicroOp.ReadImmediate(Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.ZtoReg(Dst8.L),
+        )
+
         this[0x36] = arrayOf(
             // LD (HL), n
             MicroOp.ReadImmediate(Latch.Z),
@@ -74,6 +116,13 @@ object MicroCode {
             MicroOp.Idle,
             MicroOp.Idle,
             MicroOp.WriteMem(Addr16.HL, Src8.Z),
+        )
+
+        this[0x3E] = arrayOf(
+            MicroOp.ReadImmediate(Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.ZtoReg(Dst8.A),
         )
 
         this[0x34] = arrayOf(

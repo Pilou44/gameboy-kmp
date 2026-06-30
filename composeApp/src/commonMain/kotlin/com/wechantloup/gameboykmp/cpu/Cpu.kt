@@ -216,20 +216,6 @@ class Cpu(
                 }
             }
 
-            /* --- 8-bit loads: immediate --- */
-            0x06 -> registers.b = fetch()
-            0x0E -> registers.c = fetch()
-            0x16 -> registers.d = fetch()
-            0x1E -> registers.e = fetch()
-            0x26 -> registers.h = fetch()
-            0x2E -> registers.l = fetch()
-//            0x36 -> {  // LD (H
-//                val value = fetch()
-//                bus.write(registers.hl, value)
-//                onMachineCycleTick()
-//            }
-            0x3E -> registers.a = fetch()
-
             /* --- 8-bit loads: register to register (0x40–0x7F, 0x76=HALT handled above) --- */
             in 0x40..0x7F -> load(opcode)
 
@@ -807,6 +793,16 @@ class Cpu(
             }
             is MicroOp.ReadMem  -> setLatch(op.into, bus.read(addr16(op.addr)))
             is MicroOp.WriteMem -> bus.write(addr16(op.addr), src8(op.value))
+            is MicroOp.ZtoReg -> when (op.dst) {
+                Dst8.A -> registers.a = latchZ
+                Dst8.B -> registers.b = latchZ
+                Dst8.C -> registers.c = latchZ
+                Dst8.D -> registers.d = latchZ
+                Dst8.E -> registers.e = latchZ
+                Dst8.F -> registers.f = latchZ and 0xF0
+                Dst8.H -> registers.h = latchZ
+                Dst8.L -> registers.l = latchZ
+            }
             is MicroOp.Internal -> op.effect(this)
         }
     }
