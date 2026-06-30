@@ -369,41 +369,6 @@ class Cpu(
 
             0x35 -> dec(6)
 
-            /* --- 16-bit INC/DEC --- */
-            0x03 -> {
-                registers.bc = (registers.bc + 1) and 0xFFFF
-                onMachineCycleTick()
-            }
-            0x13 -> {
-                registers.de = (registers.de + 1) and 0xFFFF
-                onMachineCycleTick()
-            }
-            0x23 -> {
-                registers.hl = (registers.hl + 1) and 0xFFFF
-                onMachineCycleTick()
-            }
-            0x33 -> {
-                registers.sp = (registers.sp + 1) and 0xFFFF
-                onMachineCycleTick()
-            }
-
-            0x0B -> {
-                registers.bc = (registers.bc - 1) and 0xFFFF
-                onMachineCycleTick()
-            }
-            0x1B -> {
-                registers.de = (registers.de - 1) and 0xFFFF
-                onMachineCycleTick()
-            }
-            0x2B -> {
-                registers.hl = (registers.hl - 1) and 0xFFFF
-                onMachineCycleTick()
-            }
-            0x3B -> {
-                registers.sp = (registers.sp - 1) and 0xFFFF
-                onMachineCycleTick()
-            }
-
             /* --- ADD HL, rr --- */
             0x09 -> addHL(registers.bc)
             0x19 -> addHL(registers.de)
@@ -846,12 +811,15 @@ class Cpu(
         registers.flagH = (old and 0x0F) == 0x0F
     }
 
-    /** Pre-decrement SP. Its own T-cycle (one MicroOp = one T); shared by PUSH/CALL/RST. */
-    internal fun microDecSp() { registers.sp = (registers.sp - 1) and 0xFFFF }
-
     /** Post-increment / post-decrement HL. Own T-cycle; shared by LD (HL±),A and LD A,(HL±). */
     internal fun microIncHl() { registers.hl = (registers.hl + 1) and 0xFFFF }
     internal fun microDecHl() { registers.hl = (registers.hl - 1) and 0xFFFF }
+    internal fun microIncBc() { registers.bc = (registers.bc + 1) and 0xFFFF }
+    internal fun microDecBc() { registers.bc = (registers.bc - 1) and 0xFFFF }
+    internal fun microIncDe() { registers.de = (registers.de + 1) and 0xFFFF }
+    internal fun microDecDe() { registers.de = (registers.de - 1) and 0xFFFF }
+    internal fun microIncSp() { registers.sp = (registers.sp + 1) and 0xFFFF }
+    internal fun microDecSp() { registers.sp = (registers.sp - 1) and 0xFFFF }
 
     internal fun testCondition(c: Condition): Boolean = when (c) {
         Condition.NZ -> !registers.flagZ
@@ -948,9 +916,6 @@ class Cpu(
 
     internal fun addSpE()  { registers.sp = spOffsetResult() }   // 0xE8
     internal fun ldHlSpE() { registers.hl = spOffsetResult() }   // 0xF8
-
-    /** Post-increment SP. Own T-cycle; the read/pop counterpart of microDecSp (PUSH/CALL). */
-    internal fun microIncSp() { registers.sp = (registers.sp + 1) and 0xFFFF }
 
     /** Assemble the popped pair from the WZ latches (W=high, Z=low) into BC. */
     internal fun microWZtoBc() { registers.bc = (latchW shl 8) or latchZ }

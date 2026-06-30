@@ -472,6 +472,55 @@ object MicroCode {
         this[0xD4] = callCc(Condition.NC)
         this[0xDC] = callCc(Condition.C)
 
+        this[0x03] = arrayOf(
+            MicroOp.Internal { it.microIncBc() },
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+        )
+        this[0x13] = arrayOf(
+            MicroOp.Internal { it.microIncDe() },
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+        )
+        this[0x23] = arrayOf(
+            MicroOp.Internal { it.microIncHl() },
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+        )
+        this[0x33] = arrayOf(
+            MicroOp.Internal { it.microIncSp() },
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+        )
+        this[0x0B] = arrayOf(
+            MicroOp.Internal { it.microDecBc() },
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+        )
+        this[0x1B] = arrayOf(
+            MicroOp.Internal { it.microDecDe() },
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+        )
+        this[0x2B] = arrayOf(
+            MicroOp.Internal { it.microDecHl() },
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+        )
+        this[0x3B] = arrayOf(
+            MicroOp.Internal { it.microDecSp() },
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+        )
+
         // TODO migrate distinct shapes next: push (pre-dec SP), LDI (post-inc HL), JR cc (conditional
         //  push to pipeline), ISR — to prove the MicroOp set has no dead-end before bulk-filling.
     }

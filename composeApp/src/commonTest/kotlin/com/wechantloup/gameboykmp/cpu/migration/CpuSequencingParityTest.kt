@@ -120,6 +120,10 @@ class CpuSequencingParityTest {
             Case("LD (DE),A") { b, r -> r.pc = 0xC000; r.de = 0xC100; r.a = 0x99; b.load(0xC000, 0x12) },
             Case("LD A,(BC)") { b, r -> r.pc = 0xC000; r.bc = 0xC100; b.poke(0xC100, 0x77); b.load(0xC000, 0x0A) },
             Case("LD A,(DE)") { b, r -> r.pc = 0xC000; r.de = 0xC100; b.poke(0xC100, 0x77); b.load(0xC000, 0x1A) },
+
+            // INC/DEC rr (16-bit): one internal M-cycle, no flags touched. Wrap cases catch a missing & 0xFFFF.
+            Case("INC BC") { b, r -> r.pc = 0xC000; r.bc = 0x12FF; b.load(0xC000, 0x03) },   // -> 0x1300
+            Case("DEC BC") { b, r -> r.pc = 0xC000; r.bc = 0x1300; b.load(0xC000, 0x0B) },   // -> 0x12FF
         )
     }
 }
