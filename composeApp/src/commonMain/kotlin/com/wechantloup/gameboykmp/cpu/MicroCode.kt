@@ -34,6 +34,13 @@ object MicroCode {
             MicroOp.WriteMem(Addr16.WZ, Src8.SPH),
             MicroOp.Idle,
         )
+        this[0xF9] = arrayOf(
+            // LD SP,HL — one internal M-cycle (SP <- HL), no bus access.
+            MicroOp.Internal { it.microSpFromHl() },
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+        )
 
         this[0x01] = arrayOf(
             // M1

@@ -302,19 +302,6 @@ class Cpu(
             /* --- 8-bit loads: register to register (0x40–0x7F, 0x76=HALT handled above) --- */
             in 0x40..0x7F -> load(opcode)
 
-            /* --- 16-bit loads: special --- */
-//            0x08 -> {                                   // LD (nn), SP
-//                val addr = fetch16()
-//                bus.write(addr, registers.sp and 0xFF)
-//                onMachineCycleTick()
-//                bus.write(addr + 1, (registers.sp shr 8) and 0xFF)
-//                onMachineCycleTick()
-//            }
-            0xF9 -> {
-                registers.sp = registers.hl        // LD SP, HL
-                onMachineCycleTick()
-            }
-
             /* --- 8-bit arithmetic: register --- */
             in 0x80..0x87 -> add(opcode)
             in 0x88..0x8F -> add(opcode, withCarry = true)
@@ -571,12 +558,6 @@ class Cpu(
         return data
     }
 
-    private fun fetch16(): Int {
-        val low = fetch()
-        val high = fetch()
-        return (high shl 8) or low
-    }
-
     /**
      * Consumes the CPU stall published by a general-purpose DMA. GDMA freezes the CPU for the
      * whole transfer; the Bus only publishes the M-cycle count (it cannot tick), so the CPU drains
@@ -786,6 +767,9 @@ class Cpu(
         latchW = (addr shr 8) and 0xFF
         latchZ = addr and 0xFF
     }
+
+    /** LD SP,HL: copy HL into SP. The extra internal M-cycle (vs LD r,r') is the 16-bit register move. */
+    internal fun microSpFromHl() { registers.sp = registers.hl }
 
     internal fun testCondition(c: Condition): Boolean = when (c) {
         Condition.NZ -> !registers.flagZ

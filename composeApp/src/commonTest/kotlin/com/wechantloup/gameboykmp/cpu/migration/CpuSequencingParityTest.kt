@@ -148,6 +148,9 @@ class CpuSequencingParityTest {
             // LD (nn),SP: write SP low to [nn], SP high to [nn+1]. Two consecutive addresses — a case that only
             // checks one address would miss a missing WZ increment (both bytes landing on nn).
             Case("LD (nn),SP") { b, r -> r.pc = 0xC000; r.sp = 0x1234; b.load(0xC000, 0x08, 0x00, 0xC1) },  // 0xC100 <- 0x34, 0xC101 <- 0x12
+
+            // LD SP,HL: 16-bit register move with one internal M-cycle (unlike the 1-M-cycle LD r,r').
+            Case("LD SP,HL") { b, r -> r.pc = 0xC000; r.hl = 0xD000; b.load(0xC000, 0xF9) },
         )
     }
 }
