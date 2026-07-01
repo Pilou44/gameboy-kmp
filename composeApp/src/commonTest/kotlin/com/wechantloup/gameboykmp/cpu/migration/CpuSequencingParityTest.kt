@@ -155,6 +155,17 @@ class CpuSequencingParityTest {
             // DEC (HL): read-modify-write. old=0x10 gives a low-nibble borrow (H set) and N set — the two flag
             // bits that differ from INC. A "clean" value like 0x05 would leave H clear and hide a bad H formula.
             Case("DEC (HL)") { b, r -> r.pc = 0xC000; r.hl = 0xC100; b.poke(0xC100, 0x10); b.load(0xC000, 0x35) },  // 0x10 -> 0x0F, H+N set
+
+            // ALU A,n: read immediate into Z, apply ALU to A in the same M-cycle. Inputs chosen to toggle H and C
+            // (and the incoming carry for ADC/SBC), so a bad half-carry / carry-in formula is actually exercised.
+            Case("ADD A,n H+C")  { b, r -> r.pc = 0xC000; r.a = 0xF8; b.load(0xC000, 0xC6, 0x0A) },                  // 0xF8+0x0A: H and C set
+            Case("ADC A,n carry"){ b, r -> r.pc = 0xC000; r.a = 0x0F; r.flagC = true; b.load(0xC000, 0xCE, 0x00) },  // 0x0F+0+carry: H via carry-in
+            Case("SUB n borrow") { b, r -> r.pc = 0xC000; r.a = 0x10; b.load(0xC000, 0xD6, 0x01) },                  // 0x10-0x01: H borrow
+            Case("SBC n carry")  { b, r -> r.pc = 0xC000; r.a = 0x10; r.flagC = true; b.load(0xC000, 0xDE, 0x00) },  // 0x10-0-carry: H borrow via carry-in
+            Case("AND n")        { b, r -> r.pc = 0xC000; r.a = 0xF0; b.load(0xC000, 0xE6, 0x0F) },                  // 0x00, Z set, H=true
+            Case("XOR n")        { b, r -> r.pc = 0xC000; r.a = 0xFF; b.load(0xC000, 0xEE, 0x0F) },                  // 0xF0
+            Case("OR n")         { b, r -> r.pc = 0xC000; r.a = 0xF0; b.load(0xC000, 0xF6, 0x0F) },                  // 0xFF
+            Case("CP n equal")   { b, r -> r.pc = 0xC000; r.a = 0x42; b.load(0xC000, 0xFE, 0x42) },                  // A==n: Z set, A unchanged
         )
     }
 }

@@ -312,16 +312,6 @@ class Cpu(
             in 0xB0..0xB7 -> or8(opcode)
             in 0xB8..0xBF -> sub(opcode, storeResult = false)  // CP
 
-            /* --- 8-bit arithmetic: immediate --- */
-            0xC6 -> addImmediate(fetch())
-            0xCE -> addImmediate(fetch(), withCarry = true)
-            0xD6 -> subImmediate(fetch())
-            0xDE -> subImmediate(fetch(), withCarry = true)
-            0xE6 -> andImmediate(fetch())
-            0xEE -> xorImmediate(fetch())
-            0xF6 -> orImmediate(fetch())
-            0xFE -> subImmediate(fetch(), storeResult = false)  // CP n
-
             /* --- CB prefix --- */
             0xCB -> {
                 val code = fetch()
@@ -426,17 +416,6 @@ class Cpu(
         registers.flagC = result > 0xFF
     }
 
-    private fun addImmediate(n: Int, withCarry: Boolean = false) {
-        val a = registers.a
-        val carry = if (withCarry && registers.flagC) 1 else 0
-        val result = a + n + carry
-        registers.a = result and 0xFF
-        registers.flagZ = (result and 0xFF) == 0
-        registers.flagN = false
-        registers.flagH = (a and 0x0F) + (n and 0x0F) + carry > 0x0F
-        registers.flagC = result > 0xFF
-    }
-
     private fun sub(code: Int, withCarry: Boolean = false, storeResult: Boolean = true) {
         val a = registers.a
         val b = getRegister(code and 0x07)
@@ -449,25 +428,8 @@ class Cpu(
         registers.flagC = a < b + carry
     }
 
-    private fun subImmediate(n: Int, withCarry: Boolean = false, storeResult: Boolean = true) {
-        val a = registers.a
-        val carry = if (withCarry && registers.flagC) 1 else 0
-        val result = a - n - carry
-        if (storeResult) registers.a = result and 0xFF
-        registers.flagZ = (result and 0xFF) == 0
-        registers.flagN = true
-        registers.flagH = (a and 0x0F) < (n and 0x0F) + carry
-        registers.flagC = a < n + carry
-    }
-
     private fun and8(code: Int) {
         val result = registers.a and getRegister(code and 0x07)
-        registers.a = result and 0xFF
-        registers.flagZ = result == 0; registers.flagN = false; registers.flagH = true; registers.flagC = false
-    }
-
-    private fun andImmediate(n: Int) {
-        val result = registers.a and n
         registers.a = result and 0xFF
         registers.flagZ = result == 0; registers.flagN = false; registers.flagH = true; registers.flagC = false
     }
@@ -478,20 +440,8 @@ class Cpu(
         registers.flagZ = result == 0; registers.flagN = false; registers.flagH = false; registers.flagC = false
     }
 
-    private fun orImmediate(n: Int) {
-        val result = registers.a or n
-        registers.a = result and 0xFF
-        registers.flagZ = result == 0; registers.flagN = false; registers.flagH = false; registers.flagC = false
-    }
-
     private fun xor8(code: Int) {
         val result = registers.a xor getRegister(code and 0x07)
-        registers.a = result and 0xFF
-        registers.flagZ = result == 0; registers.flagN = false; registers.flagH = false; registers.flagC = false
-    }
-
-    private fun xorImmediate(n: Int) {
-        val result = registers.a xor n
         registers.a = result and 0xFF
         registers.flagZ = result == 0; registers.flagN = false; registers.flagH = false; registers.flagC = false
     }
@@ -683,9 +633,74 @@ class Cpu(
                 Reg8.L -> registers.l
             }
             is MicroOp.AddHl -> addHl16(op.src)
-            is MicroOp.Internal -> op.effect(this)
             is MicroOp.Rst -> rst(op.vector)
+            is MicroOp.AluZ -> aluZ(op.aluOp)
+            is MicroOp.Internal -> op.effect(this)
         }
+    }
+
+    private fun aluZ(aluOp: AluOp) {
+        when (aluOp) {
+            AluOp.ADD -> addZ(withCarry = false)
+            AluOp.ADC -> addZ(withCarry = true)
+            AluOp.SUB -> subZ(withCarry = false, storeResult = true)
+            AluOp.SBC -> subZ(withCarry = true, storeResult = true)
+            AluOp.AND -> andZ()
+            AluOp.XOR -> xorZ()
+            AluOp.OR -> orZ()
+            AluOp.CP -> subZ(withCarry = false, storeResult = false)
+        }
+    }
+
+    private fun addZ(withCarry: Boolean) {
+        val a = registers.a
+        val b = latchZ
+        val carry = if (withCarry && registers.flagC) 1 else 0
+        val result = a + b + carry
+        registers.a = result and 0xFF
+        registers.flagZ = registers.a == 0
+        registers.flagN = false
+        registers.flagH = (a and 0x0F) + (b and 0x0F) + carry > 0x0F
+        registers.flagC = result > 0xFF
+    }
+
+    private fun subZ(withCarry: Boolean, storeResult: Boolean) {
+        val a = registers.a
+        val b = latchZ
+        val carry = if (withCarry && registers.flagC) 1 else 0
+        val result = a - b - carry
+        if (storeResult) registers.a = result and 0xFF
+        registers.flagZ = (result and 0xFF) == 0
+        registers.flagN = true
+        registers.flagH = (a and 0x0F) < (b and 0x0F) + carry
+        registers.flagC = a < b + carry
+    }
+
+    private fun andZ() {
+        val result = registers.a and latchZ
+        registers.a = result and 0xFF
+        registers.flagZ = result == 0
+        registers.flagN = false
+        registers.flagH = true
+        registers.flagC = false
+    }
+
+    private fun orZ() {
+        val result = registers.a or latchZ
+        registers.a = result and 0xFF
+        registers.flagZ = result == 0
+        registers.flagN = false
+        registers.flagH = false
+        registers.flagC = false
+    }
+
+    private fun xorZ() {
+        val result = registers.a xor latchZ
+        registers.a = result and 0xFF
+        registers.flagZ = result == 0
+        registers.flagN = false
+        registers.flagH = false
+        registers.flagC = false
     }
 
     private fun addHl16(src: Reg16) {

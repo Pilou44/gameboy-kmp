@@ -34,6 +34,8 @@ sealed interface MicroOp {
 
     data class Rst(val vector: Int) : MicroOp
 
+    data class AluZ(val aluOp: AluOp) : MicroOp
+
     /**
      * A T-cycle of internal work: no bus access, just an effect on CPU state (ALU, flags, a taken/
      * not-taken decision, a latch combine). [effect] is capture-free — it reads/writes only through
@@ -58,3 +60,5 @@ enum class Reg8 { A, B, C, D, E, F, H, L }
 
 /** Branch condition for JR/JP/RET/CALL cc. Evaluated against the flags by Cpu.testCondition. */
 enum class Condition { NZ, Z, NC, C }
+
+enum class AluOp { ADD, ADC, SUB, SBC, AND, XOR, OR, CP }

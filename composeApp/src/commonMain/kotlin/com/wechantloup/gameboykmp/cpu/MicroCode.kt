@@ -814,6 +814,55 @@ object MicroCode {
             MicroOp.ZtoReg(Reg8.A),
         )
 
+        this[0xC6] = arrayOf(   // ADD A,n — one M-cycle: read immediate into Z, then ALU on A
+            MicroOp.ReadImmediate(Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.AluZ(AluOp.ADD),
+        )
+        this[0xCE] = arrayOf(   // ADC A,n — one M-cycle: read immediate into Z, then ALU on A
+            MicroOp.ReadImmediate(Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.AluZ(AluOp.ADC),
+        )
+        this[0xD6] = arrayOf(   // SUB A,n — one M-cycle: read immediate into Z, then ALU on A
+            MicroOp.ReadImmediate(Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.AluZ(AluOp.SUB),
+        )
+        this[0xDE] = arrayOf(   // SUBC A,n — one M-cycle: read immediate into Z, then ALU on A
+            MicroOp.ReadImmediate(Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.AluZ(AluOp.SBC),
+        )
+        this[0xE6] = arrayOf(   // AND A,n — one M-cycle: read immediate into Z, then ALU on A
+            MicroOp.ReadImmediate(Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.AluZ(AluOp.AND),
+        )
+        this[0xEE] = arrayOf(   // XOR A,n — one M-cycle: read immediate into Z, then ALU on A
+            MicroOp.ReadImmediate(Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.AluZ(AluOp.XOR),
+        )
+        this[0xF6] = arrayOf(   // OR A,n — one M-cycle: read immediate into Z, then ALU on A
+            MicroOp.ReadImmediate(Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.AluZ(AluOp.OR),
+        )
+        this[0xFE] = arrayOf(   // CP A,n — one M-cycle: read immediate into Z, then ALU on A
+            MicroOp.ReadImmediate(Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.AluZ(AluOp.CP),
+        )
+
         // TODO migrate distinct shapes next: push (pre-dec SP), LDI (post-inc HL), JR cc (conditional
         //  push to pipeline), ISR — to prove the MicroOp set has no dead-end before bulk-filling.
     }
