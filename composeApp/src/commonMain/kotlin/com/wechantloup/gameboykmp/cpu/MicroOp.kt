@@ -51,7 +51,7 @@ enum class Addr16 { BC, DE, HL, SP, WZ }   // TODO add immediate-nn / 0xFF00+C a
 enum class Reg16 {  BC, DE, HL, SP }
 
 /** 8-bit value sources for a write. */
-enum class Src8 { A, B, C, D, E, F, H, L, W, Z, PCH, PCL }
+enum class Src8 { A, B, C, D, E, F, H, L, W, Z, PCH, PCL, SPH, SPL }
 
 /** 8-bit value destinations for a write. */
 enum class Reg8 { A, B, C, D, E, F, H, L }

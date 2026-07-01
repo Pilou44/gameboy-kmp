@@ -12,6 +12,29 @@ object MicroCode {
     val TABLE: Array<Array<MicroOp>?> = arrayOfNulls<Array<MicroOp>>(256).apply {
         this[0x00] = emptyArray()                                  // NOP
 
+        this[0x08] = arrayOf(
+            // M1
+            MicroOp.ReadImmediate(Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            // M2
+            MicroOp.ReadImmediate(Latch.W),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            // M3
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.WZ, Src8.SPL),
+            MicroOp.Idle,
+            // M4: WZ++ (addr -> addr+1), then write SP high byte to [addr+1].
+            MicroOp.Internal { it.microIncWZ() },
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.WZ, Src8.SPH),
+            MicroOp.Idle,
+        )
+
         this[0x01] = arrayOf(
             // M1
             MicroOp.ReadImmediate(Latch.Z),

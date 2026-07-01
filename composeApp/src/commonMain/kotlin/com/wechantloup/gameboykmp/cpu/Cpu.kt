@@ -303,13 +303,13 @@ class Cpu(
             in 0x40..0x7F -> load(opcode)
 
             /* --- 16-bit loads: special --- */
-            0x08 -> {                                   // LD (nn), SP
-                val addr = fetch16()
-                bus.write(addr, registers.sp and 0xFF)
-                onMachineCycleTick()
-                bus.write(addr + 1, (registers.sp shr 8) and 0xFF)
-                onMachineCycleTick()
-            }
+//            0x08 -> {                                   // LD (nn), SP
+//                val addr = fetch16()
+//                bus.write(addr, registers.sp and 0xFF)
+//                onMachineCycleTick()
+//                bus.write(addr + 1, (registers.sp shr 8) and 0xFF)
+//                onMachineCycleTick()
+//            }
             0xF9 -> {
                 registers.sp = registers.hl        // LD SP, HL
                 onMachineCycleTick()
@@ -755,6 +755,8 @@ class Cpu(
         Src8.Z -> latchZ
         Src8.PCH -> (registers.pc shr 8) and 0xFF
         Src8.PCL -> registers.pc and 0xFF
+        Src8.SPH -> (registers.sp shr 8) and 0xFF
+        Src8.SPL -> registers.sp and 0xFF
     }
 
     /** INC effect on the Z latch (+ flags), reused by INC (HL) and later INC r. C is untouched. */
@@ -776,6 +778,14 @@ class Cpu(
     internal fun microDecDe() { registers.de = (registers.de - 1) and 0xFFFF }
     internal fun microIncSp() { registers.sp = (registers.sp + 1) and 0xFFFF }
     internal fun microDecSp() { registers.sp = (registers.sp - 1) and 0xFFFF }
+
+    /** Increment the 16-bit address held in the WZ latches (W=high, Z=low). Pointer arithmetic, no flags.
+     *  Used by LD (nn),SP to step from addr to addr+1. */
+    internal fun microIncWZ() {
+        val addr = ((latchW shl 8) or latchZ) + 1 and 0xFFFF
+        latchW = (addr shr 8) and 0xFF
+        latchZ = addr and 0xFF
+    }
 
     internal fun testCondition(c: Condition): Boolean = when (c) {
         Condition.NZ -> !registers.flagZ

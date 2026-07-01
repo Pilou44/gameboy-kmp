@@ -144,6 +144,10 @@ class CpuSequencingParityTest {
             // LDH (n),A / LDH A,(n): high-page access addressed by 0xFF00 | n, n being an immediate byte.
             Case("LDH (n),A") { b, r -> r.pc = 0xC000; r.a = 0x99; b.load(0xC000, 0xE0, 0x80) },                 // write A to 0xFF80
             Case("LDH A,(n)") { b, r -> r.pc = 0xC000; b.poke(0xFF80, 0x77); b.load(0xC000, 0xF0, 0x80) },       // read 0xFF80 into A
+
+            // LD (nn),SP: write SP low to [nn], SP high to [nn+1]. Two consecutive addresses — a case that only
+            // checks one address would miss a missing WZ increment (both bytes landing on nn).
+            Case("LD (nn),SP") { b, r -> r.pc = 0xC000; r.sp = 0x1234; b.load(0xC000, 0x08, 0x00, 0xC1) },  // 0xC100 <- 0x34, 0xC101 <- 0x12
         )
     }
 }
