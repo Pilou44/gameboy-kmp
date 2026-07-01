@@ -832,7 +832,7 @@ object MicroCode {
             MicroOp.Idle,
             MicroOp.AluZ(AluOp.SUB),
         )
-        this[0xDE] = arrayOf(   // SUBC A,n — one M-cycle: read immediate into Z, then ALU on A
+        this[0xDE] = arrayOf(   // SBC A,n — one M-cycle: read immediate into Z, then ALU on A
             MicroOp.ReadImmediate(Latch.Z),
             MicroOp.Idle,
             MicroOp.Idle,
@@ -861,6 +861,141 @@ object MicroCode {
             MicroOp.Idle,
             MicroOp.Idle,
             MicroOp.AluZ(AluOp.CP),
+        )
+
+        this[0x86] = arrayOf(   // ADD A,(HL)
+            MicroOp.ReadMem(Addr16.HL, Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.AluZ(AluOp.ADD),
+        )
+        this[0x8E] = arrayOf(   // ADC A,(HL)
+            MicroOp.ReadMem(Addr16.HL, Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.AluZ(AluOp.ADC),
+        )
+        this[0x96] = arrayOf(   // SUB A,(HL)
+            MicroOp.ReadMem(Addr16.HL, Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.AluZ(AluOp.SUB),
+        )
+        this[0x9E] = arrayOf(   // SBC A,(HL)
+            MicroOp.ReadMem(Addr16.HL, Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.AluZ(AluOp.SBC),
+        )
+        this[0xA6] = arrayOf(   // AND A,(HL)
+            MicroOp.ReadMem(Addr16.HL, Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.AluZ(AluOp.AND),
+        )
+        this[0xAE] = arrayOf(   // XOR A,(HL)
+            MicroOp.ReadMem(Addr16.HL, Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.AluZ(AluOp.XOR),
+        )
+        this[0xB6] = arrayOf(   // OR A,(HL)
+            MicroOp.ReadMem(Addr16.HL, Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.AluZ(AluOp.OR),
+        )
+        this[0xBE] = arrayOf(   // CP A,(HL)
+            MicroOp.ReadMem(Addr16.HL, Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.AluZ(AluOp.CP),
+        )
+
+        this[0x46] = arrayOf(   // LD B,(HL)
+            MicroOp.ReadMem(Addr16.HL, Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.ZtoReg(Reg8.B),
+        )
+        this[0x4E] = arrayOf(   // LD C,(HL)
+            MicroOp.ReadMem(Addr16.HL, Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.ZtoReg(Reg8.C),
+        )
+        this[0x56] = arrayOf(   // LD D,(HL)
+            MicroOp.ReadMem(Addr16.HL, Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.ZtoReg(Reg8.D),
+        )
+        this[0x5E] = arrayOf(   // LD E,(HL)
+            MicroOp.ReadMem(Addr16.HL, Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.ZtoReg(Reg8.E),
+        )
+        this[0x66] = arrayOf(   // LD H,(HL)
+            MicroOp.ReadMem(Addr16.HL, Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.ZtoReg(Reg8.H),
+        )
+        this[0x6E] = arrayOf(   // LD L,(HL)
+            MicroOp.ReadMem(Addr16.HL, Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.ZtoReg(Reg8.L),
+        )
+        this[0x7E] = arrayOf(   // LD A,(HL)
+            MicroOp.ReadMem(Addr16.HL, Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.ZtoReg(Reg8.A),
+        )
+
+        this[0x70] = arrayOf(   // LD (HL),B
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.HL, Src8.B),
+        )
+        this[0x71] = arrayOf(   // LD (HL),C
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.HL, Src8.C),
+        )
+        this[0x72] = arrayOf(   // LD (HL),D
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.HL, Src8.D),
+        )
+        this[0x73] = arrayOf(   // LD (HL),E
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.HL, Src8.E),
+        )
+        this[0x74] = arrayOf(   // LD (HL),H
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.HL, Src8.H),
+        )
+        this[0x75] = arrayOf(   // LD (HL),L
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.HL, Src8.L),
+        )
+        this[0x77] = arrayOf(   // LD (HL),A
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.HL, Src8.A),
         )
 
         // TODO migrate distinct shapes next: push (pre-dec SP), LDI (post-inc HL), JR cc (conditional

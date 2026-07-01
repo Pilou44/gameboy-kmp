@@ -166,6 +166,16 @@ class CpuSequencingParityTest {
             Case("XOR n")        { b, r -> r.pc = 0xC000; r.a = 0xFF; b.load(0xC000, 0xEE, 0x0F) },                  // 0xF0
             Case("OR n")         { b, r -> r.pc = 0xC000; r.a = 0xF0; b.load(0xC000, 0xF6, 0x0F) },                  // 0xFF
             Case("CP n equal")   { b, r -> r.pc = 0xC000; r.a = 0x42; b.load(0xC000, 0xFE, 0x42) },                  // A==n: Z set, A unchanged
+
+            // ALU A,(HL): same as ALU A,n but the operand is read from [HL]. One representative per pitfall — the
+            // AluZ dispatch itself is already covered by the immediate cases; here we just confirm the (HL) operand.
+            Case("ADD A,(HL) H+C")  { b, r -> r.pc = 0xC000; r.hl = 0xC100; r.a = 0xF8; b.poke(0xC100, 0x0A); b.load(0xC000, 0x86) }, // H+C
+            Case("ADC A,(HL) carry"){ b, r -> r.pc = 0xC000; r.hl = 0xC100; r.a = 0x0F; r.flagC = true; b.poke(0xC100, 0x00); b.load(0xC000, 0x8E) }, // carry-in
+            Case("CP (HL) equal")   { b, r -> r.pc = 0xC000; r.hl = 0xC100; r.a = 0x42; b.poke(0xC100, 0x42); b.load(0xC000, 0xBE) }, // Z set, A unchanged
+
+            // LD r,(HL) / LD (HL),r: single bus access, register selected by the opcode. 0x76 is HALT, not (HL),(HL).
+            Case("LD B,(HL)") { b, r -> r.pc = 0xC000; r.hl = 0xC100; b.poke(0xC100, 0x77); b.load(0xC000, 0x46) },
+            Case("LD (HL),B") { b, r -> r.pc = 0xC000; r.hl = 0xC100; r.b = 0x99; b.load(0xC000, 0x70) },
         )
     }
 }

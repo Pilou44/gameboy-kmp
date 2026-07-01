@@ -297,11 +297,6 @@ class Cpu(
             0xF3 -> ime = false
             0xFB -> imeScheduled = true
 
-// --- End Section Phase B ---
-
-            /* --- 8-bit loads: register to register (0x40–0x7F, 0x76=HALT handled above) --- */
-            in 0x40..0x7F -> load(opcode)
-
             /* --- 8-bit arithmetic: register --- */
             in 0x80..0x87 -> add(opcode)
             in 0x88..0x8F -> add(opcode, withCarry = true)
@@ -311,6 +306,11 @@ class Cpu(
             in 0xA8..0xAF -> xor8(opcode)
             in 0xB0..0xB7 -> or8(opcode)
             in 0xB8..0xBF -> sub(opcode, storeResult = false)  // CP
+
+            /* --- 8-bit loads: register to register (0x40–0x7F, 0x76=HALT handled above) --- */
+            in 0x40..0x7F -> load(opcode)
+
+// --- End Section Phase B ---
 
             /* --- CB prefix --- */
             0xCB -> {
