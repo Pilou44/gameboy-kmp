@@ -998,6 +998,14 @@ object MicroCode {
             MicroOp.WriteMem(Addr16.HL, Src8.A),
         )
 
+        // TODO
+        this[0xCB] = arrayOf(
+            MicroOp.ReadImmediate(Latch.W),   // read the CB opcode into W
+            MicroOp.Idle,                          // T1
+            MicroOp.Idle,                          // T2
+            MicroOp.Internal { it.cbDecode() },
+        )
+
         // TODO migrate distinct shapes next: push (pre-dec SP), LDI (post-inc HL), JR cc (conditional
         //  push to pipeline), ISR — to prove the MicroOp set has no dead-end before bulk-filling.
     }

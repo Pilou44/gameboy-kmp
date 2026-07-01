@@ -635,6 +635,9 @@ class Cpu(
             is MicroOp.AddHl -> addHl16(op.src)
             is MicroOp.Rst -> rst(op.vector)
             is MicroOp.AluZ -> aluZ(op.aluOp)
+
+            is MicroOp.CbZ -> cbZ(op.op, op.bit)
+
             is MicroOp.Internal -> op.effect(this)
         }
     }
@@ -910,4 +913,54 @@ class Cpu(
 
     /** Set the high-page base in W (0xFF). Z is filled separately (immediate or C). For LDH (n),A / A,(n). */
     internal fun microHighPageW() { latchW = 0xFF }
+
+    internal fun cbDecode() {
+        val op = latchW
+        val reg = op and 0x07           // bits 2-0: target register (6 = (HL))
+        val yyy = (op shr 3) and 0x07   // bits 5-3: operation index, or bit number for BIT/RES/SET
+        val group = (op shr 6) and 0x03 // bits 7-6: 0=rot/shift, 1=BIT, 2=RES, 3=SET
+
+        if (reg != 6) {
+            val v = readReg(reg)          // get the register value
+            val result = cbApply(group, yyy, v)   // transform + set flags
+            if (group != GROUP_BIT) writeReg(reg, result)   // BIT does not write back
+            return                        // nothing pushed: instruction ends here
+        }
+
+        // reg == 6: operand is (HL) — bus access required, so push the M-cycles into the pipeline.
+        if (group == GROUP_BIT) {
+            // BIT n,(HL): read then test. No write-back → 1 M-cycle.
+            pipeline.push(cbReadHL)          // ReadMem(HL → Z)
+            pipeline.push(MicroOp.Idle)
+            pipeline.push(MicroOp.Idle)
+            pipeline.push(opCbApplyZ)        // Internal: test bit of Z, set flags
+        } else {
+            // rotations / RES / SET on (HL): read-modify-write → 2 M-cycles.
+            pipeline.push(cbReadHL)          // M read: ReadMem(HL → Z)
+            pipeline.push(MicroOp.Idle)
+            pipeline.push(MicroOp.Idle)
+            pipeline.push(MicroOp.Idle)
+            pipeline.push(opCbApplyZ)        // M write: transform Z...
+            pipeline.push(MicroOp.Idle)
+            pipeline.push(MicroOp.Idle)
+            pipeline.push(cbWriteHL)         // ...then WriteMem(HL, Z)
+        }
+
+    }
+
+    private fun cbZ(op: CbOp, bit: Int?) {
+        when (op) {
+            CbOp.RLC  -> { /* Z rotate left, C = old bit7, Z-flag = result==0, N=H=0 */ }
+            CbOp.RRC  -> { /* Z rotate right, C = old bit0 */ }
+            CbOp.RL   -> { /* Z rotate left through carry (old C enters bit0), C = old bit7 */ }
+            CbOp.RR   -> { /* Z rotate right through carry (old C enters bit7), C = old bit0 */ }
+            CbOp.SLA  -> { /* Z << 1, bit0 = 0, C = old bit7 */ }
+            CbOp.SRA  -> { /* Z >> 1, bit7 PRESERVED (arithmetic), C = old bit0 */ }
+            CbOp.SWAP -> { /* swap nibbles, C = 0 */ }
+            CbOp.SRL  -> { /* Z >> 1, bit7 = 0 (logical), C = old bit0 */ }
+            CbOp.BIT  -> { /* Z-flag = (Z bit `bit`) == 0, N=0, H=1, C UNTOUCHED, Z latch NOT modified */ }
+            CbOp.RES  -> { /* clear bit `bit` of Z, no flags */ }
+            CbOp.SET  -> { /* set bit `bit` of Z, no flags */ }
+        }
+    }
 }
