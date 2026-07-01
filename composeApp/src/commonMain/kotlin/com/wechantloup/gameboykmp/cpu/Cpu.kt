@@ -322,10 +322,6 @@ class Cpu(
             0xF6 -> orImmediate(fetch())
             0xFE -> subImmediate(fetch(), storeResult = false)  // CP n
 
-            /* --- 8-bit INC/DEC --- */
-
-            0x35 -> dec(6)
-
             /* --- CB prefix --- */
             0xCB -> {
                 val code = fetch()
@@ -748,6 +744,15 @@ class Cpu(
         registers.flagZ = v == 0
         registers.flagN = false
         registers.flagH = (old and 0x0F) == 0x0F
+    }
+
+    internal fun microDecZ() {
+        val old = latchZ
+        val v = (old - 1) and 0xFF
+        latchZ = v
+        registers.flagZ = v == 0
+        registers.flagN = true
+        registers.flagH = (old and 0x0F) == 0x00
     }
 
     /** Post-increment / post-decrement HL. Own T-cycle; shared by LD (HL±),A and LD A,(HL±). */

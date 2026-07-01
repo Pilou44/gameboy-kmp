@@ -195,6 +195,18 @@ object MicroCode {
             MicroOp.WriteMem(Addr16.HL, Src8.Z),
         )
 
+        this[0x35] = arrayOf(
+            // DEC (HL)
+            MicroOp.ReadMem(Addr16.HL, Latch.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Internal { it.microDecZ() },
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.WriteMem(Addr16.HL, Src8.Z),
+        )
+
         this[0xC1] = arrayOf(
             // POP BC
             // M1 (after fetch): read low byte into Z, then SP++. Increment follows the read (data dependency).

@@ -151,6 +151,10 @@ class CpuSequencingParityTest {
 
             // LD SP,HL: 16-bit register move with one internal M-cycle (unlike the 1-M-cycle LD r,r').
             Case("LD SP,HL") { b, r -> r.pc = 0xC000; r.hl = 0xD000; b.load(0xC000, 0xF9) },
+
+            // DEC (HL): read-modify-write. old=0x10 gives a low-nibble borrow (H set) and N set — the two flag
+            // bits that differ from INC. A "clean" value like 0x05 would leave H clear and hide a bad H formula.
+            Case("DEC (HL)") { b, r -> r.pc = 0xC000; r.hl = 0xC100; b.poke(0xC100, 0x10); b.load(0xC000, 0x35) },  // 0x10 -> 0x0F, H+N set
         )
     }
 }
