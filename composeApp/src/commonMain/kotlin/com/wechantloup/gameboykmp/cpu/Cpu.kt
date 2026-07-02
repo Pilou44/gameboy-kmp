@@ -44,7 +44,6 @@ class Cpu(
     private val opIncZ = MicroOp.Internal { it.microIncZ() }
     private val opDecZ = MicroOp.Internal { it.microDecZ() }
     private val opIncSp     = MicroOp.Internal { it.microIncSp() }
-    private val opPopPc     = MicroOp.Internal { it.microWZtoPc() }
     private val opWZtoPc    = MicroOp.Internal { it.microWZtoPc() }
     private val opDecSp     = MicroOp.Internal { it.microDecSp() }
     private val opWritePch  = MicroOp.WriteMem(Addr16.SP, Src8.PCH)
@@ -156,44 +155,9 @@ class Cpu(
         bus.cpuHalted = false
     }
 
-    internal fun getRegister(code: Int): Int {
-        return when (code) {
-            0 -> registers.b
-            1 -> registers.c
-            2 -> registers.d
-            3 -> registers.e
-            4 -> registers.h
-            5 -> registers.l
-            6 -> {
-                val value = bus.read(registers.hl) // (HL)
-                onMachineCycleTick()
-                value
-            }
-            7 -> registers.a
-            else -> throw IllegalArgumentException("Unknown register code: $code")
-        }
-    }
-
-    internal fun setRegister(code: Int, value: Int) {
-        when (code) {
-            0 -> registers.b = value
-            1 -> registers.c = value
-            2 -> registers.d = value
-            3 -> registers.e = value
-            4 -> registers.h = value
-            5 -> registers.l = value
-            6 -> {
-                bus.write(registers.hl, value) // (HL)
-                onMachineCycleTick()
-            }
-            7 -> registers.a = value
-            else -> throw IllegalArgumentException("Unknown register code: $code")
-        }
-    }
-
     private fun add(code: Int, withCarry: Boolean = false) {
         val a = registers.a
-        val b = getRegister(code and 0x07)
+        val b = readReg(code and 0x07)
         val carry = if (withCarry && registers.flagC) 1 else 0
         val result = a + b + carry
         registers.a = result and 0xFF
@@ -205,7 +169,7 @@ class Cpu(
 
     private fun sub(code: Int, withCarry: Boolean = false, storeResult: Boolean = true) {
         val a = registers.a
-        val b = getRegister(code and 0x07)
+        val b = readReg(code and 0x07)
         val carry = if (withCarry && registers.flagC) 1 else 0
         val result = a - b - carry
         if (storeResult) registers.a = result and 0xFF
@@ -216,21 +180,30 @@ class Cpu(
     }
 
     private fun and8(code: Int) {
-        val result = registers.a and getRegister(code and 0x07)
+        val result = registers.a and readReg(code and 0x07)
         registers.a = result and 0xFF
-        registers.flagZ = result == 0; registers.flagN = false; registers.flagH = true; registers.flagC = false
+        registers.flagZ = result == 0
+        registers.flagN = false
+        registers.flagH = true
+        registers.flagC = false
     }
 
     private fun or8(code: Int) {
-        val result = registers.a or getRegister(code and 0x07)
+        val result = registers.a or readReg(code and 0x07)
         registers.a = result and 0xFF
-        registers.flagZ = result == 0; registers.flagN = false; registers.flagH = false; registers.flagC = false
+        registers.flagZ = result == 0
+        registers.flagN = false
+        registers.flagH = false
+        registers.flagC = false
     }
 
     private fun xor8(code: Int) {
-        val result = registers.a xor getRegister(code and 0x07)
+        val result = registers.a xor readReg(code and 0x07)
         registers.a = result and 0xFF
-        registers.flagZ = result == 0; registers.flagN = false; registers.flagH = false; registers.flagC = false
+        registers.flagZ = result == 0
+        registers.flagN = false
+        registers.flagH = false
+        registers.flagC = false
     }
 
     private fun daa() {
@@ -255,7 +228,7 @@ class Cpu(
     private fun load(code: Int) {
         val src = code and 0x07
         val dst = (code and 0x38) shr 3
-        setRegister(dst, getRegister(src))
+        writeReg(dst, readReg(src))
     }
 
     private fun rst(vector: Int) {
@@ -682,7 +655,11 @@ class Cpu(
             }
 
             /* --- Jumps --- */
-            0xE9 -> { registers.pc = registers.hl ; pushFetchPadding() ; true } // JP HL
+            0xE9 -> {
+                registers.pc = registers.hl
+                pushFetchPadding()
+                true
+            } // JP HL
 
             /* --- Rotate accumulator --- */
             0x07 -> {  // RLCA
@@ -836,7 +813,7 @@ class Cpu(
         pipeline.push(MicroOp.Idle)
         pipeline.push(MicroOp.Idle)
         // M3: internal jump M-cycle — assemble (W<<8)|Z into PC.
-        pipeline.push(opPopPc)
+        pipeline.push(opWZtoPc)
         pipeline.push(MicroOp.Idle)
         pipeline.push(MicroOp.Idle)
         pipeline.push(MicroOp.Idle)
@@ -948,7 +925,7 @@ class Cpu(
         latchZ = cbApply(group, yyy, latchZ)
     }
 
-    private fun readReg(reg: Int): Int = when (reg) {
+    fun readReg(reg: Int): Int = when (reg) {
         0 -> registers.b
         1 -> registers.c
         2 -> registers.d
