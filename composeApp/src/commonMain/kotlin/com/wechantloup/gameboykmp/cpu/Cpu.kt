@@ -47,6 +47,9 @@ class Cpu(
     private val opDecSp     = MicroOp.Internal { it.microDecSp() }
     private val opWritePch  = MicroOp.WriteMem(Addr16.SP, Src8.PCH)
     private val opWritePcl  = MicroOp.WriteMem(Addr16.SP, Src8.PCL)
+    private val opCbReadHL  = MicroOp.ReadMem(Addr16.HL, Latch.Z)
+    private val opCbWriteHL = MicroOp.WriteMem(Addr16.HL, Src8.Z)
+    private val opCbApplyZ = MicroOp.Internal { it.cbApplyZ() }
 
     fun step() {
         // A general-purpose DMA started by the previous instruction freezes the CPU for the entire
@@ -312,95 +315,7 @@ class Cpu(
 
 // --- End Section Phase B ---
 
-            /* --- CB prefix --- */
-            0xCB -> {
-                val code = fetch()
-                executeCb(code)
-            }
-
             else -> TODO("Opcode 0x${opcode.toString(16).uppercase()} not implemented at PC=0x${(registers.pc - 1).toString(16)}")
-        }
-    }
-
-    private fun executeCb(opcode: Int) {
-        val reg = opcode and 0x07
-        when (opcode and 0xF8) {
-            0x00 -> {  // RLC r
-                var v = getRegister(reg)
-                val bit7 = (v shr 7) and 1
-                v = ((v shl 1) or bit7) and 0xFF
-                setRegister(reg, v)
-                registers.flagZ = v == 0; registers.flagN = false; registers.flagH = false; registers.flagC = bit7 != 0
-            }
-            0x08 -> {  // RRC r
-                var v = getRegister(reg)
-                val bit0 = v and 1
-                v = (v ushr 1) or (bit0 shl 7)
-                setRegister(reg, v)
-                registers.flagZ = v == 0; registers.flagN = false; registers.flagH = false; registers.flagC = bit0 != 0
-            }
-            0x10 -> {  // RL r
-                var v = getRegister(reg)
-                val bit7 = (v shr 7) and 1
-                val oldC = if (registers.flagC) 1 else 0
-                v = ((v shl 1) or oldC) and 0xFF
-                setRegister(reg, v)
-                registers.flagZ = v == 0; registers.flagN = false; registers.flagH = false; registers.flagC = bit7 != 0
-            }
-            0x18 -> {  // RR r
-                var v = getRegister(reg)
-                val bit0 = v and 1
-                val oldC = if (registers.flagC) 1 else 0
-                v = (v ushr 1) or (oldC shl 7)
-                setRegister(reg, v)
-                registers.flagZ = v == 0; registers.flagN = false; registers.flagH = false; registers.flagC = bit0 != 0
-            }
-            0x20 -> {  // SLA r
-                var v = getRegister(reg)
-                val bit7 = (v shr 7) and 1
-                v = (v shl 1) and 0xFF
-                setRegister(reg, v)
-                registers.flagZ = v == 0; registers.flagN = false; registers.flagH = false; registers.flagC = bit7 != 0
-            }
-            0x28 -> {  // SRA r (arithmetic shift, sign extends)
-                var v = getRegister(reg)
-                val bit0 = v and 1
-                val bit7 = v and 0x80
-                v = (v ushr 1) or bit7
-                setRegister(reg, v)
-                registers.flagZ = v == 0; registers.flagN = false; registers.flagH = false; registers.flagC = bit0 != 0
-            }
-            0x30 -> {  // SWAP r
-                var v = getRegister(reg)
-                v = ((v and 0x0F) shl 4) or ((v and 0xF0) shr 4)
-                setRegister(reg, v)
-                registers.flagZ = v == 0; registers.flagN = false; registers.flagH = false; registers.flagC = false
-            }
-            0x38 -> {  // SRL r (logical shift)
-                var v = getRegister(reg)
-                val bit0 = v and 1
-                v = v ushr 1
-                setRegister(reg, v)
-                registers.flagZ = v == 0; registers.flagN = false; registers.flagH = false; registers.flagC = bit0 != 0
-            }
-            else -> when (opcode) {
-                in 0x40..0x7F -> {  // BIT b, r
-                    val bit = (opcode - 0x40) shr 3
-                    registers.flagZ = (getRegister(reg) shr bit) and 1 == 0
-                    registers.flagN = false
-                    registers.flagH = true
-                }
-                in 0x80..0xBF -> {  // RES b, r
-                    val bit = (opcode - 0x80) shr 3
-                    val value = getRegister(reg)
-                    setRegister(reg, value and (1 shl bit).inv())
-                }
-                else -> {  // SET b, r (0xC0..0xFF)
-                    val bit = (opcode - 0xC0) shr 3
-                    val value = getRegister(reg)
-                    setRegister(reg, value or (1 shl bit))
-                }
-            }
         }
     }
 
@@ -635,8 +550,6 @@ class Cpu(
             is MicroOp.AddHl -> addHl16(op.src)
             is MicroOp.Rst -> rst(op.vector)
             is MicroOp.AluZ -> aluZ(op.aluOp)
-
-            is MicroOp.CbZ -> cbZ(op.op, op.bit)
 
             is MicroOp.Internal -> op.effect(this)
         }
@@ -930,37 +843,164 @@ class Cpu(
         // reg == 6: operand is (HL) — bus access required, so push the M-cycles into the pipeline.
         if (group == GROUP_BIT) {
             // BIT n,(HL): read then test. No write-back → 1 M-cycle.
-            pipeline.push(cbReadHL)          // ReadMem(HL → Z)
+            pipeline.push(opCbReadHL)          // ReadMem(HL → Z)
             pipeline.push(MicroOp.Idle)
             pipeline.push(MicroOp.Idle)
             pipeline.push(opCbApplyZ)        // Internal: test bit of Z, set flags
         } else {
             // rotations / RES / SET on (HL): read-modify-write → 2 M-cycles.
-            pipeline.push(cbReadHL)          // M read: ReadMem(HL → Z)
+            pipeline.push(opCbReadHL)          // M read: ReadMem(HL → Z)
             pipeline.push(MicroOp.Idle)
             pipeline.push(MicroOp.Idle)
             pipeline.push(MicroOp.Idle)
             pipeline.push(opCbApplyZ)        // M write: transform Z...
             pipeline.push(MicroOp.Idle)
             pipeline.push(MicroOp.Idle)
-            pipeline.push(cbWriteHL)         // ...then WriteMem(HL, Z)
+            pipeline.push(opCbWriteHL)         // ...then WriteMem(HL, Z)
         }
-
     }
 
-    private fun cbZ(op: CbOp, bit: Int?) {
-        when (op) {
-            CbOp.RLC  -> { /* Z rotate left, C = old bit7, Z-flag = result==0, N=H=0 */ }
-            CbOp.RRC  -> { /* Z rotate right, C = old bit0 */ }
-            CbOp.RL   -> { /* Z rotate left through carry (old C enters bit0), C = old bit7 */ }
-            CbOp.RR   -> { /* Z rotate right through carry (old C enters bit7), C = old bit0 */ }
-            CbOp.SLA  -> { /* Z << 1, bit0 = 0, C = old bit7 */ }
-            CbOp.SRA  -> { /* Z >> 1, bit7 PRESERVED (arithmetic), C = old bit0 */ }
-            CbOp.SWAP -> { /* swap nibbles, C = 0 */ }
-            CbOp.SRL  -> { /* Z >> 1, bit7 = 0 (logical), C = old bit0 */ }
-            CbOp.BIT  -> { /* Z-flag = (Z bit `bit`) == 0, N=0, H=1, C UNTOUCHED, Z latch NOT modified */ }
-            CbOp.RES  -> { /* clear bit `bit` of Z, no flags */ }
-            CbOp.SET  -> { /* set bit `bit` of Z, no flags */ }
+    // Re-decode the CB opcode from W (still holds it) and apply the effect to the Z latch.
+    // Used by the (HL) path, where the operand was read from memory into Z.
+    private fun cbApplyZ() {
+        val op = latchW
+        val yyy = (op shr 3) and 0x07
+        val group = (op shr 6) and 0x03
+        latchZ = cbApply(group, yyy, latchZ)
+    }
+
+    private fun readReg(reg: Int): Int = when (reg) {
+        0 -> registers.b
+        1 -> registers.c
+        2 -> registers.d
+        3 -> registers.e
+        4 -> registers.h
+        5 -> registers.l
+        7 -> registers.a
+        else -> throw IllegalArgumentException("Unknown register code: $reg")
+    }
+
+    fun writeReg(reg: Int, value: Int) {
+        when (reg) {
+            0 -> registers.b = value
+            1 -> registers.c = value
+            2 -> registers.d = value
+            3 -> registers.e = value
+            4 -> registers.h = value
+            5 -> registers.l = value
+            7 -> registers.a = value
+            else -> throw IllegalArgumentException("Unknown register code: $reg")
         }
+    }
+
+    private fun cbApply(group: Int, yyy: Int, value: Int): Int {
+        return when (group) {
+            0 -> when (yyy) {
+                /* RLC RRC RL RR SLA SRA SWAP SRL */
+                0 -> {
+                    // RLC r
+                    val bit7 = (value shr 7) and 1
+                    val ret = ((value shl 1) or bit7) and 0xFF
+                    registers.flagZ = ret == 0
+                    registers.flagN = false
+                    registers.flagH = false
+                    registers.flagC = bit7 != 0
+                    ret
+                }
+                1 -> {
+                    // RRC r
+                    val bit0 = value and 1
+                    val ret = (value ushr 1) or (bit0 shl 7)
+                    registers.flagZ = ret == 0
+                    registers.flagN = false
+                    registers.flagH = false
+                    registers.flagC = bit0 != 0
+                    ret
+                }
+                2 -> {
+                    // RL r
+                    val bit7 = (value shr 7) and 1
+                    val oldC = if (registers.flagC) 1 else 0
+                    val ret = ((value shl 1) or oldC) and 0xFF
+                    registers.flagZ = ret == 0
+                    registers.flagN = false
+                    registers.flagH = false
+                    registers.flagC = bit7 != 0
+                    ret
+                }
+                3 -> {
+                    // RR r
+                    val bit0 = value and 1
+                    val oldC = if (registers.flagC) 1 else 0
+                    val ret = (value ushr 1) or (oldC shl 7)
+                    registers.flagZ = ret == 0
+                    registers.flagN = false
+                    registers.flagH = false
+                    registers.flagC = bit0 != 0
+                    ret
+                }
+                4 -> {
+                    // SLA r
+                    val bit7 = (value shr 7) and 1
+                    val ret = (value shl 1) and 0xFF
+                    registers.flagZ = ret == 0
+                    registers.flagN = false
+                    registers.flagH = false
+                    registers.flagC = bit7 != 0
+                    ret
+                }
+                5 -> {
+                    // SRA r (arithmetic shift, sign extends)
+                    val bit0 = value and 1
+                    val bit7 = value and 0x80
+                    val ret = (value ushr 1) or bit7
+                    registers.flagZ = ret == 0
+                    registers.flagN = false
+                    registers.flagH = false
+                    registers.flagC = bit0 != 0
+                    ret
+                }
+                6 -> {
+                    // SWAP r
+                    val ret = ((value and 0x0F) shl 4) or ((value and 0xF0) shr 4)
+                    registers.flagZ = ret == 0
+                    registers.flagN = false
+                    registers.flagH = false
+                    registers.flagC = false
+                    ret
+                }
+                7 -> {
+                    // SRL r (logical shift)
+                    val bit0 = value and 1
+                    val ret = value ushr 1
+                    registers.flagZ = ret == 0
+                    registers.flagN = false
+                    registers.flagH = false
+                    registers.flagC = bit0 != 0
+                    ret
+                }
+                else -> value
+            }
+            1 -> {
+                /* BIT yyy: test bit, set flags, return value unchanged */
+                registers.flagZ = ((value shr yyy) and 1) == 0
+                registers.flagN = false
+                registers.flagH = true
+                value
+            }
+            2 -> {
+                /* RES yyy */
+                value and (1 shl yyy).inv()
+            }
+            3 -> {
+                /* SET yyy */
+                value or (1 shl yyy)
+            }
+            else -> value
+        }
+    }
+
+    companion object {
+        private const val GROUP_BIT = 1
     }
 }

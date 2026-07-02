@@ -176,6 +176,22 @@ class CpuSequencingParityTest {
             // LD r,(HL) / LD (HL),r: single bus access, register selected by the opcode. 0x76 is HALT, not (HL),(HL).
             Case("LD B,(HL)") { b, r -> r.pc = 0xC000; r.hl = 0xC100; b.poke(0xC100, 0x77); b.load(0xC000, 0x46) },
             Case("LD (HL),B") { b, r -> r.pc = 0xC000; r.hl = 0xC100; r.b = 0x99; b.load(0xC000, 0x70) },
+
+            // CB register path (reg != 6): effect applied inline in cbDecode, 2 M-cycles (prefix + CB fetch).
+            // bit7=1 so RLC sets C, and the value is non-zero so Z is clear — exercises the flag output.
+            Case("CB RLC B")      { b, r -> r.pc = 0xC000; r.b = 0x85; b.load(0xC000, 0xCB, 0x00) },
+
+            // CB register BIT: sets Z/N/H, leaves C untouched, does NOT write the register back. Testing bit 7
+            // of 0x7F (=0) sets Z; a spurious write-back would show as a changed register vs ReferenceCpu.
+            Case("CB BIT 7,A")    { b, r -> r.pc = 0xC000; r.a = 0x7F; r.flagC = true; b.load(0xC000, 0xCB, 0x7F) },
+
+            // CB (HL) read-modify-write: 4 M-cycles (prefix, CB fetch, read HL, write HL). RLC of 0x80 -> 0x01,
+            // C set. Trace must show read then write at HL.
+            Case("CB RLC (HL)")   { b, r -> r.pc = 0xC000; r.hl = 0xC100; b.poke(0xC100, 0x80); b.load(0xC000, 0xCB, 0x06) },
+
+            // CB BIT n,(HL): the short (HL) branch — 3 M-cycles, read only, NO write-back. This is the case that
+            // breaks if the group==GROUP_BIT bifurcation is wrong (a stray write would add an M-cycle + access).
+            Case("CB BIT 0,(HL)") { b, r -> r.pc = 0xC000; r.hl = 0xC100; b.poke(0xC100, 0xFE); b.load(0xC000, 0xCB, 0x46) },
         )
     }
 }

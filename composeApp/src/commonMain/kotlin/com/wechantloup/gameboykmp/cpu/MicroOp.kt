@@ -36,8 +36,6 @@ sealed interface MicroOp {
 
     data class AluZ(val aluOp: AluOp) : MicroOp
 
-    data class CbZ(val op: CbOp, val bit: Int = -1) : MicroOp
-
     /**
      * A T-cycle of internal work: no bus access, just an effect on CPU state (ALU, flags, a taken/
      * not-taken decision, a latch combine). [effect] is capture-free — it reads/writes only through
@@ -64,5 +62,3 @@ enum class Reg8 { A, B, C, D, E, F, H, L }
 enum class Condition { NZ, Z, NC, C }
 
 enum class AluOp { ADD, ADC, SUB, SBC, AND, XOR, OR, CP }
-
-enum class CbOp { RLC, RRC, RL, RR, SLA, SRA, SWAP, SRL, BIT, RES, SET }
