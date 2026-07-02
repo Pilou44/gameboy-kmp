@@ -133,20 +133,40 @@ class Cpu(
             }
         }
 
-        if (bus.cpuHalted) {
-            onMachineCycleTick()
-            return
-        }
+//        if (bus.cpuHalted) {
+//            onMachineCycleTick()
+//            return
+//        }
+//
+//        pipeline.push(MicroOp.FetchOpCode)
 
-        pipeline.push(MicroOp.FetchOpCode)
-
-        while (!pipeline.isEmpty) {
-            perform(pipeline.pop())
+        do {
+            tick()
             if (++microTCounter == 4) {
                 microTCounter = 0
                 onMachineCycleTick()   // one M-cycle elapsed; producers still batched (step 1)
             }
+        } while (!pipeline.isEmpty)
+    }
+
+    fun tick() {
+        if (pipeline.isEmpty) {
+            var shouldFetchNewOpCode = true
+
+            // Todo migrate step() init here
+            if (bus.cpuHalted) {
+                shouldFetchNewOpCode = false
+                repeat(4) {
+                    pipeline.push(MicroOp.Idle)
+                }
+            }
+
+            if (shouldFetchNewOpCode) {
+                pipeline.push(MicroOp.FetchOpCode)
+            }
         }
+
+        perform(pipeline.pop())
     }
 
     fun reset() {
