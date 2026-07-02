@@ -96,22 +96,6 @@ class Cpu(
             return
         }
 
-        // Check for pending interrupts
-        val pending = bus.ie and bus.iF and 0x1F
-
-        if (pending != 0) {
-            // Wake from HALT regardless of IME
-            if (bus.cpuHalted) {
-                bus.cpuHalted = false
-                if (!ime) {
-                    // IME=false: just wake, no extra M-cycle consumed.
-                    // Next step() will fetch the instruction after HALT normally.
-                    return
-                }
-                // IME=true: fall through to service interrupt immediately
-            }
-        }
-
         do {
             tick()
             if (++microTCounter == 4) {
@@ -130,39 +114,39 @@ class Cpu(
             // Check for pending interrupts
             val pending = bus.ie and bus.iF and 0x1F
 
-            if (pending != 0) {
-                //ToDo if (bus.cpuHalted)
-
-                if (ime) {
-                    shouldFetchNewOpCode = false
-                    ime = false
-
-                    // M1 + M2: two internal M-cycles (no bus access).
-                    repeat(8) { pipeline.push(MicroOp.Idle) }
-
-                    // M3: SP-- then push PCH. Manual stack writes, intentionally NOT push() (which adds an extra
-                    // internal M-cycle suited for the PUSH instruction, not for interrupt dispatch).
-                    pipeline.push(opDecSp)
-                    pipeline.push(MicroOp.Idle)
-                    pipeline.push(MicroOp.WriteMem(Addr16.SP, Src8.PCH))
-                    pipeline.push(MicroOp.Idle)
-
-                    // M4: re-sample the vector FIRST (after the high-byte push, before the low-byte push),
-                    // then SP-- and push PCL.
-                    pipeline.push(opIsrResolveVector)
-                    pipeline.push(opDecSp)
-                    pipeline.push(MicroOp.WriteMem(Addr16.SP, Src8.PCL))
-                    pipeline.push(MicroOp.Idle)
-
-                    // M5: jump to the resolved vector (0x0000 if dispatch was cancelled).
-                    pipeline.push(opIsrJump)
-                    pipeline.push(MicroOp.Idle)
-                    pipeline.push(MicroOp.Idle)
-                    pipeline.push(MicroOp.Idle)
-                }
+            // A pending interrupt wakes HALT regardless of IME. Must run BEFORE the freeze below,
+            // otherwise the freeze re-arms and the interrupt never gets its chance (immortal HALT).
+            if (pending != 0 && bus.cpuHalted) {
+                bus.cpuHalted = false
             }
 
-            if (bus.cpuHalted) {
+            if (pending != 0 && ime) {
+                shouldFetchNewOpCode = false
+                ime = false
+
+                // M1 + M2: two internal M-cycles (no bus access).
+                repeat(8) { pipeline.push(MicroOp.Idle) }
+
+                // M3: SP-- then push PCH. Manual stack writes, intentionally NOT push() (which adds an extra
+                // internal M-cycle suited for the PUSH instruction, not for interrupt dispatch).
+                pipeline.push(opDecSp)
+                pipeline.push(MicroOp.Idle)
+                pipeline.push(MicroOp.WriteMem(Addr16.SP, Src8.PCH))
+                pipeline.push(MicroOp.Idle)
+
+                // M4: re-sample the vector FIRST (after the high-byte push, before the low-byte push),
+                // then SP-- and push PCL.
+                pipeline.push(opIsrResolveVector)
+                pipeline.push(opDecSp)
+                pipeline.push(MicroOp.WriteMem(Addr16.SP, Src8.PCL))
+                pipeline.push(MicroOp.Idle)
+
+                // M5: jump to the resolved vector (0x0000 if dispatch was cancelled).
+                pipeline.push(opIsrJump)
+                pipeline.push(MicroOp.Idle)
+                pipeline.push(MicroOp.Idle)
+                pipeline.push(MicroOp.Idle)
+            } else if (bus.cpuHalted) {
                 shouldFetchNewOpCode = false
                 repeat(4) {
                     pipeline.push(MicroOp.Idle)
