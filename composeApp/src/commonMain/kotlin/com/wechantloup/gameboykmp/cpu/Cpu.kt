@@ -38,6 +38,9 @@ class Cpu(
 
     private var haltBug = false
 
+    // Latches the interrupt vector between the re-sample M-cycle and the jump M-cycle of ISR dispatch.
+    private var isrVector: Int = 0
+
     // Pre-built, shared micro-ops for the dynamic RET-taken tail (pushed by reference, zero alloc per RET).
     private val retReadLow  = MicroOp.ReadMem(Addr16.SP, Latch.Z)
     private val retReadHigh = MicroOp.ReadMem(Addr16.SP, Latch.W)
@@ -51,6 +54,24 @@ class Cpu(
     private val opCbReadHL  = MicroOp.ReadMem(Addr16.HL, Latch.Z)
     private val opCbWriteHL = MicroOp.WriteMem(Addr16.HL, Src8.Z)
     private val opCbApplyZ = MicroOp.Internal { it.cbApplyZ() }
+
+    // Pre-allocated, capture-free singletons (like opIncZ/opDecSp). Declared as private val on Cpu.
+    private val opIsrResolveVector = MicroOp.Internal { cpu ->
+        // Re-sample IE & IF right after the high-byte push: that push may have overwritten IE
+        // (when SP-1 == 0xFFFF), which changes the outcome. A later overwrite by the low-byte push
+        // comes too late to matter. If no enabled+requested bit remains, dispatch is cancelled:
+        // vector forced to 0x0000 and NO IF bit is cleared.
+        val latePending = cpu.bus.ie and cpu.bus.iF and 0x1F
+        val bit = if (latePending != 0) latePending.countTrailingZeroBits() else -1
+        cpu.isrVector = if (bit >= 0) {
+            cpu.bus.setIF(cpu.bus.iF and (1 shl bit).inv())  // clear only the serviced bit
+            0x0040 + (bit * 8)  // 0x40,0x48,0x50,0x58,0x60
+        } else {
+            0x0000
+        }
+    }
+
+    private val opIsrJump = MicroOp.Internal { cpu -> cpu.registers.pc = cpu.isrVector }
 
     fun step() {
         // A general-purpose DMA started by the previous instruction freezes the CPU for the entire
@@ -89,56 +110,7 @@ class Cpu(
                 }
                 // IME=true: fall through to service interrupt immediately
             }
-
-            if (ime) {
-                ime = false
-
-                onMachineCycleTick()  // internal M-cycle 1
-                onMachineCycleTick()  // internal M-cycle 2
-
-                // Write PC to stack manually — intentionally NOT using push(),
-                // which adds an extra internal M-cycle suited for the PUSH instruction
-                // but not for interrupt dispatch.
-                registers.sp = (registers.sp - 1) and 0xFFFF
-                bus.write(registers.sp, (registers.pc shr 8) and 0xFF)
-                onMachineCycleTick()  // M-cycle 3: write PCH (may overwrite IE when SP-1 == $FFFF)
-
-                // The interrupt vector is decided HERE, right after the high-byte push:
-                // IE & IF are re-sampled, so a push that just overwrote IE ($FFFF) changes
-                // the outcome. If no enabled+requested bit remains, the dispatch is
-                // cancelled and PC is forced to $0000 (IF is left untouched). A later
-                // overwrite of IE by the low-byte push comes too late to matter.
-                val latePending = bus.ie and bus.iF and 0x1F
-                val bit = if (latePending != 0) latePending.countTrailingZeroBits() else -1
-
-                registers.sp = (registers.sp - 1) and 0xFFFF
-                bus.write(registers.sp, registers.pc and 0xFF)
-                onMachineCycleTick()  // M-cycle 4: write PCL (a write to IE here is too late)
-
-                registers.pc = if (bit >= 0) {
-                    bus.setIF(bus.iF and (1 shl bit).inv())  // clear only the serviced bit
-                    when (bit) {
-                        0 -> 0x0040  // V-Blank
-                        1 -> 0x0048  // LCD STAT
-                        2 -> 0x0050  // Timer
-                        3 -> 0x0058  // Serial
-                        4 -> 0x0060  // Joypad
-                        else -> 0x0040
-                    }
-                } else {
-                    0x0000  // dispatch cancelled by the IE overwrite — no IF bit cleared
-                }
-                onMachineCycleTick()  // M-cycle 5: jump to vector
-                return
-            }
         }
-
-//        if (bus.cpuHalted) {
-//            onMachineCycleTick()
-//            return
-//        }
-//
-//        pipeline.push(MicroOp.FetchOpCode)
 
         do {
             tick()
@@ -149,11 +121,47 @@ class Cpu(
         } while (!pipeline.isEmpty)
     }
 
-    fun tick() {
+    private fun tick() {
         if (pipeline.isEmpty) {
             var shouldFetchNewOpCode = true
 
             // Todo migrate step() init here
+
+            // Check for pending interrupts
+            val pending = bus.ie and bus.iF and 0x1F
+
+            if (pending != 0) {
+                //ToDo if (bus.cpuHalted)
+
+                if (ime) {
+                    shouldFetchNewOpCode = false
+                    ime = false
+
+                    // M1 + M2: two internal M-cycles (no bus access).
+                    repeat(8) { pipeline.push(MicroOp.Idle) }
+
+                    // M3: SP-- then push PCH. Manual stack writes, intentionally NOT push() (which adds an extra
+                    // internal M-cycle suited for the PUSH instruction, not for interrupt dispatch).
+                    pipeline.push(opDecSp)
+                    pipeline.push(MicroOp.Idle)
+                    pipeline.push(MicroOp.WriteMem(Addr16.SP, Src8.PCH))
+                    pipeline.push(MicroOp.Idle)
+
+                    // M4: re-sample the vector FIRST (after the high-byte push, before the low-byte push),
+                    // then SP-- and push PCL.
+                    pipeline.push(opIsrResolveVector)
+                    pipeline.push(opDecSp)
+                    pipeline.push(MicroOp.WriteMem(Addr16.SP, Src8.PCL))
+                    pipeline.push(MicroOp.Idle)
+
+                    // M5: jump to the resolved vector (0x0000 if dispatch was cancelled).
+                    pipeline.push(opIsrJump)
+                    pipeline.push(MicroOp.Idle)
+                    pipeline.push(MicroOp.Idle)
+                    pipeline.push(MicroOp.Idle)
+                }
+            }
+
             if (bus.cpuHalted) {
                 shouldFetchNewOpCode = false
                 repeat(4) {
