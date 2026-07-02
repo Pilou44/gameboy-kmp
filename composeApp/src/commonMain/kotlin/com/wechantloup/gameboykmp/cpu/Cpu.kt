@@ -137,15 +137,15 @@ class Cpu(
             return
         }
 
-        val opcode = fetch()
+        pipeline.push(MicroOp.FetchOpCode)
 
-        if (imeScheduled) {
-            ime = true
-            imeScheduled = false
+        while (!pipeline.isEmpty) {
+            perform(pipeline.pop())
+            if (++microTCounter == 4) {
+                microTCounter = 0
+                onMachineCycleTick()   // one M-cycle elapsed; producers still batched (step 1)
+            }
         }
-
-        val seq = MicroCode.TABLE[opcode]
-        if (seq != null) runMicroSequence(seq) else execute(opcode)   // migrated path vs legacy
     }
 
     fun reset() {
@@ -186,136 +186,6 @@ class Cpu(
             }
             7 -> registers.a = value
             else -> throw IllegalArgumentException("Unknown register code: $code")
-        }
-    }
-
-    private fun execute(opcode: Int) {
-        when (opcode) {
-
-// --- Phase B: 1-M-cycle-with-effect, effect lands in the fetch M-cycle ---
-
-            0x76 -> {
-                val pending = bus.ie and bus.iF and 0x1F
-                if (pending != 0 && !ime) {
-                    haltBug = true  // halt bug regardless of IME state
-                } else {
-                    bus.cpuHalted = true
-                }
-            }
-
-            0x10 -> {
-                // STOP is a 2-byte instruction (0x10 0x00) -> skip the padding byte.
-                registers.pc = (registers.pc + 1) and 0xFFFF
-
-                if (bus.performSpeedSwitch()) {
-                    // CGB speed switch: a KEY1 switch was armed, so STOP toggles the speed and
-                    // execution continues with the next instruction (the LCD is left untouched).
-                    // STOP still resets DIV.
-                    // TODO: hardware halts the CPU ~2050 M-cycles during the switch; not modeled
-                    //  (immediate toggle). Fine for boot; revisit if a timing test needs it.
-                    bus.write(0xFF04, 0x00)
-                } else {
-                    // Real STOP mode: CPU frozen until a selected joypad line goes low.
-                    isStopped = true
-                    bus.write(0xFF40, bus.read(0xFF40) and 0x7F)  // blank the screen (clear LCDC bit 7)
-                    bus.write(0xFF04, 0x00)
-                }
-            }
-
-            0x04 -> inc(0)
-            0x0C -> inc(1)
-            0x14 -> inc(2)
-            0x1C -> inc(3)
-            0x24 -> inc(4)
-            0x2C -> inc(5)
-            0x3C -> inc(7)
-
-            0x05 -> dec(0)
-            0x0D -> dec(1)
-            0x15 -> dec(2)
-            0x1D -> dec(3)
-            0x25 -> dec(4)
-            0x2D -> dec(5)
-            0x3D -> dec(7)
-
-            /* --- Misc --- */
-            0x27 -> daa()
-            0x2F -> {
-                // CPL
-                registers.a = registers.a.inv() and 0xFF
-                registers.flagN = true
-                registers.flagH = true
-            }
-            0x37 -> {
-                // SCF
-                registers.flagN = false
-                registers.flagH = false
-                registers.flagC = true
-            }
-            0x3F -> {
-                // CCF
-                registers.flagN = false
-                registers.flagH = false
-                registers.flagC = !registers.flagC
-            }
-
-            /* --- Jumps --- */
-            0xE9 -> registers.pc = registers.hl  // JP HL
-
-            /* --- Rotate accumulator --- */
-            0x07 -> {  // RLCA
-                val bit7 = (registers.a shr 7) and 1
-                registers.a = ((registers.a shl 1) or bit7) and 0xFF
-                registers.flagZ = false
-                registers.flagN = false
-                registers.flagH = false
-                registers.flagC = bit7 != 0
-            }
-            0x0F -> {  // RRCA
-                val bit0 = registers.a and 1
-                registers.a = (registers.a ushr 1) or (bit0 shl 7)
-                registers.flagZ = false
-                registers.flagN = false
-                registers.flagH = false
-                registers.flagC = bit0 != 0
-            }
-            0x17 -> {  // RLA
-                val oldC = if (registers.flagC) 1 else 0
-                val bit7 = (registers.a shr 7) and 1
-                registers.a = ((registers.a shl 1) or oldC) and 0xFF
-                registers.flagZ = false
-                registers.flagN = false
-                registers.flagH = false
-                registers.flagC = bit7 != 0
-            }
-            0x1F -> {  // RRA
-                val oldC = if (registers.flagC) 1 else 0
-                val bit0 = registers.a and 1
-                registers.a = (registers.a ushr 1) or (oldC shl 7)
-                registers.flagZ = false; registers.flagN = false; registers.flagH = false
-                registers.flagC = bit0 != 0
-            }
-
-            /* --- Interrupts --- */
-            0xF3 -> ime = false
-            0xFB -> imeScheduled = true
-
-            /* --- 8-bit arithmetic: register --- */
-            in 0x80..0x87 -> add(opcode)
-            in 0x88..0x8F -> add(opcode, withCarry = true)
-            in 0x90..0x97 -> sub(opcode)
-            in 0x98..0x9F -> sub(opcode, withCarry = true)
-            in 0xA0..0xA7 -> and8(opcode)
-            in 0xA8..0xAF -> xor8(opcode)
-            in 0xB0..0xB7 -> or8(opcode)
-            in 0xB8..0xBF -> sub(opcode, storeResult = false)  // CP
-
-            /* --- 8-bit loads: register to register (0x40–0x7F, 0x76=HALT handled above) --- */
-            in 0x40..0x7F -> load(opcode)
-
-// --- End Section Phase B ---
-
-            else -> TODO("Opcode 0x${opcode.toString(16).uppercase()} not implemented at PC=0x${(registers.pc - 1).toString(16)}")
         }
     }
 
@@ -408,17 +278,6 @@ class Cpu(
         registers.pc = vector
     }
 
-    private fun fetch(): Int {
-        val data = bus.read(registers.pc) and 0xFF
-        if (haltBug) {
-            haltBug = false  // only skip increment once
-        } else {
-            registers.pc = (registers.pc + 1) and 0xFFFF
-        }
-        onMachineCycleTick()
-        return data
-    }
-
     /**
      * Consumes the CPU stall published by a general-purpose DMA. GDMA freezes the CPU for the
      * whole transfer; the Bus only publishes the M-cycle count (it cannot tick), so the CPU drains
@@ -499,27 +358,12 @@ class Cpu(
         sp = 0xFFFE
     }
 
-    /**
-     * Phase A: push the instruction's micro-ops, then drain them fully here, firing onMachineCycleTick
-     * every 4 T. Access happens whenever its micro-op runs within the M-cycle — invisible to the harness,
-     * which only sees (mCycle, op, addr, value). The full-drain is phase-A staging: phase B will instead
-     * pop ONE micro-op per external tick(), the pipeline persisting across ticks.
-     */
-    private fun runMicroSequence(seq: Array<MicroOp>) {
-        for (op in seq) pipeline.push(op)
-        microTCounter = 0
-        while (!pipeline.isEmpty) {
-            perform(pipeline.pop())
-            if (++microTCounter == 4) {
-                microTCounter = 0
-                onMachineCycleTick()   // one M-cycle elapsed; producers still batched (step 1)
-            }
-        }
-    }
-
     private fun perform(op: MicroOp) {
         when (op) {
             MicroOp.Idle -> Unit
+
+            is MicroOp.FetchOpCode -> fetchOpCode()
+
             is MicroOp.ReadImmediate -> {
                 val v = bus.read(registers.pc)
                 registers.pc = (registers.pc + 1) and 0xFFFF
@@ -665,6 +509,187 @@ class Cpu(
         Src8.PCL -> registers.pc and 0xFF
         Src8.SPH -> (registers.sp shr 8) and 0xFF
         Src8.SPL -> registers.sp and 0xFF
+    }
+
+    private fun fetchOpCode() {
+        latchZ = bus.read(registers.pc) and 0xFF
+        if (haltBug) {
+            haltBug = false  // only skip increment once
+        } else {
+            registers.pc = (registers.pc + 1) and 0xFFFF
+        }
+
+        if (imeScheduled) {
+            ime = true
+            imeScheduled = false
+        }
+
+        // Phase A: micro-op table first (so (HL) variants never fall through to phase B)
+        val seq = MicroCode.TABLE[latchZ]
+        if (seq != null) {
+            // the 3 Idle completing the fetch M-cycle
+            pipeline.push(MicroOp.Idle)
+            pipeline.push(MicroOp.Idle)
+            pipeline.push(MicroOp.Idle)
+            seq.forEach { pipeline.push(it) }
+            return
+        }
+
+        // Phase B
+        if (handleImmediateOpCode()) {
+            return
+        }
+
+        TODO("Opcode 0x${latchZ.toString(16).uppercase()} not implemented at PC=0x${(registers.pc - 1).toString(16)}")
+    }
+
+    private fun pushFetchPadding() {
+        pipeline.push(MicroOp.Idle)
+        pipeline.push(MicroOp.Idle)
+        pipeline.push(MicroOp.Idle)
+    }
+
+    private fun handleImmediateOpCode(): Boolean {
+        val opCode = latchZ
+        return when (opCode) {
+            0x76 -> {
+                val pending = bus.ie and bus.iF and 0x1F
+                if (pending != 0 && !ime) {
+                    haltBug = true  // halt bug regardless of IME state
+                } else {
+                    bus.cpuHalted = true
+                }
+                pushFetchPadding()
+                true
+            }
+
+            0x10 -> {
+                // STOP is a 2-byte instruction (0x10 0x00) -> skip the padding byte.
+                registers.pc = (registers.pc + 1) and 0xFFFF
+
+                if (bus.performSpeedSwitch()) {
+                    // CGB speed switch: a KEY1 switch was armed, so STOP toggles the speed and
+                    // execution continues with the next instruction (the LCD is left untouched).
+                    // STOP still resets DIV.
+                    // TODO: hardware halts the CPU ~2050 M-cycles during the switch; not modeled
+                    //  (immediate toggle). Fine for boot; revisit if a timing test needs it.
+                    bus.write(0xFF04, 0x00)
+                } else {
+                    // Real STOP mode: CPU frozen until a selected joypad line goes low.
+                    isStopped = true
+                    bus.write(0xFF40, bus.read(0xFF40) and 0x7F)  // blank the screen (clear LCDC bit 7)
+                    bus.write(0xFF04, 0x00)
+                }
+                pushFetchPadding()
+                true
+            }
+
+            0x04 -> { inc(0) ; pushFetchPadding() ; true }
+            0x0C -> { inc(1) ; pushFetchPadding() ; true }
+            0x14 -> { inc(2) ; pushFetchPadding() ; true }
+            0x1C -> { inc(3) ; pushFetchPadding() ; true }
+            0x24 -> { inc(4) ; pushFetchPadding() ; true }
+            0x2C -> { inc(5) ; pushFetchPadding() ; true }
+            0x3C -> { inc(7) ; pushFetchPadding() ; true }
+
+            0x05 -> { dec(0) ; pushFetchPadding() ; true }
+            0x0D -> { dec(1) ; pushFetchPadding() ; true }
+            0x15 -> { dec(2) ; pushFetchPadding() ; true }
+            0x1D -> { dec(3) ; pushFetchPadding() ; true }
+            0x25 -> { dec(4) ; pushFetchPadding() ; true }
+            0x2D -> { dec(5) ; pushFetchPadding() ; true }
+            0x3D -> { dec(7) ; pushFetchPadding() ; true }
+
+            /* --- Misc --- */
+            0x27 -> { daa() ; pushFetchPadding() ; true }
+            0x2F -> {
+                // CPL
+                registers.a = registers.a.inv() and 0xFF
+                registers.flagN = true
+                registers.flagH = true
+                pushFetchPadding()
+                true
+            }
+            0x37 -> {
+                // SCF
+                registers.flagN = false
+                registers.flagH = false
+                registers.flagC = true
+                pushFetchPadding()
+                true
+            }
+            0x3F -> {
+                // CCF
+                registers.flagN = false
+                registers.flagH = false
+                registers.flagC = !registers.flagC
+                pushFetchPadding()
+                true
+            }
+
+            /* --- Jumps --- */
+            0xE9 -> { registers.pc = registers.hl ; pushFetchPadding() ; true } // JP HL
+
+            /* --- Rotate accumulator --- */
+            0x07 -> {  // RLCA
+                val bit7 = (registers.a shr 7) and 1
+                registers.a = ((registers.a shl 1) or bit7) and 0xFF
+                registers.flagZ = false
+                registers.flagN = false
+                registers.flagH = false
+                registers.flagC = bit7 != 0
+                pushFetchPadding()
+                true
+            }
+            0x0F -> {  // RRCA
+                val bit0 = registers.a and 1
+                registers.a = (registers.a ushr 1) or (bit0 shl 7)
+                registers.flagZ = false
+                registers.flagN = false
+                registers.flagH = false
+                registers.flagC = bit0 != 0
+                pushFetchPadding()
+                true
+            }
+            0x17 -> {  // RLA
+                val oldC = if (registers.flagC) 1 else 0
+                val bit7 = (registers.a shr 7) and 1
+                registers.a = ((registers.a shl 1) or oldC) and 0xFF
+                registers.flagZ = false
+                registers.flagN = false
+                registers.flagH = false
+                registers.flagC = bit7 != 0
+                pushFetchPadding()
+                true
+            }
+            0x1F -> {  // RRA
+                val oldC = if (registers.flagC) 1 else 0
+                val bit0 = registers.a and 1
+                registers.a = (registers.a ushr 1) or (oldC shl 7)
+                registers.flagZ = false; registers.flagN = false; registers.flagH = false
+                registers.flagC = bit0 != 0
+                pushFetchPadding()
+                true
+            }
+
+            /* --- Interrupts --- */
+            0xF3 -> { ime = false ; pushFetchPadding() ; true }
+            0xFB -> { imeScheduled = true ; pushFetchPadding() ; true }
+
+            /* --- 8-bit arithmetic: register --- */
+            in 0x80..0x87 -> { add(opCode) ; pushFetchPadding() ; true }
+            in 0x88..0x8F -> { add(opCode, withCarry = true) ; pushFetchPadding() ; true }
+            in 0x90..0x97 -> { sub(opCode) ; pushFetchPadding() ; true }
+            in 0x98..0x9F -> { sub(opCode, withCarry = true) ; pushFetchPadding() ; true }
+            in 0xA0..0xA7 -> { and8(opCode) ; pushFetchPadding() ; true }
+            in 0xA8..0xAF -> { xor8(opCode) ; pushFetchPadding() ; true }
+            in 0xB0..0xB7 -> { or8(opCode) ; pushFetchPadding() ; true }
+            in 0xB8..0xBF -> { sub(opCode, storeResult = false) ; pushFetchPadding() ; true } // CP
+
+            /* --- 8-bit loads: register to register (0x40–0x7F, 0x76=HALT handled above) --- */
+            in 0x40..0x7F -> { load(opCode) ; pushFetchPadding() ; true }
+            else -> false
+        }
     }
 
     /** INC effect on the Z latch (+ flags), reused by INC (HL) and later INC r. C is untouched. */

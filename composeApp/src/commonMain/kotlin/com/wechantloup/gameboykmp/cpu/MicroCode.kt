@@ -998,7 +998,6 @@ object MicroCode {
             MicroOp.WriteMem(Addr16.HL, Src8.A),
         )
 
-        // TODO
         this[0xCB] = arrayOf(
             MicroOp.ReadImmediate(Latch.W),   // read the CB opcode into W
             MicroOp.Idle,                          // T1

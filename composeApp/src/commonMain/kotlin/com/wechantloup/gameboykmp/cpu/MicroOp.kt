@@ -36,6 +36,8 @@ sealed interface MicroOp {
 
     data class AluZ(val aluOp: AluOp) : MicroOp
 
+    data object FetchOpCode : MicroOp
+
     /**
      * A T-cycle of internal work: no bus access, just an effect on CPU state (ALU, flags, a taken/
      * not-taken decision, a latch combine). [effect] is capture-free — it reads/writes only through
