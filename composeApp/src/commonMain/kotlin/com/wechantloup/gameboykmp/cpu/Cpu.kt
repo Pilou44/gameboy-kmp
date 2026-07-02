@@ -41,6 +41,8 @@ class Cpu(
     // Pre-built, shared micro-ops for the dynamic RET-taken tail (pushed by reference, zero alloc per RET).
     private val retReadLow  = MicroOp.ReadMem(Addr16.SP, Latch.Z)
     private val retReadHigh = MicroOp.ReadMem(Addr16.SP, Latch.W)
+    private val opIncZ = MicroOp.Internal { it.microIncZ() }
+    private val opDecZ = MicroOp.Internal { it.microDecZ() }
     private val opIncSp     = MicroOp.Internal { it.microIncSp() }
     private val opPopPc     = MicroOp.Internal { it.microWZtoPc() }
     private val opWZtoPc    = MicroOp.Internal { it.microWZtoPc() }
@@ -229,24 +231,6 @@ class Cpu(
         val result = registers.a xor getRegister(code and 0x07)
         registers.a = result and 0xFF
         registers.flagZ = result == 0; registers.flagN = false; registers.flagH = false; registers.flagC = false
-    }
-
-    private fun inc(registerCode: Int) {
-        val old = getRegister(registerCode)
-        val value = (old + 1) and 0xFF
-        setRegister(registerCode, value)
-        registers.flagZ = value == 0
-        registers.flagN = false
-        registers.flagH = (old and 0x0F) == 0x0F
-    }
-
-    private fun dec(registerCode: Int) {
-        val old = getRegister(registerCode)
-        val value = (old - 1) and 0xFF
-        setRegister(registerCode, value)
-        registers.flagZ = value == 0
-        registers.flagN = true
-        registers.flagH = (old and 0x0F) == 0x00
     }
 
     private fun daa() {
@@ -584,21 +568,91 @@ class Cpu(
                 true
             }
 
-            0x04 -> { inc(0) ; pushFetchPadding() ; true }
-            0x0C -> { inc(1) ; pushFetchPadding() ; true }
-            0x14 -> { inc(2) ; pushFetchPadding() ; true }
-            0x1C -> { inc(3) ; pushFetchPadding() ; true }
-            0x24 -> { inc(4) ; pushFetchPadding() ; true }
-            0x2C -> { inc(5) ; pushFetchPadding() ; true }
-            0x3C -> { inc(7) ; pushFetchPadding() ; true }
+            0x04 -> {
+                pipeline.push(MicroOp.RegToZ(Reg8.B))
+                pipeline.push(opIncZ)
+                pipeline.push(MicroOp.ZtoReg(Reg8.B))
+                true
+            }
+            0x0C -> {
+                pipeline.push(MicroOp.RegToZ(Reg8.C))
+                pipeline.push(opIncZ)
+                pipeline.push(MicroOp.ZtoReg(Reg8.C))
+                true
+            }
+            0x14 -> {
+                pipeline.push(MicroOp.RegToZ(Reg8.D))
+                pipeline.push(opIncZ)
+                pipeline.push(MicroOp.ZtoReg(Reg8.D))
+                true
+            }
+            0x1C -> {
+                pipeline.push(MicroOp.RegToZ(Reg8.E))
+                pipeline.push(opIncZ)
+                pipeline.push(MicroOp.ZtoReg(Reg8.E))
+                true
+            }
+            0x24 -> {
+                pipeline.push(MicroOp.RegToZ(Reg8.H))
+                pipeline.push(opIncZ)
+                pipeline.push(MicroOp.ZtoReg(Reg8.H))
+                true
+            }
+            0x2C -> {
+                pipeline.push(MicroOp.RegToZ(Reg8.L))
+                pipeline.push(opIncZ)
+                pipeline.push(MicroOp.ZtoReg(Reg8.L))
+                true
+            }
+            0x3C -> {
+                pipeline.push(MicroOp.RegToZ(Reg8.A))
+                pipeline.push(opIncZ)
+                pipeline.push(MicroOp.ZtoReg(Reg8.A))
+                true
+            }
 
-            0x05 -> { dec(0) ; pushFetchPadding() ; true }
-            0x0D -> { dec(1) ; pushFetchPadding() ; true }
-            0x15 -> { dec(2) ; pushFetchPadding() ; true }
-            0x1D -> { dec(3) ; pushFetchPadding() ; true }
-            0x25 -> { dec(4) ; pushFetchPadding() ; true }
-            0x2D -> { dec(5) ; pushFetchPadding() ; true }
-            0x3D -> { dec(7) ; pushFetchPadding() ; true }
+            0x05 -> {
+                pipeline.push(MicroOp.RegToZ(Reg8.B))
+                pipeline.push(opDecZ)
+                pipeline.push(MicroOp.ZtoReg(Reg8.B))
+                true
+            }
+            0x0D -> {
+                pipeline.push(MicroOp.RegToZ(Reg8.C))
+                pipeline.push(opDecZ)
+                pipeline.push(MicroOp.ZtoReg(Reg8.C))
+                true
+            }
+            0x15 -> {
+                pipeline.push(MicroOp.RegToZ(Reg8.D))
+                pipeline.push(opDecZ)
+                pipeline.push(MicroOp.ZtoReg(Reg8.D))
+                true
+            }
+            0x1D -> {
+                pipeline.push(MicroOp.RegToZ(Reg8.E))
+                pipeline.push(opDecZ)
+                pipeline.push(MicroOp.ZtoReg(Reg8.E))
+                true
+            }
+            0x25 -> {
+                pipeline.push(MicroOp.RegToZ(Reg8.H))
+                pipeline.push(opDecZ)
+                pipeline.push(MicroOp.ZtoReg(Reg8.H))
+                true
+            }
+            0x2D -> {
+                pipeline.push(MicroOp.RegToZ(Reg8.L))
+                pipeline.push(opDecZ)
+                pipeline.push(MicroOp.ZtoReg(Reg8.L))
+                true
+            }
+            0x3D -> {
+                pipeline.push(MicroOp.RegToZ(Reg8.A))
+                pipeline.push(opDecZ)
+                pipeline.push(MicroOp.ZtoReg(Reg8.A))
+                true
+            }
 
             /* --- Misc --- */
             0x27 -> { daa() ; pushFetchPadding() ; true }

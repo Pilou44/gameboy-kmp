@@ -192,6 +192,27 @@ class CpuSequencingParityTest {
             // CB BIT n,(HL): the short (HL) branch — 3 M-cycles, read only, NO write-back. This is the case that
             // breaks if the group==GROUP_BIT bifurcation is wrong (a stray write would add an M-cycle + access).
             Case("CB BIT 0,(HL)") { b, r -> r.pc = 0xC000; r.hl = 0xC100; b.poke(0xC100, 0xFE); b.load(0xC000, 0xCB, 0x46) },
+
+            // INC/DEC r: RegToZ -> incZ/decZ -> ZtoReg, entirely inside the fetch M-cycle (1 M-cycle, no bus
+            // access). The Z/N/H formulas and "C untouched" are already proven by INC/DEC (HL); these cases add
+            // the per-register mapping (a swapped RegToZ/ZtoReg pair only surfaces on its own register). Values
+            // also probe the flag edges: the wrap cases start with flagC=false so a bogus C-out would diverge
+            // from the reference; low-nibble 0xF (INC) / 0x0 (DEC) toggle H.
+            Case("INC B") { b, r -> r.pc = 0xC000; r.b = 0xFF; r.flagC = false; b.load(0xC000, 0x04) }, // ->0x00: Z+H set, C stays clear
+            Case("INC C") { b, r -> r.pc = 0xC000; r.c = 0x0F; r.flagC = true;  b.load(0xC000, 0x0C) }, // ->0x10: H set, C stays set
+            Case("INC D") { b, r -> r.pc = 0xC000; r.d = 0x41; b.load(0xC000, 0x14) },                  // baseline (mapping)
+            Case("INC E") { b, r -> r.pc = 0xC000; r.e = 0x41; b.load(0xC000, 0x1C) },                  // baseline (mapping)
+            Case("INC H") { b, r -> r.pc = 0xC000; r.h = 0x41; b.load(0xC000, 0x24) },                  // baseline (mapping)
+            Case("INC L") { b, r -> r.pc = 0xC000; r.l = 0x41; b.load(0xC000, 0x2C) },                  // baseline (mapping)
+            Case("INC A") { b, r -> r.pc = 0xC000; r.a = 0xFF; r.flagC = false; b.load(0xC000, 0x3C) }, // ->0x00: Z+H set, C stays clear
+
+            Case("DEC B") { b, r -> r.pc = 0xC000; r.b = 0x00; r.flagC = false; b.load(0xC000, 0x05) }, // ->0xFF: H+N set, C stays clear (borrow-out guard)
+            Case("DEC C") { b, r -> r.pc = 0xC000; r.c = 0x01; b.load(0xC000, 0x0D) },                  // ->0x00: Z+N set, H clear
+            Case("DEC D") { b, r -> r.pc = 0xC000; r.d = 0x10; b.load(0xC000, 0x15) },                  // ->0x0F: H+N set (low-nibble borrow)
+            Case("DEC E") { b, r -> r.pc = 0xC000; r.e = 0x42; b.load(0xC000, 0x1D) },                  // baseline (mapping)
+            Case("DEC H") { b, r -> r.pc = 0xC000; r.h = 0x42; b.load(0xC000, 0x25) },                  // baseline (mapping)
+            Case("DEC L") { b, r -> r.pc = 0xC000; r.l = 0x42; b.load(0xC000, 0x2D) },                  // baseline (mapping)
+            Case("DEC A") { b, r -> r.pc = 0xC000; r.a = 0x00; r.flagC = false; b.load(0xC000, 0x3D) }, // ->0xFF: H+N set, C stays clear
         )
     }
 }
