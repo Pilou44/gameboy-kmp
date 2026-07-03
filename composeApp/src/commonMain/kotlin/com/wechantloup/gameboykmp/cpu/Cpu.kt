@@ -79,13 +79,6 @@ class Cpu(
     }
 
     fun step() {
-        // A general-purpose DMA started by the previous instruction freezes the CPU for the entire
-        // transfer. Drain it here, at the instruction boundary, before anything else: the timer/PPU
-        // advance during the stall, and any interrupt that comes due is then seen by the pending
-        // check below — serviced right after the transfer, as on hardware (the CPU cannot dispatch
-        // while frozen).
-        drainGdmaStall()
-
         do {
             tick()
             if (++microTCounter == 4) {
@@ -108,7 +101,18 @@ class Cpu(
         // priority — (GDMA) > STOP > interrupt dispatch > HALT freeze > normal fetch. The order of these
         // returns IS the semantics; do not reorder.
 
-        // Todo migrate step() init here
+        // GDMA stall: highest priority (drained at the very top of step() in the legacy). A general-purpose
+        // DMA started by the previous instruction freezes the CPU for the whole transfer; the Bus already
+        // did the (atomic) copy and only published the duration. Burn it one M-cycle per pass — NOT all at
+        // once: a transfer can reach ~1024 M-cycles, far past the 32-slot pipeline, so we drain it
+        // incrementally like the HALT/STOP freeze, decrementing the published count.
+        if (bus.pendingGdmaStallMCycles > 0) {
+            bus.pendingGdmaStallMCycles--
+            repeat(4) {
+                pipeline.push(MicroOp.Idle)
+            }
+            return
+        }
 
         // STOP freeze (DMG): frozen until a selected joypad line goes low. Tested BEFORE the interrupt
         // block — unlike HALT, a pending interrupt does NOT wake STOP. Like HALT's freeze, it burns one
@@ -261,20 +265,6 @@ class Cpu(
 
     private fun rst(vector: Int) {
         registers.pc = vector
-    }
-
-    /**
-     * Consumes the CPU stall published by a general-purpose DMA. GDMA freezes the CPU for the
-     * whole transfer; the Bus only publishes the M-cycle count (it cannot tick), so the CPU drains
-     * it through the same machine-cycle tick as everything else, advancing timer/PPU/APU by exactly
-     * the transfer duration. Speed is already baked into the published count (8 M-cycles per block
-     * in normal speed, 16 in double speed).
-     */
-    private fun drainGdmaStall() {
-        val stallMCycles = bus.pendingGdmaStallMCycles
-        if (stallMCycles == 0) return
-        bus.pendingGdmaStallMCycles = 0
-        repeat(stallMCycles) { onMachineCycleTick() }
     }
 
     /**
