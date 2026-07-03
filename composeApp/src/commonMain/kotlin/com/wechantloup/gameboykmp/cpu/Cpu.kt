@@ -73,6 +73,11 @@ class Cpu(
 
     private val opIsrJump = MicroOp.Internal { cpu -> cpu.registers.pc = cpu.isrVector }
 
+    private val opPollStopWake = MicroOp.Internal { cpu ->
+        // A selected line is low (button pressed) when any of bits 0..3 is 0.
+        if ((cpu.bus.read(0xFF00) and 0x0F) != 0x0F) cpu.isStopped = false
+    }
+
     fun step() {
         // A general-purpose DMA started by the previous instruction freezes the CPU for the entire
         // transfer. Drain it here, at the instruction boundary, before anything else: the timer/PPU
@@ -80,21 +85,6 @@ class Cpu(
         // check below — serviced right after the transfer, as on hardware (the CPU cannot dispatch
         // while frozen).
         drainGdmaStall()
-
-        // STOP mode (DMG): frozen until a selected joypad input line goes low.
-        // Checked before the interrupt logic: unlike HALT, a pending interrupt does
-        // NOT wake STOP (here IE=IF=0x01 / VBlank pending when STOP runs).
-        if (isStopped) {
-            // A selected line is low (button pressed) when any of bits 0..3 is 0.
-            if ((bus.read(0xFF00) and 0x0F) != 0x0F) {
-                isStopped = false
-            }
-            // Keep ticking: the PPU needs at least one tick after LCDC bit 7 was cleared
-            // to run its "LCD off" path and push the blank frame. Once off, its step()
-            // early-returns, so the screen stays blank while stopped.
-            onMachineCycleTick()
-            return
-        }
 
         do {
             tick()
@@ -107,58 +97,84 @@ class Cpu(
 
     private fun tick() {
         if (pipeline.isEmpty) {
-            var shouldFetchNewOpCode = true
-
-            // Todo migrate step() init here
-
-            // Check for pending interrupts
-            val pending = bus.ie and bus.iF and 0x1F
-
-            // A pending interrupt wakes HALT regardless of IME. Must run BEFORE the freeze below,
-            // otherwise the freeze re-arms and the interrupt never gets its chance (immortal HALT).
-            if (pending != 0 && bus.cpuHalted) {
-                bus.cpuHalted = false
-            }
-
-            if (pending != 0 && ime) {
-                shouldFetchNewOpCode = false
-                ime = false
-
-                // M1 + M2: two internal M-cycles (no bus access).
-                repeat(8) { pipeline.push(MicroOp.Idle) }
-
-                // M3: SP-- then push PCH. Manual stack writes, intentionally NOT push() (which adds an extra
-                // internal M-cycle suited for the PUSH instruction, not for interrupt dispatch).
-                pipeline.push(opDecSp)
-                pipeline.push(MicroOp.Idle)
-                pipeline.push(MicroOp.WriteMem(Addr16.SP, Src8.PCH))
-                pipeline.push(MicroOp.Idle)
-
-                // M4: re-sample the vector FIRST (after the high-byte push, before the low-byte push),
-                // then SP-- and push PCL.
-                pipeline.push(opIsrResolveVector)
-                pipeline.push(opDecSp)
-                pipeline.push(MicroOp.WriteMem(Addr16.SP, Src8.PCL))
-                pipeline.push(MicroOp.Idle)
-
-                // M5: jump to the resolved vector (0x0000 if dispatch was cancelled).
-                pipeline.push(opIsrJump)
-                pipeline.push(MicroOp.Idle)
-                pipeline.push(MicroOp.Idle)
-                pipeline.push(MicroOp.Idle)
-            } else if (bus.cpuHalted) {
-                shouldFetchNewOpCode = false
-                repeat(4) {
-                    pipeline.push(MicroOp.Idle)
-                }
-            }
-
-            if (shouldFetchNewOpCode) {
-                pipeline.push(MicroOp.FetchOpCode)
-            }
+            onPipelineEmpty()
         }
 
         perform(pipeline.pop())
+    }
+
+    private fun onPipelineEmpty() {
+        // Decision point when the pipeline drains: pick what fills it next. Guard order encodes hardware
+        // priority — (GDMA) > STOP > interrupt dispatch > HALT freeze > normal fetch. The order of these
+        // returns IS the semantics; do not reorder.
+
+        // Todo migrate step() init here
+
+        // STOP freeze (DMG): frozen until a selected joypad line goes low. Tested BEFORE the interrupt
+        // block — unlike HALT, a pending interrupt does NOT wake STOP. Like HALT's freeze, it burns one
+        // M-cycle per pass without fetching.
+        // TODO: the joypad poll is modeled as a bus read of FF00 (the hardware wake is an async input-line
+        //  signal, not a software read), so its T within the M-cycle is arbitrary — placed at T0 by
+        //  convention. Not exercised by the parity harness (no Case enters isStopped) nor by the test ROMs
+        //  (no button input), so this migration is neutral-by-construction, not empirically validated.
+        //  Revisit the placement if a STOP test ever lands.
+        if (isStopped) {
+            pipeline.push(opPollStopWake)   // Internal: reads FF00, clears isStopped if a line is low
+            pipeline.push(MicroOp.Idle)
+            pipeline.push(MicroOp.Idle)
+            pipeline.push(MicroOp.Idle)
+            return
+        }
+
+        // Check for pending interrupts
+        val pending = bus.ie and bus.iF and 0x1F
+
+        // A pending interrupt wakes HALT regardless of IME. Must run BEFORE the freeze below,
+        // otherwise the freeze re-arms and the interrupt never gets its chance (immortal HALT).
+        if (pending != 0 && bus.cpuHalted) {
+            bus.cpuHalted = false
+            // Wake consumes no M-cycle of its own: the fetch below is the first M-cycle after HALT,
+            // exactly as the legacy `return`-without-tick did. IME=true falls through to ISR dispatch.
+        }
+
+        if (pending != 0 && ime) {
+            ime = false
+
+            // M1 + M2: two internal M-cycles (no bus access).
+            repeat(8) { pipeline.push(MicroOp.Idle) }
+
+            // M3: SP-- then push PCH. Manual stack writes, intentionally NOT push() (which adds an extra
+            // internal M-cycle suited for the PUSH instruction, not for interrupt dispatch).
+            pipeline.push(opDecSp)
+            pipeline.push(MicroOp.Idle)
+            pipeline.push(MicroOp.WriteMem(Addr16.SP, Src8.PCH))
+            pipeline.push(MicroOp.Idle)
+
+            // M4: re-sample the vector FIRST (after the high-byte push, before the low-byte push),
+            // then SP-- and push PCL.
+            pipeline.push(opIsrResolveVector)
+            pipeline.push(opDecSp)
+            pipeline.push(MicroOp.WriteMem(Addr16.SP, Src8.PCL))
+            pipeline.push(MicroOp.Idle)
+
+            // M5: jump to the resolved vector (0x0000 if dispatch was cancelled).
+            pipeline.push(opIsrJump)
+            pipeline.push(MicroOp.Idle)
+            pipeline.push(MicroOp.Idle)
+            pipeline.push(MicroOp.Idle)
+
+            return
+        }
+
+        if (bus.cpuHalted) {
+            repeat(4) {
+                pipeline.push(MicroOp.Idle)
+            }
+
+            return
+        }
+
+        pipeline.push(MicroOp.FetchOpCode)
     }
 
     fun reset() {

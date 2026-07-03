@@ -1542,9 +1542,10 @@ class CpuTest {
         bus.cpuHalted = true
         bus.write(0xFFFF, 0x01)  // IE: V-Blank enabled
         bus.setIF(0x01)  // IF: V-Blank pending
+        // HALT woken by interrupt (IME=false): wake and the post-HALT fetch happen in the same M-cycle
+        // (the wake is not a separate cycle), so a single step() executes the NOP.
         cpu.step()
         assertFalse(bus.cpuHalted)
-        cpu.step()           // NOP at 0x0101 executes, IME activates
         assertEquals(0xC001, cpu.registers.pc)
 
         // Priority: Timer (bit 2) et V-Blank (bit 0) pending -> V-Blank traité en premier
