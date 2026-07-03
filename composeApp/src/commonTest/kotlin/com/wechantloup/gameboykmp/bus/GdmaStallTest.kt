@@ -15,30 +15,44 @@ import kotlin.test.assertTrue
  * GDMA CPU stall contract.
  *
  * Behavioural only: we assert on the system clock (totalCycles), never on internal stall state.
- * DMG runs the exact same program and acts as the zero-stall baseline, so every CGB assertion
- * also pins DMG non-regression. The stall, if any, is drained inside the LDH instruction, so it
- * is captured within a fixed step budget regardless of its exact drain site; running the SAME
- * number of steps everywhere makes instruction + self-loop cost cancel in any differential.
+ * DMG runs the same program as the zero-stall baseline, so every CGB assertion also pins DMG
+ * non-regression.
+ *
+ * Measurement runs each program up to a PC marker (a NOP placed just before the self-loop) that is
+ * reached only AFTER the stall has fully drained. The identical instruction prefix (LD / LDH / NOP)
+ * cancels in the CGB-DMG differential, leaving the stall alone — independent of how many M-cycles
+ * the decremental drain spans. This is what makes the test robust to the tick()-based CPU, where the
+ * stall is drained one M-cycle per pipeline-empty pass rather than atomically inside one step.
+ *
+ * TODO: this test relies on the tick()-based harness (runUntilPc / tickT). It no longer uses
+ *  cpu.step(); keep it aligned if the harness's stepping primitives change.
  */
 class GdmaStallTest {
 
-    /** Sets up HDMA1-4 + the trigger program, ready to run. Does not step. */
+    /**
+     * Sets up HDMA1-4 + the trigger program, ready to run. Does not step.
+     *
+     * The NOP at 0x0104 is a landing marker: PC reaches [SELF_LOOP_PC] only once the stall has
+     * drained and the NOP has been fetched. Without it, the JR self-loop would share PC=0x0104 with
+     * the pre-stall position (PC is already 0x0104 before, during and after the stall), so a
+     * run-until-PC could stop before the stall even begins.
+     */
     private fun prepare(mode: MachineMode, lengthByte: Int): GameBoyTestHarness {
         val h = GameBoyTestHarness(mode)
         // Source 0x0000 (ROM bank 0), dest VRAM offset 0. Byte values are irrelevant to the
         // stall; the copy is harmless. On DMG these CGB-register writes are no-ops.
         h.bus.write(0xFF51, 0x00); h.bus.write(0xFF52, 0x00)
         h.bus.write(0xFF53, 0x00); h.bus.write(0xFF54, 0x00)
-        // LD A, lengthByte ; LDH (0x55), A ; JR -2 (self-loop absorbs the remaining steps)
-        h.rom(0x0100, 0x3E, lengthByte, 0xE0, 0x55, 0x18, 0xFE)
+        // LD A, lengthByte ; LDH (0x55), A ; NOP ; JR -2
+        h.rom(0x0100, 0x3E, lengthByte, 0xE0, 0x55, 0x00, 0x18, 0xFE)
         h.registers { pc = 0x0100 }
         return h
     }
 
-    private fun systemCycles(mode: MachineMode, lengthByte: Int, steps: Int = 8): Int {
+    private fun systemCycles(mode: MachineMode, lengthByte: Int): Int {
         val h = prepare(mode, lengthByte)
         val before = h.totalCycles
-        h.step(steps)
+        h.runUntilPc(SELF_LOOP_PC)   // spans the whole stall, whatever its drain granularity
         return h.totalCycles - before
     }
 
@@ -71,17 +85,21 @@ class GdmaStallTest {
             h.bus.write(0xFF51, 0x00); h.bus.write(0xFF52, 0x00)
             h.bus.write(0xFF53, 0x00); h.bus.write(0xFF54, 0x00)
             // Arm KEY1 (bit0), commit with STOP -> double speed, then fire the GDMA.
-            // LD A,01 ; LDH (4D),A ; STOP ; LD A,len ; LDH (55),A ; JR -2
-            h.rom(0x0100, 0x3E, 0x01, 0xE0, 0x4D, 0x10, 0x00, 0x3E, lengthByte, 0xE0, 0x55, 0x18, 0xFE)
+            // LD A,01 ; LDH (4D),A ; STOP ; LD A,len ; LDH (55),A ; NOP ; JR -2
+            // NOP marker at 0x010A, self-loop at 0x010B.
+            h.rom(
+                0x0100,
+                0x3E, 0x01, 0xE0, 0x4D, 0x10, 0x00, 0x3E, lengthByte, 0xE0, 0x55, 0x00, 0x18, 0xFE,
+            )
             h.registers { pc = 0x0100 }
             val before = h.totalCycles
-            h.step(10)
+            h.runUntilPc(0x010B)
             // Guard the test's own premise: the prelude must really have engaged double speed.
             assertTrue(h.bus.isDoubleSpeed, "KEY1 + STOP did not engage double speed")
             return h.totalCycles - before
         }
-        // Length-differential cancels the identical prelude (KEY1/STOP/fetches/JR); only the per-block
-        // stall differs. 16 M-cycles per block in double speed vs the 8 pinned by the single-speed tests.
+        // Length-differential cancels the identical prelude (KEY1/STOP/fetches/NOP/JR); only the
+        // per-block stall differs. 16 M-cycles per block in double speed vs the 8 pinned above.
         assertEquals((64 - 1) * 16 * 4, doubleSpeedCycles(0x3F) - doubleSpeedCycles(0x00))
     }
 
@@ -111,11 +129,14 @@ class GdmaStallTest {
     @Test
     fun `the stall advances the timer, not just the clock`() {
         // 0x7F = 128 blocks = 1024 stall M-cycles -> DIV (one tick per 256 M-cycles) advances
-        // ~4 more than the identical DMG run. Guards against a drain that bumps the counter
-        // without ticking the peripherals.
-        val cgbDiv = prepare(MachineMode.CGB, 0x7F).also { it.step(8) }.bus.read(0xFF04)
-        val dmgDiv = prepare(MachineMode.DMG, 0x7F).also { it.step(8) }.bus.read(0xFF04)
+        // ~4 more than the identical DMG run. Guards against a drain that bumps the clock without
+        // ticking the peripherals.
+        val cgbDiv = prepare(MachineMode.CGB, 0x7F).also { it.runUntilPc(SELF_LOOP_PC) }.bus.read(0xFF04)
+        val dmgDiv = prepare(MachineMode.DMG, 0x7F).also { it.runUntilPc(SELF_LOOP_PC) }.bus.read(0xFF04)
         val divDelta = (cgbDiv - dmgDiv) and 0xFF
+        // TODO: with the run-until-PC measurement divDelta is genuinely positive (~4). Under the old
+        //  step-budget it could go negative and the `and 0xFF` masked it into a passing value. If this
+        //  ever regresses, check the raw (unmasked) sign before trusting the `>= 3` bound.
         assertTrue(divDelta >= 3, "expected DIV to advance with the stall, got $divDelta")
     }
 
@@ -124,4 +145,8 @@ class GdmaStallTest {
         Logger.sink = NoOpLogSink
     }
 
+    private companion object {
+        // The JR self-loop sits one byte past the NOP marker planted by prepare() at 0x0104.
+        const val SELF_LOOP_PC = 0x0105
+    }
 }

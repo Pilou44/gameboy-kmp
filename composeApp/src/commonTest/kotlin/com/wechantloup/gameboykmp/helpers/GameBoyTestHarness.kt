@@ -25,13 +25,32 @@ class GameBoyTestHarness(
     var totalCycles = 0
     private var cycleDebt = 0
 
+    private var tCounter = 0
+
+    private fun tickT() {
+        cpu.tick()
+        if (++tCounter % 4 == 0) {
+            val ppuCycles = if (bus.isDoubleSpeed) 2 else 4
+            ppu.step(ppuCycles)
+            timer.step(4)          // always 4 — double speed doesn't slow the timer (§1)
+            apu.step(ppuCycles)
+            totalCycles += 4       // T CPU per M-cycle — the test clock, in T not dots
+        }
+    }
+
     /**
      * Run [n] full emulation steps.
      * Each step ticks all components in the same order as the production loop.
      */
-    fun step(n: Int = 1) {
-        repeat(n) {
-            cpu.step()
+    fun step(n: Int = 1) = repeat(n) {
+        do { tickT() } while (!cpu.isAtInstructionBoundary)
+    }
+
+    // Advance until PC reaches [target] (or a safety cap trips), leaving totalCycles measurable across it.
+    fun runUntilPc(target: Int, maxT: Int = 200_000) {
+        var t = 0
+        while (cpu.registers.pc != target) {
+            tickT(); if (++t > maxT) error("runUntilPc: PC never reached ${target.toString(16)}")
         }
     }
 

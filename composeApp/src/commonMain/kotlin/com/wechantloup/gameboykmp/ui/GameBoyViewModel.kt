@@ -54,6 +54,9 @@ class GameBoyViewModel : ViewModel() {
     private var cartridge: Cartridge? = null
     var frameCycles = 0
 
+    // TODO: tCounter could be Long to avoid the (harmless) Int overflow
+    var tCounter = 0
+
     // Benchmark mode: records pure frame-generation time (excludes the throttle delay).
     // Keep false during normal playback.
     var benchmarkMode = true // ToDo
@@ -160,8 +163,19 @@ class GameBoyViewModel : ViewModel() {
                     val benchMark = if (benchmarkMode) currentTimeMark() else null
 
                     frameCycles = 0
+
                     while (frameCycles < 70224) {
-                        cpu.step()
+                        tCounter++
+                        cpu.tick()
+                        if (tCounter % 4 == 0) {
+                            val ppuCycles = if (bus.isDoubleSpeed) 2 else 4
+                            ppu.step(ppuCycles)          // 4 or 2 — double speed handled here, like today
+                            timer?.step(4)
+                            apu.step(ppuCycles)
+                            bus.stepDma()
+                            cartridge.stepRtc(ppuCycles)
+                            frameCycles += ppuCycles
+                        }
                     }
 
                     if (benchmarkMode && benchMark != null) {
@@ -217,38 +231,23 @@ class GameBoyViewModel : ViewModel() {
         return Res.readBytes("files/cgb_boot.bin")
     }
 
-    // ToDo Final tick function
-//    private fun tick() {
-//        compteur++
-//        cpu.tick()                       // the only new part: CPU advances 1 T
-//        if (compteur % 4 == 0) {
-//            // EXACT current onMachineCycleTick body — untouched, ppuCycles still inside the args
-//            ppu.step(ppuCycles)          // 4 or 2 — double speed handled here, like today
-//            timer.step(4)
-//            apu.step(ppuCycles)
-//            bus.stepDma()
-//            cartridge.stepRtc(ppuCycles)
-//            frameCycles += ppuCycles
-//        }
-//    }
-
     private fun onMachineCycleTick() {
-        // PPU and APU stay at their normal rate: in double speed the loop ticks twice as
-        // often, so they must advance half as many dots per tick to keep the same wall-clock rate.
-        val ppuCycles = if (bus?.isDoubleSpeed == true) 2 else 4
-        ppu?.step(ppuCycles)
-        // Timer/DIV runs twice as fast in double speed. It stays at 4 T-cycles per M-cycle and
-        // doubles automatically because the loop is called twice as often — do NOT scale it.
-        timer?.step(4)
-        apu?.step(ppuCycles)
-        // OAM DMA is 1 byte per M-cycle, 160 M-cycles total, in both speeds. Called once per
-        // tick → already correct (just faster in wall-clock during double speed).
-        bus?.stepDma()
-        // RTC tracks real time, not CPU cycles: passing the scaled value keeps it real-time.
-        cartridge?.stepRtc(ppuCycles)
-        // frameCycles counts PPU dots; a frame is a fixed 70224-dot count, so it must advance at
-        // the PPU rate. In double speed this makes the inner loop run 35112 M-cycles/frame (2x).
-        frameCycles += ppuCycles
+//        // PPU and APU stay at their normal rate: in double speed the loop ticks twice as
+//        // often, so they must advance half as many dots per tick to keep the same wall-clock rate.
+//        val ppuCycles = if (bus?.isDoubleSpeed == true) 2 else 4
+//        ppu?.step(ppuCycles)
+//        // Timer/DIV runs twice as fast in double speed. It stays at 4 T-cycles per M-cycle and
+//        // doubles automatically because the loop is called twice as often — do NOT scale it.
+//        timer?.step(4)
+//        apu?.step(ppuCycles)
+//        // OAM DMA is 1 byte per M-cycle, 160 M-cycles total, in both speeds. Called once per
+//        // tick → already correct (just faster in wall-clock during double speed).
+//        bus?.stepDma()
+//        // RTC tracks real time, not CPU cycles: passing the scaled value keeps it real-time.
+//        cartridge?.stepRtc(ppuCycles)
+//        // frameCycles counts PPU dots; a frame is a fixed 70224-dot count, so it must advance at
+//        // the PPU rate. In double speed this makes the inner loop run 35112 M-cycles/frame (2x).
+//        frameCycles += ppuCycles
     }
 
     private fun currentTimeMark(): ValueTimeMark {

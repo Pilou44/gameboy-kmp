@@ -30,6 +30,8 @@ class Cpu(
     private val pipeline = RingBuffer<MicroOp>(32)
     private var microTCounter = 0   // T within the current M-cycle of the running sequence (0..3)
 
+    internal val isAtInstructionBoundary: Boolean get() = pipeline.isEmpty
+
     val registers = Registers() // Visible for tests
     private var isStopped = false
     var ime = false // Visible for tests
@@ -78,6 +80,7 @@ class Cpu(
         if ((cpu.bus.read(0xFF00) and 0x0F) != 0x0F) cpu.isStopped = false
     }
 
+    @Deprecated("Use `tick()` instead")
     fun step() {
         do {
             tick()
@@ -88,7 +91,7 @@ class Cpu(
         } while (!pipeline.isEmpty)
     }
 
-    private fun tick() {
+    fun tick() {
         if (pipeline.isEmpty) {
             onPipelineEmpty()
         }
