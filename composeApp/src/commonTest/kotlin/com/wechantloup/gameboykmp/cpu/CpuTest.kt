@@ -28,55 +28,65 @@ class CpuTest {
         cpu.registers.pc = 0xC000
     }
 
+    /**
+     * Run the CPU to the next instruction boundary — the T-cycle equivalent of the removed
+     * `cpu.step()`. Fills the pipeline on the first tick (opcode fetch, or an interrupt/HALT
+     * sequence pushed by onPipelineEmpty) and drains it, so one call = one full instruction or
+     * one full ISR dispatch, exactly as before.
+     */
+    private fun stepInstruction() {
+        do { cpu.tick() } while (!cpu.isAtInstructionBoundary)
+    }
+
     /* Loaders */
 
     @Test
     fun loadATest() {
         bus.write(0xC000, 0x3E)
         bus.write(0xC001, 0x42)
-        cpu.step()
+        stepInstruction()
         assertEquals(0x42, cpu.registers.a)
     }
     @Test
     fun loadBTest() {
         bus.write(0xC000, 0x06)
         bus.write(0xC001, 0x42)
-        cpu.step()
+        stepInstruction()
         assertEquals(0x42, cpu.registers.b)
     }
     @Test
     fun loadCTest() {
         bus.write(0xC000, 0x0E)
         bus.write(0xC001, 0x42)
-        cpu.step()
+        stepInstruction()
         assertEquals(0x42, cpu.registers.c)
     }
     @Test
     fun loadDTest() {
         bus.write(0xC000, 0x16)
         bus.write(0xC001, 0x42)
-        cpu.step()
+        stepInstruction()
         assertEquals(0x42, cpu.registers.d)
     }
     @Test
     fun loadETest() {
         bus.write(0xC000, 0x1E)
         bus.write(0xC001, 0x42)
-        cpu.step()
+        stepInstruction()
         assertEquals(0x42, cpu.registers.e)
     }
     @Test
     fun loadHTest() {
         bus.write(0xC000, 0x26)
         bus.write(0xC001, 0x42)
-        cpu.step()
+        stepInstruction()
         assertEquals(0x42, cpu.registers.h)
     }
     @Test
     fun loadLTest() {
         bus.write(0xC000, 0x2E)
         bus.write(0xC001, 0x42)
-        cpu.step()
+        stepInstruction()
         assertEquals(0x42, cpu.registers.l)
     }
 
@@ -101,7 +111,7 @@ class CpuTest {
                 bus.write(0xC100, 7) // (HL) = 7
 
                 val expectedValue = cpu.readReg(src)
-                cpu.step()
+                stepInstruction()
                 val result = cpu.readReg(dst)
                 assertEquals(expectedValue, cpu.readReg(dst))
             }
@@ -119,7 +129,7 @@ class CpuTest {
         cpu.registers.a = 0x01
         bus.write(0xC000, 0x80) // ADD A, B
         cpu.registers.b = 0xFF
-        cpu.step()
+        stepInstruction()
         assertEquals(0x00, cpu.registers.a)
         assertTrue(cpu.registers.flagZ)
         assertFalse(cpu.registers.flagN)
@@ -132,7 +142,7 @@ class CpuTest {
         cpu.registers.a = 0x08
         cpu.registers.b = 0x08
         bus.write(0xC000, 0x80) // ADD A, B
-        cpu.step()
+        stepInstruction()
         assertTrue(cpu.registers.flagH)
 
         // H = false, Z = false, C = false (0x04 + 0x03)
@@ -142,7 +152,7 @@ class CpuTest {
         cpu.registers.a = 0x04
         cpu.registers.b = 0x03
         bus.write(0xC000, 0x80) // ADD A, B
-        cpu.step()
+        stepInstruction()
         assertEquals(0x07, cpu.registers.a)
         assertFalse(cpu.registers.flagZ)
         assertFalse(cpu.registers.flagH)
@@ -156,7 +166,7 @@ class CpuTest {
         cpu.registers.a = 0x01
         bus.write(0xC000, 0x80) // ADD A, B
         cpu.registers.b = 0xFF
-        cpu.step()
+        stepInstruction()
         assertEquals(0x00, cpu.registers.a)
         assertTrue(cpu.registers.flagZ)
         assertFalse(cpu.registers.flagN)
@@ -169,7 +179,7 @@ class CpuTest {
         cpu.registers.a = 0x08
         cpu.registers.b = 0x08
         bus.write(0xC000, 0x80) // ADD A, B
-        cpu.step()
+        stepInstruction()
         assertTrue(cpu.registers.flagH)
 
         cpu.reset()
@@ -179,7 +189,7 @@ class CpuTest {
         cpu.registers.a = 0x04
         cpu.registers.b = 0x03
         bus.write(0xC000, 0x80) // ADD A, B
-        cpu.step()
+        stepInstruction()
         assertEquals(0x07, cpu.registers.a)
         assertFalse(cpu.registers.flagZ)
         assertFalse(cpu.registers.flagH)
@@ -196,7 +206,7 @@ class CpuTest {
         cpu.registers.flagC = true
         bus.write(0xC000, 0x88) // ADC A, B
         cpu.registers.b = 0xFF
-        cpu.step()
+        stepInstruction()
         assertEquals(0x01, cpu.registers.a)
         assertFalse(cpu.registers.flagZ)
         assertFalse(cpu.registers.flagN)
@@ -210,7 +220,7 @@ class CpuTest {
         cpu.registers.b = 0x08
         cpu.registers.flagC = true
         bus.write(0xC000, 0x88) // ADC A, B
-        cpu.step()
+        stepInstruction()
         assertTrue(cpu.registers.flagH)
 
         // H = false, Z = false, C = false (0x04 + 0x03)
@@ -221,7 +231,7 @@ class CpuTest {
         cpu.registers.b = 0x03
         cpu.registers.flagC = true
         bus.write(0xC000, 0x88) // ADC A, B
-        cpu.step()
+        stepInstruction()
         assertEquals(0x08, cpu.registers.a)
         assertFalse(cpu.registers.flagZ)
         assertFalse(cpu.registers.flagH)
@@ -237,7 +247,7 @@ class CpuTest {
         cpu.registers.a = 0xFF
         bus.write(0xC000, 0x90) // SUB A, B
         cpu.registers.b = 0x01
-        cpu.step()
+        stepInstruction()
         assertEquals(0xFE, cpu.registers.a)
         assertFalse(cpu.registers.flagZ)
         assertTrue(cpu.registers.flagN)
@@ -250,7 +260,7 @@ class CpuTest {
         cpu.registers.a = 0x01
         bus.write(0xC000, 0x90) // SUB A, B
         cpu.registers.b = 0xFF
-        cpu.step()
+        stepInstruction()
         assertEquals(0x02, cpu.registers.a)
         assertFalse(cpu.registers.flagZ)
         assertTrue(cpu.registers.flagN)
@@ -263,7 +273,7 @@ class CpuTest {
         cpu.registers.a = 0x08
         cpu.registers.b = 0x08
         bus.write(0xC000, 0x90) // SUB A, B
-        cpu.step()
+        stepInstruction()
         assertTrue(cpu.registers.flagZ)
 
         // H = true (a = 0x10, b = 0x01)
@@ -273,7 +283,7 @@ class CpuTest {
         cpu.registers.a = 0x10
         cpu.registers.b = 0x01
         bus.write(0xC000, 0x90) // SUB A, B
-        cpu.step()
+        stepInstruction()
         assertEquals(0x0F, cpu.registers.a)
         assertFalse(cpu.registers.flagZ)
         assertTrue(cpu.registers.flagH)
@@ -286,7 +296,7 @@ class CpuTest {
         cpu.registers.a = 0x0F
         cpu.registers.b = 0x01
         bus.write(0xC000, 0x90) // SUB A, B
-        cpu.step()
+        stepInstruction()
         assertEquals(0x0E, cpu.registers.a)
         assertFalse(cpu.registers.flagZ)
         assertFalse(cpu.registers.flagH)
@@ -300,7 +310,7 @@ class CpuTest {
         cpu.registers.a = 0xFF
         bus.write(0xC000, 0x90) // SUB A, B
         cpu.registers.b = 0x01
-        cpu.step()
+        stepInstruction()
         assertEquals(0xFE, cpu.registers.a)
         assertFalse(cpu.registers.flagZ)
         assertTrue(cpu.registers.flagN)
@@ -314,7 +324,7 @@ class CpuTest {
         cpu.registers.a = 0x01
         bus.write(0xC000, 0x90) // SUB A, B
         cpu.registers.b = 0xFF
-        cpu.step()
+        stepInstruction()
         assertEquals(0x02, cpu.registers.a)
         assertFalse(cpu.registers.flagZ)
         assertTrue(cpu.registers.flagN)
@@ -328,7 +338,7 @@ class CpuTest {
         cpu.registers.a = 0x08
         cpu.registers.b = 0x08
         bus.write(0xC000, 0x90) // SUB A, B
-        cpu.step()
+        stepInstruction()
         assertTrue(cpu.registers.flagZ)
 
         // H = true (a = 0x10, b = 0x01)
@@ -339,7 +349,7 @@ class CpuTest {
         cpu.registers.a = 0x10
         cpu.registers.b = 0x01
         bus.write(0xC000, 0x90) // SUB A, B
-        cpu.step()
+        stepInstruction()
         assertEquals(0x0F, cpu.registers.a)
         assertFalse(cpu.registers.flagZ)
         assertTrue(cpu.registers.flagH)
@@ -353,7 +363,7 @@ class CpuTest {
         cpu.registers.a = 0x0F
         cpu.registers.b = 0x01
         bus.write(0xC000, 0x90) // SUB A, B
-        cpu.step()
+        stepInstruction()
         assertEquals(0x0E, cpu.registers.a)
         assertFalse(cpu.registers.flagZ)
         assertFalse(cpu.registers.flagH)
@@ -370,7 +380,7 @@ class CpuTest {
         cpu.registers.a = 0xFF
         bus.write(0xC000, 0x98) // SBC A, B
         cpu.registers.b = 0x01
-        cpu.step()
+        stepInstruction()
         assertEquals(0xFD, cpu.registers.a)
         assertFalse(cpu.registers.flagZ)
         assertTrue(cpu.registers.flagN)
@@ -384,7 +394,7 @@ class CpuTest {
         cpu.registers.a = 0x01
         bus.write(0xC000, 0x98) // SBC A, B
         cpu.registers.b = 0xFF
-        cpu.step()
+        stepInstruction()
         assertEquals(0x01, cpu.registers.a)
         assertFalse(cpu.registers.flagZ)
         assertTrue(cpu.registers.flagN)
@@ -398,7 +408,7 @@ class CpuTest {
         cpu.registers.a = 0x08
         cpu.registers.b = 0x08
         bus.write(0xC000, 0x98) // SBC A, B
-        cpu.step()
+        stepInstruction()
         assertFalse(cpu.registers.flagZ)
 
         // H = true (a = 0x10, b = 0x01)
@@ -409,7 +419,7 @@ class CpuTest {
         cpu.registers.a = 0x10
         cpu.registers.b = 0x01
         bus.write(0xC000, 0x98) // SBC A, B
-        cpu.step()
+        stepInstruction()
         assertEquals(0x0E, cpu.registers.a)
         assertFalse(cpu.registers.flagZ)
         assertTrue(cpu.registers.flagH)
@@ -423,7 +433,7 @@ class CpuTest {
         cpu.registers.a = 0x0F
         cpu.registers.b = 0x01
         bus.write(0xC000, 0x98) // SBC A, B
-        cpu.step()
+        stepInstruction()
         assertEquals(0x0D, cpu.registers.a)
         assertFalse(cpu.registers.flagZ)
         assertFalse(cpu.registers.flagH)
@@ -436,7 +446,7 @@ class CpuTest {
         cpu.registers.a = 0xFF
         bus.write(0xC000, 0x98) // SBC A, B
         cpu.registers.b = 0x01
-        cpu.step()
+        stepInstruction()
         assertEquals(0xFE, cpu.registers.a)
         assertFalse(cpu.registers.flagZ)
         assertTrue(cpu.registers.flagN)
@@ -449,7 +459,7 @@ class CpuTest {
         cpu.registers.a = 0x01
         bus.write(0xC000, 0x98) // SBC A, B
         cpu.registers.b = 0xFF
-        cpu.step()
+        stepInstruction()
         assertEquals(0x02, cpu.registers.a)
         assertFalse(cpu.registers.flagZ)
         assertTrue(cpu.registers.flagN)
@@ -462,7 +472,7 @@ class CpuTest {
         cpu.registers.a = 0x08
         cpu.registers.b = 0x08
         bus.write(0xC000, 0x98) // SBC A, B
-        cpu.step()
+        stepInstruction()
         assertTrue(cpu.registers.flagZ)
 
         // H = true (a = 0x10, b = 0x01)
@@ -472,7 +482,7 @@ class CpuTest {
         cpu.registers.a = 0x10
         cpu.registers.b = 0x01
         bus.write(0xC000, 0x98) // SBC A, B
-        cpu.step()
+        stepInstruction()
         assertEquals(0x0F, cpu.registers.a)
         assertFalse(cpu.registers.flagZ)
         assertTrue(cpu.registers.flagH)
@@ -485,7 +495,7 @@ class CpuTest {
         cpu.registers.a = 0x0F
         cpu.registers.b = 0x01
         bus.write(0xC000, 0x98) // SBC A, B
-        cpu.step()
+        stepInstruction()
         assertEquals(0x0E, cpu.registers.a)
         assertFalse(cpu.registers.flagZ)
         assertFalse(cpu.registers.flagH)
@@ -497,7 +507,7 @@ class CpuTest {
         cpu.registers.a = 0xFF
         cpu.registers.b = 0x01
         bus.write(0xC000, 0xA0) // AND A, B
-        cpu.step()
+        stepInstruction()
         assertEquals(0x01, cpu.registers.a)
         assertFalse(cpu.registers.flagZ)
         assertFalse(cpu.registers.flagN)
@@ -509,7 +519,7 @@ class CpuTest {
         cpu.registers.a = 0xFE
         cpu.registers.b = 0x01
         bus.write(0xC000, 0xA0) // AND A, B
-        cpu.step()
+        stepInstruction()
         assertEquals(0x00, cpu.registers.a)
         assertTrue(cpu.registers.flagZ)
         assertFalse(cpu.registers.flagN)
@@ -521,7 +531,7 @@ class CpuTest {
         cpu.registers.a = 0x01
         cpu.registers.b = 0x10
         bus.write(0xC000, 0xB0) // OR A, B
-        cpu.step()
+        stepInstruction()
         assertEquals(0x11, cpu.registers.a)
         assertFalse(cpu.registers.flagZ)
         assertFalse(cpu.registers.flagN)
@@ -533,7 +543,7 @@ class CpuTest {
         cpu.registers.a = 0x00
         cpu.registers.b = 0x00
         bus.write(0xC000, 0xB0) // OR A, B
-        cpu.step()
+        stepInstruction()
         assertEquals(0x00, cpu.registers.a)
         assertTrue(cpu.registers.flagZ)
         assertFalse(cpu.registers.flagN)
@@ -545,7 +555,7 @@ class CpuTest {
         cpu.registers.a = 0xFF
         cpu.registers.b = 0x03
         bus.write(0xC000, 0xA8) // XOR A, B
-        cpu.step()
+        stepInstruction()
         assertEquals(0xFC, cpu.registers.a)
         assertFalse(cpu.registers.flagZ)
         assertFalse(cpu.registers.flagN)
@@ -557,7 +567,7 @@ class CpuTest {
         cpu.registers.a = 0x01
         cpu.registers.b = 0x01
         bus.write(0xC000, 0xA8) // XOR A, B
-        cpu.step()
+        stepInstruction()
         assertEquals(0x00, cpu.registers.a)
         assertTrue(cpu.registers.flagZ)
         assertFalse(cpu.registers.flagN)
@@ -574,7 +584,7 @@ class CpuTest {
         cpu.registers.a = 0xFF
         bus.write(0xC000, 0xB8) // CP A, B
         cpu.registers.b = 0x01
-        cpu.step()
+        stepInstruction()
         assertEquals(0xFF, cpu.registers.a)
         assertFalse(cpu.registers.flagZ)
         assertTrue(cpu.registers.flagN)
@@ -587,7 +597,7 @@ class CpuTest {
         cpu.registers.a = 0x01
         bus.write(0xC000, 0xB8) // CP A, B
         cpu.registers.b = 0xFF
-        cpu.step()
+        stepInstruction()
         assertEquals(0x01, cpu.registers.a)
         assertFalse(cpu.registers.flagZ)
         assertTrue(cpu.registers.flagN)
@@ -600,7 +610,7 @@ class CpuTest {
         cpu.registers.a = 0x08
         cpu.registers.b = 0x08
         bus.write(0xC000, 0xB8) // CP A, B
-        cpu.step()
+        stepInstruction()
         assertEquals(0x08, cpu.registers.a)
         assertTrue(cpu.registers.flagZ)
 
@@ -611,7 +621,7 @@ class CpuTest {
         cpu.registers.a = 0x10
         cpu.registers.b = 0x01
         bus.write(0xC000, 0xB8) // CP A, B
-        cpu.step()
+        stepInstruction()
         assertEquals(0x10, cpu.registers.a)
         assertFalse(cpu.registers.flagZ)
         assertTrue(cpu.registers.flagH)
@@ -624,7 +634,7 @@ class CpuTest {
         cpu.registers.a = 0x0F
         cpu.registers.b = 0x01
         bus.write(0xC000, 0xB8) // CP A, B
-        cpu.step()
+        stepInstruction()
         assertEquals(0x0F, cpu.registers.a)
         assertFalse(cpu.registers.flagZ)
         assertFalse(cpu.registers.flagH)
@@ -639,7 +649,7 @@ class CpuTest {
         cpu.registers.pc = 0xC000
         cpu.registers.a = 0x01
         bus.write(0xC000, 0x3C) // INC A
-        cpu.step()
+        stepInstruction()
         assertEquals(0x02, cpu.registers.a)
         assertFalse(cpu.registers.flagZ)
         assertFalse(cpu.registers.flagN)
@@ -652,7 +662,7 @@ class CpuTest {
         cpu.registers.pc = 0xC000
         cpu.registers.a = 0x0F
         bus.write(0xC000, 0x3C) // INC A
-        cpu.step()
+        stepInstruction()
         assertEquals(0x10, cpu.registers.a)
         assertFalse(cpu.registers.flagZ)
         assertFalse(cpu.registers.flagN)
@@ -665,7 +675,7 @@ class CpuTest {
         cpu.registers.pc = 0xC000
         cpu.registers.a = 0xFF
         bus.write(0xC000, 0x3C) // INC A
-        cpu.step()
+        stepInstruction()
         assertEquals(0x00, cpu.registers.a)
         assertTrue(cpu.registers.flagZ)
         assertFalse(cpu.registers.flagN)
@@ -679,7 +689,7 @@ class CpuTest {
         cpu.registers.flagC = true
         cpu.registers.a = 0x01
         bus.write(0xC000, 0x3C) // INC A
-        cpu.step()
+        stepInstruction()
         assertEquals(0x02, cpu.registers.a)
         assertFalse(cpu.registers.flagZ)
         assertFalse(cpu.registers.flagN)
@@ -693,7 +703,7 @@ class CpuTest {
         cpu.registers.flagC = true
         cpu.registers.a = 0x0F
         bus.write(0xC000, 0x3C) // INC A
-        cpu.step()
+        stepInstruction()
         assertEquals(0x10, cpu.registers.a)
         assertFalse(cpu.registers.flagZ)
         assertFalse(cpu.registers.flagN)
@@ -707,7 +717,7 @@ class CpuTest {
         cpu.registers.flagC = true
         cpu.registers.a = 0xFF
         bus.write(0xC000, 0x3C) // INC A
-        cpu.step()
+        stepInstruction()
         assertEquals(0x00, cpu.registers.a)
         assertTrue(cpu.registers.flagZ)
         assertFalse(cpu.registers.flagN)
@@ -723,7 +733,7 @@ class CpuTest {
         cpu.registers.pc = 0xC000
         cpu.registers.a = 0x02
         bus.write(0xC000, 0x3D) // DEC A
-        cpu.step()
+        stepInstruction()
         assertEquals(0x01, cpu.registers.a)
         assertFalse(cpu.registers.flagZ)
         assertTrue(cpu.registers.flagN)
@@ -736,7 +746,7 @@ class CpuTest {
         cpu.registers.pc = 0xC000
         cpu.registers.a = 0x10
         bus.write(0xC000, 0x3D) // DEC A
-        cpu.step()
+        stepInstruction()
         assertEquals(0x0F, cpu.registers.a)
         assertFalse(cpu.registers.flagZ)
         assertTrue(cpu.registers.flagN)
@@ -749,7 +759,7 @@ class CpuTest {
         cpu.registers.pc = 0xC000
         cpu.registers.a = 0x00
         bus.write(0xC000, 0x3D) // DEC A
-        cpu.step()
+        stepInstruction()
         assertEquals(0xFF, cpu.registers.a)
         assertFalse(cpu.registers.flagZ)
         assertTrue(cpu.registers.flagN)
@@ -762,7 +772,7 @@ class CpuTest {
         cpu.registers.pc = 0xC000
         cpu.registers.a = 0x01
         bus.write(0xC000, 0x3D) // DEC A
-        cpu.step()
+        stepInstruction()
         assertEquals(0x00, cpu.registers.a)
         assertTrue(cpu.registers.flagZ)
         assertTrue(cpu.registers.flagN)
@@ -776,7 +786,7 @@ class CpuTest {
         cpu.registers.flagC = true
         cpu.registers.a = 0x02
         bus.write(0xC000, 0x3D) // DEC A
-        cpu.step()
+        stepInstruction()
         assertEquals(0x01, cpu.registers.a)
         assertFalse(cpu.registers.flagZ)
         assertTrue(cpu.registers.flagN)
@@ -790,7 +800,7 @@ class CpuTest {
         cpu.registers.flagC = true
         cpu.registers.a = 0x10
         bus.write(0xC000, 0x3D) // DEC A
-        cpu.step()
+        stepInstruction()
         assertEquals(0x0F, cpu.registers.a)
         assertFalse(cpu.registers.flagZ)
         assertTrue(cpu.registers.flagN)
@@ -804,7 +814,7 @@ class CpuTest {
         cpu.registers.flagC = true
         cpu.registers.a = 0x00
         bus.write(0xC000, 0x3D) // DEC A
-        cpu.step()
+        stepInstruction()
         assertEquals(0xFF, cpu.registers.a)
         assertFalse(cpu.registers.flagZ)
         assertTrue(cpu.registers.flagN)
@@ -818,7 +828,7 @@ class CpuTest {
         cpu.registers.flagC = true
         cpu.registers.a = 0x01
         bus.write(0xC000, 0x3D) // DEC A
-        cpu.step()
+        stepInstruction()
         assertEquals(0x00, cpu.registers.a)
         assertTrue(cpu.registers.flagZ)
         assertTrue(cpu.registers.flagN)
@@ -835,7 +845,7 @@ class CpuTest {
         bus.write(0xC000, 0xC3) // JP
         bus.write(0xC001, 0x03)
         bus.write(0xC002, 0x13)
-        cpu.step()
+        stepInstruction()
         assertEquals(0x1303, cpu.registers.pc)
 
         // jump to 0x1303 if z true
@@ -846,7 +856,7 @@ class CpuTest {
         bus.write(0xC000, 0xCA) // JP
         bus.write(0xC001, 0x03)
         bus.write(0xC002, 0x13)
-        cpu.step()
+        stepInstruction()
         assertEquals(0x1303, cpu.registers.pc)
 
         // jump to 0x1303 if c true
@@ -857,7 +867,7 @@ class CpuTest {
         bus.write(0xC000, 0xDA) // JP
         bus.write(0xC001, 0x03)
         bus.write(0xC002, 0x13)
-        cpu.step()
+        stepInstruction()
         assertEquals(0x1303, cpu.registers.pc)
 
         // jump to 0x1303 if !z true
@@ -868,7 +878,7 @@ class CpuTest {
         bus.write(0xC000, 0xC2) // JP
         bus.write(0xC001, 0x03)
         bus.write(0xC002, 0x13)
-        cpu.step()
+        stepInstruction()
         assertEquals(0x1303, cpu.registers.pc)
 
         // jump to 0x1303 if !c true
@@ -879,7 +889,7 @@ class CpuTest {
         bus.write(0xC000, 0xD2) // JP
         bus.write(0xC001, 0x03)
         bus.write(0xC002, 0x13)
-        cpu.step()
+        stepInstruction()
         assertEquals(0x1303, cpu.registers.pc)
 
         // jump to 0x1303 if z false
@@ -890,7 +900,7 @@ class CpuTest {
         bus.write(0xC000, 0xCA) // JP
         bus.write(0xC001, 0x03)
         bus.write(0xC002, 0x13)
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC003, cpu.registers.pc)
 
         // jump to 0x1303 if c false
@@ -901,7 +911,7 @@ class CpuTest {
         bus.write(0xC000, 0xDA) // JP
         bus.write(0xC001, 0x03)
         bus.write(0xC002, 0x13)
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC003, cpu.registers.pc)
 
         // jump to 0x1303 if !z false
@@ -912,7 +922,7 @@ class CpuTest {
         bus.write(0xC000, 0xC2) // JP
         bus.write(0xC001, 0x03)
         bus.write(0xC002, 0x13)
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC003, cpu.registers.pc)
 
         // jump to 0x1303 if !c false
@@ -923,7 +933,7 @@ class CpuTest {
         bus.write(0xC000, 0xD2) // JP
         bus.write(0xC001, 0x03)
         bus.write(0xC002, 0x13)
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC003, cpu.registers.pc)
     }
 
@@ -935,7 +945,7 @@ class CpuTest {
         cpu.registers.pc = 0xC000
         bus.write(0xC000, 0x18) // JR
         bus.write(0xC001, 10)
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC00C, cpu.registers.pc)
 
         // jump to pc -10
@@ -944,7 +954,7 @@ class CpuTest {
         cpu.registers.pc = 0xC00A
         bus.write(0xC00A, 0x18) // JR
         bus.write(0xC00B, -10)
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC002, cpu.registers.pc)
 
         // jump from 0x0100 with offset -128
@@ -954,7 +964,7 @@ class CpuTest {
         cpu.registers.pc = 0xC080
         bus.write(0xC080, 0x18)
         bus.write(0xC081, 0x80) // -128 signed
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC002, cpu.registers.pc)
     }
 
@@ -969,7 +979,7 @@ class CpuTest {
         cpu.registers.flagC = true
         bus.write(0xC000, 0x38) // JR
         bus.write(0xC001, 10)
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC00C, cpu.registers.pc)
 
         // jump to pc -10 if c true
@@ -979,7 +989,7 @@ class CpuTest {
         cpu.registers.flagC = true
         bus.write(0xC00A, 0x38) // JR
         bus.write(0xC00B, -10)
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC002, cpu.registers.pc)
 
         // jump from 0x0100 with offset -128 if c true
@@ -990,7 +1000,7 @@ class CpuTest {
         cpu.registers.flagC = true
         bus.write(0xC080, 0x38)
         bus.write(0xC081, 0x80) // -128 signed
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC002, cpu.registers.pc)
 
         // jump to pc +10 if !c true
@@ -1000,7 +1010,7 @@ class CpuTest {
         cpu.registers.flagC = false
         bus.write(0xC000, 0x30) // JR
         bus.write(0xC001, 10)
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC00C, cpu.registers.pc)
 
         // jump to pc -10 if !c true
@@ -1010,7 +1020,7 @@ class CpuTest {
         cpu.registers.flagC = false
         bus.write(0xC00A, 0x30) // JR
         bus.write(0xC00B, -10)
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC002, cpu.registers.pc)
 
         // jump from 0x0100 with offset -128 if !c true
@@ -1021,7 +1031,7 @@ class CpuTest {
         cpu.registers.flagC = false
         bus.write(0xC080, 0x30)
         bus.write(0xC081, 0x80) // -128 signed
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC002, cpu.registers.pc)
 
         /* No jump */
@@ -1033,7 +1043,7 @@ class CpuTest {
         cpu.registers.flagC = false
         bus.write(0xC000, 0x38) // JR
         bus.write(0xC001, 10)
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC002, cpu.registers.pc)
 
         // jump to pc -10 if c false
@@ -1043,7 +1053,7 @@ class CpuTest {
         cpu.registers.flagC = false
         bus.write(0xC000, 0x38) // JR
         bus.write(0xC001, -10)
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC002, cpu.registers.pc)
 
         // jump from 0x0100 with offset -128 if c false
@@ -1054,7 +1064,7 @@ class CpuTest {
         cpu.registers.flagC = false
         bus.write(0xC000, 0x38)
         bus.write(0xC001, 0x80) // -128 signed
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC002, cpu.registers.pc)
 
         // jump to pc +10 if !c false
@@ -1064,7 +1074,7 @@ class CpuTest {
         cpu.registers.flagC = true
         bus.write(0xC000, 0x30) // JR
         bus.write(0xC001, 10)
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC002, cpu.registers.pc)
 
         // jump to pc -10 if !c false
@@ -1074,7 +1084,7 @@ class CpuTest {
         cpu.registers.flagC = true
         bus.write(0xC000, 0x30) // JR
         bus.write(0xC001, -10)
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC002, cpu.registers.pc)
 
         // jump from 0x0100 with offset -128 if !c false
@@ -1085,7 +1095,7 @@ class CpuTest {
         cpu.registers.flagC = true
         bus.write(0xC000, 0x30)
         bus.write(0xC001, 0x80) // -128 signed
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC002, cpu.registers.pc)
     }
 
@@ -1100,7 +1110,7 @@ class CpuTest {
         cpu.registers.flagZ = true
         bus.write(0xC000, 0x28) // JR
         bus.write(0xC001, 10)
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC00C, cpu.registers.pc)
 
         // jump to pc -10 if z true
@@ -1110,7 +1120,7 @@ class CpuTest {
         cpu.registers.flagZ = true
         bus.write(0xC00A, 0x28) // JR
         bus.write(0xC00B, -10)
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC002, cpu.registers.pc)
 
         // jump from 0x0100 with offset -128 if z true
@@ -1121,7 +1131,7 @@ class CpuTest {
         cpu.registers.flagZ = true
         bus.write(0xC080, 0x28)
         bus.write(0xC081, 0x80) // -128 signed
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC002, cpu.registers.pc)
 
         // jump to pc +10 if !z true
@@ -1131,7 +1141,7 @@ class CpuTest {
         cpu.registers.flagZ = false
         bus.write(0xC000, 0x20) // JR
         bus.write(0xC001, 10)
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC00C, cpu.registers.pc)
 
         // jump to pc -10 if !z true
@@ -1141,7 +1151,7 @@ class CpuTest {
         cpu.registers.flagZ = false
         bus.write(0xC00A, 0x20) // JR
         bus.write(0xC00B, -10)
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC002, cpu.registers.pc)
 
         // jump from 0x0100 with offset -128 if !z true
@@ -1152,7 +1162,7 @@ class CpuTest {
         cpu.registers.flagZ = false
         bus.write(0xC080, 0x20)
         bus.write(0xC081, 0x80) // -128 signed
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC002, cpu.registers.pc)
 
         /* No jump */
@@ -1164,7 +1174,7 @@ class CpuTest {
         cpu.registers.flagZ = false
         bus.write(0xC000, 0x28) // JR
         bus.write(0xC001, 10)
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC002, cpu.registers.pc)
 
         // jump to pc -10 if z false
@@ -1174,7 +1184,7 @@ class CpuTest {
         cpu.registers.flagZ = false
         bus.write(0xC000, 0x28) // JR
         bus.write(0xC001, -10)
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC002, cpu.registers.pc)
 
         // jump from 0x0100 with offset -128 if z false
@@ -1185,7 +1195,7 @@ class CpuTest {
         cpu.registers.flagZ = false
         bus.write(0xC000, 0x28)
         bus.write(0xC001, 0x80) // -128 signed
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC002, cpu.registers.pc)
 
         // jump to pc +10 if !z false
@@ -1195,7 +1205,7 @@ class CpuTest {
         cpu.registers.flagZ = true
         bus.write(0xC000, 0x20) // JR
         bus.write(0xC001, 10)
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC002, cpu.registers.pc)
 
         // jump to pc -10 if !z false
@@ -1205,7 +1215,7 @@ class CpuTest {
         cpu.registers.flagZ = true
         bus.write(0xC000, 0x20) // JR
         bus.write(0xC001, -10)
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC002, cpu.registers.pc)
 
         // jump from 0x0100 with offset -128 if !z false
@@ -1216,7 +1226,7 @@ class CpuTest {
         cpu.registers.flagZ = true
         bus.write(0xC000, 0x20)
         bus.write(0xC001, 0x80) // -128 signed
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC002, cpu.registers.pc)
     }
 
@@ -1226,14 +1236,14 @@ class CpuTest {
         bus.write(0xC000, 0xCD) // CALL
         bus.write(0xC001, 0x03)
         bus.write(0xC002, 0xC3)
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC303, cpu.registers.pc)
         assertEquals(0x03, bus.read(cpu.registers.sp))
         assertEquals(0xC0, bus.read(cpu.registers.sp + 1))
 
         // ret back to 0xC003
         bus.write(0xC303, 0xC9) // RET
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC003, cpu.registers.pc)
     }
 
@@ -1247,14 +1257,14 @@ class CpuTest {
         bus.write(0xC000, 0xDC) // CALL
         bus.write(0xC001, 0x03)
         bus.write(0xC002, 0xC3)
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC303, cpu.registers.pc)
         assertEquals(0x03, bus.read(cpu.registers.sp))
         assertEquals(0xC0, bus.read(cpu.registers.sp + 1))
 
         // ret back to 0xC003 if c true
         bus.write(0xC303, 0xD8) // RET
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC003, cpu.registers.pc)
 
         // call to 0xC303 if z true
@@ -1265,14 +1275,14 @@ class CpuTest {
         bus.write(0xC000, 0xCC) // CALL
         bus.write(0xC001, 0x03)
         bus.write(0xC002, 0xC3)
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC303, cpu.registers.pc)
         assertEquals(0x03, bus.read(cpu.registers.sp))
         assertEquals(0xC0, bus.read(cpu.registers.sp + 1))
 
         // ret back to 0xC003 if z true
         bus.write(0xC303, 0xC8) // RET
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC003, cpu.registers.pc)
 
         // call to 0xC303 if !c true
@@ -1283,14 +1293,14 @@ class CpuTest {
         bus.write(0xC000, 0xD4) // CALL
         bus.write(0xC001, 0x03)
         bus.write(0xC002, 0xC3)
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC303, cpu.registers.pc)
         assertEquals(0x03, bus.read(cpu.registers.sp))
         assertEquals(0xC0, bus.read(cpu.registers.sp + 1))
 
         // ret back to 0xC003 if !c true
         bus.write(0xC303, 0xD0) // RET
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC003, cpu.registers.pc)
 
         // call to 0xC303 if !z true
@@ -1301,14 +1311,14 @@ class CpuTest {
         bus.write(0xC000, 0xC4) // CALL
         bus.write(0xC001, 0x03)
         bus.write(0xC002, 0xC3)
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC303, cpu.registers.pc)
         assertEquals(0x03, bus.read(cpu.registers.sp))
         assertEquals(0xC0, bus.read(cpu.registers.sp + 1))
 
         // ret back to 0xC003 if !z true
         bus.write(0xC303, 0xC0) // RET
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC003, cpu.registers.pc)
     }
 
@@ -1322,7 +1332,7 @@ class CpuTest {
         bus.write(0xC000, 0xDC) // CALL
         bus.write(0xC001, 0x03)
         bus.write(0xC002, 0xC3)
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC303, cpu.registers.pc)
         assertEquals(0x03, bus.read(cpu.registers.sp))
         assertEquals(0xC0, bus.read(cpu.registers.sp + 1))
@@ -1330,7 +1340,7 @@ class CpuTest {
         // ret back to 0xC003 if c true
         cpu.registers.flagC = false
         bus.write(0xC303, 0xD8) // RET
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC304, cpu.registers.pc)
 
         // call to 0xC303 if z true
@@ -1341,7 +1351,7 @@ class CpuTest {
         bus.write(0xC000, 0xCC) // CALL
         bus.write(0xC001, 0x03)
         bus.write(0xC002, 0xC3)
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC303, cpu.registers.pc)
         assertEquals(0x03, bus.read(cpu.registers.sp))
         assertEquals(0xC0, bus.read(cpu.registers.sp + 1))
@@ -1349,7 +1359,7 @@ class CpuTest {
         // ret back to 0xC003 if z true
         cpu.registers.flagZ = false
         bus.write(0xC303, 0xC8) // RET
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC304, cpu.registers.pc)
 
         // call to 0xC303 if !c true
@@ -1360,7 +1370,7 @@ class CpuTest {
         bus.write(0xC000, 0xD4) // CALL
         bus.write(0xC001, 0x03)
         bus.write(0xC002, 0xC3)
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC303, cpu.registers.pc)
         assertEquals(0x03, bus.read(cpu.registers.sp))
         assertEquals(0xC0, bus.read(cpu.registers.sp + 1))
@@ -1368,7 +1378,7 @@ class CpuTest {
         // ret back to 0xC003 if !c true
         cpu.registers.flagC = true
         bus.write(0xC303, 0xD0) // RET
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC304, cpu.registers.pc)
 
         // call to 0xC303 if !z true
@@ -1379,7 +1389,7 @@ class CpuTest {
         bus.write(0xC000, 0xC4) // CALL
         bus.write(0xC001, 0x03)
         bus.write(0xC002, 0xC3)
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC303, cpu.registers.pc)
         assertEquals(0x03, bus.read(cpu.registers.sp))
         assertEquals(0xC0, bus.read(cpu.registers.sp + 1))
@@ -1387,7 +1397,7 @@ class CpuTest {
         // ret back to 0xC003 if !z true
         cpu.registers.flagZ = true
         bus.write(0xC303, 0xC0) // RET
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC304, cpu.registers.pc)
     }
 
@@ -1401,7 +1411,7 @@ class CpuTest {
         bus.write(0xC000, 0xDC) // CALL
         bus.write(0xC001, 0x03)
         bus.write(0xC002, 0xC3)
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC003, cpu.registers.pc)
 
         // call to 0xC303 if z true
@@ -1412,7 +1422,7 @@ class CpuTest {
         bus.write(0xC000, 0xCC) // CALL
         bus.write(0xC001, 0x03)
         bus.write(0xC002, 0xC3)
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC003, cpu.registers.pc)
 
         // call to 0xC303 if !c true
@@ -1423,7 +1433,7 @@ class CpuTest {
         bus.write(0xC000, 0xD4) // CALL
         bus.write(0xC001, 0x03)
         bus.write(0xC002, 0xC3)
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC003, cpu.registers.pc)
 
         // call to 0xC303 if !z true
@@ -1434,7 +1444,7 @@ class CpuTest {
         bus.write(0xC000, 0xC4) // CALL
         bus.write(0xC001, 0x03)
         bus.write(0xC002, 0xC3)
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC003, cpu.registers.pc)
     }
 
@@ -1442,11 +1452,11 @@ class CpuTest {
     fun pushPopBCTest() {
         cpu.registers.bc = 0x1303
         bus.write(0xC000, 0xC5) // PUSH BC
-        cpu.step()
+        stepInstruction()
         cpu.registers.bc = 0x2702
         assertEquals(0x2702, cpu.registers.bc)
         bus.write(0xC001, 0xC1) // POP BC
-        cpu.step()
+        stepInstruction()
         assertEquals(0x1303, cpu.registers.bc)
     }
 
@@ -1454,11 +1464,11 @@ class CpuTest {
     fun pushPopDETest() {
         cpu.registers.de = 0x1303
         bus.write(0xC000, 0xD5) // PUSH DE
-        cpu.step()
+        stepInstruction()
         cpu.registers.de = 0x2702
         assertEquals(0x2702, cpu.registers.de)
         bus.write(0xC001, 0xD1) // POP DE
-        cpu.step()
+        stepInstruction()
         assertEquals(0x1303, cpu.registers.de)
     }
 
@@ -1466,11 +1476,11 @@ class CpuTest {
     fun pushPopHLTest() {
         cpu.registers.hl = 0x1303
         bus.write(0xC000, 0xE5) // PUSH HL
-        cpu.step()
+        stepInstruction()
         cpu.registers.hl = 0x2702
         assertEquals(0x2702, cpu.registers.hl)
         bus.write(0xC001, 0xE1) // POP HL
-        cpu.step()
+        stepInstruction()
         assertEquals(0x1303, cpu.registers.hl)
     }
 
@@ -1478,11 +1488,11 @@ class CpuTest {
     fun pushPopAFTest() {
         cpu.registers.af = 0x1303
         bus.write(0xC000, 0xF5) // PUSH AF
-        cpu.step()
+        stepInstruction()
         cpu.registers.af = 0x2702
         assertEquals(0x2700, cpu.registers.af)
         bus.write(0xC001, 0xF1) // POP AF
-        cpu.step()
+        stepInstruction()
         assertEquals(0x1300, cpu.registers.af)
     }
 
@@ -1490,11 +1500,11 @@ class CpuTest {
     fun interruptionsTest() {
         assertFalse(cpu.ime)
         bus.write(0xC000, 0xFB) // EI
-        cpu.step()
-        cpu.step()
+        stepInstruction()
+        stepInstruction()
         assertTrue(cpu.ime)
         bus.write(0xC002, 0xF3) // DI
-        cpu.step()
+        stepInstruction()
         assertFalse(cpu.ime)
         bus.write(0xC003, 0xD9) // RETI
 
@@ -1503,7 +1513,7 @@ class CpuTest {
         bus.write((cpu.registers.sp - 2) and 0xFFFF, 0x03) // low byte
         cpu.registers.sp = (cpu.registers.sp - 2) and 0xFFFF
 
-        cpu.step()
+        stepInstruction()
         assertTrue(cpu.ime)
         assertEquals(0x1303, cpu.registers.pc)
     }
@@ -1517,7 +1527,7 @@ class CpuTest {
         cpu.ime = true
         bus.write(0xFFFF, 0x01)  // IE: V-Blank enabled
         bus.setIF(0x01)  // IF: V-Blank pending
-        cpu.step()
+        stepInstruction()
         assertEquals(0x0040, cpu.registers.pc)
         assertTrue(cpu.registers.sp < 0xFFFE)  // PC a été pushé
         assertEquals(0x00, bus.iF and 0x01)  // bit 0 effacé dans IF
@@ -1531,7 +1541,7 @@ class CpuTest {
         bus.write(0xFFFF, 0x01)  // IE: V-Blank enabled
         bus.setIF(0x01)  // IF: V-Blank pending
         bus.write(0xC000, 0x00)  // NOP
-        cpu.step()
+        stepInstruction()
         assertEquals(0xC001, cpu.registers.pc)  // pas de saut, mais NOP non exécuté non plus
 
         // HALT woken by interrupt (IME false)
@@ -1544,7 +1554,7 @@ class CpuTest {
         bus.setIF(0x01)  // IF: V-Blank pending
         // HALT woken by interrupt (IME=false): wake and the post-HALT fetch happen in the same M-cycle
         // (the wake is not a separate cycle), so a single step() executes the NOP.
-        cpu.step()
+        stepInstruction()
         assertFalse(bus.cpuHalted)
         assertEquals(0xC001, cpu.registers.pc)
 
@@ -1555,7 +1565,7 @@ class CpuTest {
         cpu.ime = true
         bus.write(0xFFFF, 0x05)  // IE: V-Blank et Timer enabled
         bus.setIF(0x05)  // IF: V-Blank et Timer pending
-        cpu.step()
+        stepInstruction()
         assertEquals(0x0040, cpu.registers.pc)  // V-Blank prioritaire
         assertEquals(0x04, bus.iF and 0x05)  // seul bit 0 effacé
     }
@@ -1565,7 +1575,7 @@ class CpuTest {
         bus.write(0xC000, 0x21) // LD HL, nn
         bus.write(0xC001, 0x03) // low byte
         bus.write(0xC002, 0x13) // high byte
-        cpu.step()
+        stepInstruction()
         assertEquals(0x1303, cpu.registers.hl)
     }
 
@@ -1575,7 +1585,7 @@ class CpuTest {
         cpu.registers.a = 0x42
         cpu.registers.hl = 0xC100
         bus.write(0xC000, 0x22)
-        cpu.step()
+        stepInstruction()
         assertEquals(0x42, bus.read(0xC100))
         assertEquals(0xC101, cpu.registers.hl)
 
@@ -1586,7 +1596,7 @@ class CpuTest {
         cpu.registers.a = 0x42
         cpu.registers.hl = 0xC100
         bus.write(0xC000, 0x32)
-        cpu.step()
+        stepInstruction()
         assertEquals(0x42, bus.read(0xC100))
         assertEquals(0xC0FF, cpu.registers.hl)
     }
@@ -1604,7 +1614,7 @@ class CpuTest {
         cpu.registers.flagH = false
         cpu.registers.a = 0x45
         bus.write(0xC000, 0x27)
-        cpu.step()
+        stepInstruction()
         assertEquals(0x45, cpu.registers.a)
         assertFalse(cpu.registers.flagC)
         assertFalse(cpu.registers.flagZ)
@@ -1618,7 +1628,7 @@ class CpuTest {
         cpu.registers.flagH = true
         cpu.registers.a = 0x4F
         bus.write(0xC000, 0x27)
-        cpu.step()
+        stepInstruction()
         assertEquals(0x55, cpu.registers.a)
         assertFalse(cpu.registers.flagC)
         assertFalse(cpu.registers.flagZ)
@@ -1632,7 +1642,7 @@ class CpuTest {
         cpu.registers.flagH = false
         cpu.registers.a = 0xA0
         bus.write(0xC000, 0x27)
-        cpu.step()
+        stepInstruction()
         assertEquals(0x00, cpu.registers.a)
         assertTrue(cpu.registers.flagC)
         assertTrue(cpu.registers.flagZ)
@@ -1646,7 +1656,7 @@ class CpuTest {
         cpu.registers.flagH = true
         cpu.registers.a = 0xFF
         bus.write(0xC000, 0x27)
-        cpu.step()
+        stepInstruction()
         assertEquals(0x65, cpu.registers.a)
         assertTrue(cpu.registers.flagC)
         assertFalse(cpu.registers.flagZ)
@@ -1662,7 +1672,7 @@ class CpuTest {
         cpu.registers.flagH = true
         cpu.registers.a = 0x94
         bus.write(0xC000, 0x27)
-        cpu.step()
+        stepInstruction()
         assertEquals(0x9A, cpu.registers.a)
         assertFalse(cpu.registers.flagC)
         assertFalse(cpu.registers.flagZ)
@@ -1678,7 +1688,7 @@ class CpuTest {
         cpu.registers.flagH = false
         cpu.registers.a = 0x45
         bus.write(0xC000, 0x27)
-        cpu.step()
+        stepInstruction()
         assertEquals(0x45, cpu.registers.a)
         assertFalse(cpu.registers.flagC)
         assertFalse(cpu.registers.flagZ)
@@ -1692,7 +1702,7 @@ class CpuTest {
         cpu.registers.flagH = true
         cpu.registers.a = 0x4F
         bus.write(0xC000, 0x27)
-        cpu.step()
+        stepInstruction()
         assertEquals(0x49, cpu.registers.a)
         assertFalse(cpu.registers.flagC)
         assertFalse(cpu.registers.flagZ)
@@ -1706,7 +1716,7 @@ class CpuTest {
         cpu.registers.flagH = false
         cpu.registers.a = 0x45
         bus.write(0xC000, 0x27)
-        cpu.step()
+        stepInstruction()
         assertEquals(0xE5, cpu.registers.a)
         assertTrue(cpu.registers.flagC)
         assertFalse(cpu.registers.flagZ)

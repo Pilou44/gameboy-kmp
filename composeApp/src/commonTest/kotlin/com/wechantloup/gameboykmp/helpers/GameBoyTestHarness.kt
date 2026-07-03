@@ -17,7 +17,10 @@ class GameBoyTestHarness(
 ) {
     val cartridge = FakeCartridge()
     val bus = Bus(cartridge, machineMode, bootRom = null)
-    val cpu = Cpu(bus, ::step1).also { it.reset() }
+    // TODO: the onMachineCycleTick callback is now a no-op everywhere (here, CpuTest, and the
+    //  production ViewModel). Once Cpu.step() is deleted, remove the constructor param entirely
+    //  and this becomes `Cpu(bus)`. Producers are driven by tickT(), never by this callback.
+    val cpu = Cpu(bus) {}.also { it.reset() }
     val timer = Timer(bus)
     val ppu = Ppu(bus)
     val apu = Apu(bus)
@@ -54,18 +57,17 @@ class GameBoyTestHarness(
         }
     }
 
-    fun step1() {
-        ppu.step(4)
-        timer.step(4)
-        apu.step(4)
-        totalCycles += 4
-    }
-
+    // Advance the shared clock by [targetCycles] T-cycles, driving CPU and producers via tickT().
+    // totalCycles only moves on M-cycle boundaries (every 4th tick), so the loop may stop the CPU
+    // mid-instruction — harmless here, since callers are cycle-counting (timer overflow, APU length
+    // counter) with the CPU parked or running NOPs, and assertions read bus/APU/timer state that is
+    // coherent at any M-cycle boundary. cycleDebt carries the sub-target overshoot (0..3) to the next
+    // call; the per-T granularity makes that overshoot tighter than the old per-instruction stepping.
     fun stepCycles(targetCycles: Int) {
         val target = totalCycles + targetCycles - cycleDebt
         cycleDebt = 0
         while (totalCycles < target) {
-            cpu.step()
+            tickT()
         }
         cycleDebt = totalCycles - target
     }

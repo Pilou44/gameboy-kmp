@@ -129,7 +129,7 @@ class GameBoyViewModel : ViewModel() {
             timer = Timer(bus)
             val ppu = Ppu(bus).also { ppu = it }
             val apu = Apu(bus).also { apu = it }
-            val cpu = Cpu(bus, ::onMachineCycleTick).also { it.reset() }
+            val cpu = Cpu(bus).also { it.reset() }
 
             emulationScope.launch {
                 for (samples in apu.samplesChannel) {
@@ -229,25 +229,6 @@ class GameBoyViewModel : ViewModel() {
 
     private suspend fun getBootRom(): ByteArray {
         return Res.readBytes("files/cgb_boot.bin")
-    }
-
-    private fun onMachineCycleTick() {
-//        // PPU and APU stay at their normal rate: in double speed the loop ticks twice as
-//        // often, so they must advance half as many dots per tick to keep the same wall-clock rate.
-//        val ppuCycles = if (bus?.isDoubleSpeed == true) 2 else 4
-//        ppu?.step(ppuCycles)
-//        // Timer/DIV runs twice as fast in double speed. It stays at 4 T-cycles per M-cycle and
-//        // doubles automatically because the loop is called twice as often — do NOT scale it.
-//        timer?.step(4)
-//        apu?.step(ppuCycles)
-//        // OAM DMA is 1 byte per M-cycle, 160 M-cycles total, in both speeds. Called once per
-//        // tick → already correct (just faster in wall-clock during double speed).
-//        bus?.stepDma()
-//        // RTC tracks real time, not CPU cycles: passing the scaled value keeps it real-time.
-//        cartridge?.stepRtc(ppuCycles)
-//        // frameCycles counts PPU dots; a frame is a fixed 70224-dot count, so it must advance at
-//        // the PPU rate. In double speed this makes the inner loop run 35112 M-cycles/frame (2x).
-//        frameCycles += ppuCycles
     }
 
     private fun currentTimeMark(): ValueTimeMark {

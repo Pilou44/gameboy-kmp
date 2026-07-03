@@ -16,11 +16,9 @@ package com.wechantloup.gameboykmp.cpu
  * Dot-accurate behavior belongs there, never in this class.
  *
  * @param bus system bus the CPU reads from and writes to.
- * @param onMachineCycleTick callback fired once per M-cycle; see the timing contract above.
  */
 class Cpu(
     private val bus: CpuBus,
-    private val onMachineCycleTick: () -> Unit,
 ) {
     // ── Micro-op pipeline (T-cycle CPU core) ─────────────────────────────────────
     // WZ latches: 8-bit data in flight between T-cycles of the current instruction.
@@ -28,7 +26,6 @@ class Cpu(
     private var latchZ = 0
 
     private val pipeline = RingBuffer<MicroOp>(32)
-    private var microTCounter = 0   // T within the current M-cycle of the running sequence (0..3)
 
     internal val isAtInstructionBoundary: Boolean get() = pipeline.isEmpty
 
@@ -78,17 +75,6 @@ class Cpu(
     private val opPollStopWake = MicroOp.Internal { cpu ->
         // A selected line is low (button pressed) when any of bits 0..3 is 0.
         if ((cpu.bus.read(0xFF00) and 0x0F) != 0x0F) cpu.isStopped = false
-    }
-
-    @Deprecated("Use `tick()` instead")
-    fun step() {
-        do {
-            tick()
-            if (++microTCounter == 4) {
-                microTCounter = 0
-                onMachineCycleTick()   // one M-cycle elapsed; producers still batched (step 1)
-            }
-        } while (!pipeline.isEmpty)
     }
 
     fun tick() {
