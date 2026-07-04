@@ -20,7 +20,7 @@ class GameBoyTestHarness(
     // TODO: the onMachineCycleTick callback is now a no-op everywhere (here, CpuTest, and the
     //  production ViewModel). Once Cpu.step() is deleted, remove the constructor param entirely
     //  and this becomes `Cpu(bus)`. Producers are driven by tickT(), never by this callback.
-    val cpu = Cpu(bus) {}.also { it.reset() }
+    val cpu = Cpu(bus).also { it.reset() }
     val timer = Timer(bus)
     val ppu = Ppu(bus)
     val apu = Apu(bus)

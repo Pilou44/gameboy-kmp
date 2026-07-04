@@ -1,46 +1,48 @@
 package com.wechantloup.gameboykmp.cpu
 
 /**
- * Sharp SM83 CPU core.
+ * Sharp SM83 CPU core, advanced one T-cycle at a time.
  *
- * Timing contract: the CPU drives the rest of the system through [onMachineCycleTick], fired
- * once per machine cycle (M-cycle = 4 T-cycles). This granularity is deliberate, not a
- * simplification. The SM83 performs at most one bus access per M-cycle (opcode fetch, operand
- * read, or data read/write); between M-cycles it only does internal work (ALU, decode) that is
- * invisible to other components. Every externally observable CPU event therefore lands on an
- * M-cycle boundary, so ticking more often would gain no information — a finer callback would
- * fire 3 ticks out of 4 with nothing to report.
+ * Timing contract: [tick] advances the CPU by a single T-cycle. Each instruction is expressed as a
+ * sequence of [MicroOp] values (one micro-op = one T-cycle) held in an internal pipeline. When the
+ * pipeline drains, [onPipelineEmpty] decides what fills it next — interrupt dispatch, HALT/STOP
+ * freeze, or a normal opcode fetch — and that decision order encodes the hardware priority.
  *
- * Sub-M-cycle (per-dot) timing is the PPU's concern: each tick advances the PPU by a fixed
- * number of dots (4, or 2 in double-speed mode), and the PPU subdivides that span internally.
- * Dot-accurate behavior belongs there, never in this class.
+ * The CPU does NOT drive the rest of the system. The caller (the emulation loop) is responsible for
+ * cadencing the PPU, timer, APU and DMA, conventionally once every 4 T-cycles (one M-cycle), or
+ * every 2 in double-speed mode. This inversion is deliberate: it keeps a single clock authority in
+ * the loop rather than having the CPU push M-cycle ticks outward.
+ *
+ * Why per-T and not per-M-cycle: the SM83 makes at most one bus access per M-cycle, but the exact T
+ * at which that access lands is observable (mid-scanline PPU effects, timer edges). Bus accesses are
+ * therefore carried as typed micro-ops ([MicroOp.ReadImmediate]/[MicroOp.ReadMem]/[MicroOp.WriteMem])
+ * rather than direct bus calls buried inside effects, so their position within the M-cycle can be
+ * tuned centrally without touching each instruction.
  *
  * @param bus system bus the CPU reads from and writes to.
  */
 class Cpu(
     private val bus: CpuBus,
 ) {
-    // ── Micro-op pipeline (T-cycle CPU core) ─────────────────────────────────────
-    // WZ latches: 8-bit data in flight between T-cycles of the current instruction.
+
+    // ──── CPU register file & interrupt state ───────────────────────────────────────
+    val registers = Registers() // Visible for tests
+    var ime = false // Visible for tests
+    private var imeScheduled = false
+    private var haltBug = false
+    private var isStopped = false
+
+    // ──── WZ latches: 8-bit data in flight between T-cycles of the current instruction ────
     private var latchW = 0
     private var latchZ = 0
 
+    // ──── Micro-op pipeline & sequencing ────────────────────────────────────────────
     private val pipeline = RingBuffer<MicroOp>(32)
-
     internal val isAtInstructionBoundary: Boolean get() = pipeline.isEmpty
-
-    val registers = Registers() // Visible for tests
-    private var isStopped = false
-    var ime = false // Visible for tests
-
-    private var imeScheduled = false
-
-    private var haltBug = false
-
     // Latches the interrupt vector between the re-sample M-cycle and the jump M-cycle of ISR dispatch.
     private var isrVector: Int = 0
 
-    // Pre-built, shared micro-ops for the dynamic RET-taken tail (pushed by reference, zero alloc per RET).
+    // ──── Pre-built, shared micro-op singletons (pushed by reference, zero alloc on the hot path) ────
     private val retReadLow  = MicroOp.ReadMem(Addr16.SP, Latch.Z)
     private val retReadHigh = MicroOp.ReadMem(Addr16.SP, Latch.W)
     private val opIncZ = MicroOp.Internal { it.microIncZ() }
@@ -77,6 +79,80 @@ class Cpu(
         if ((cpu.bus.read(0xFF00) and 0x0F) != 0x0F) cpu.isStopped = false
     }
 
+    // ──── Lifecycle ─────────────────────────────────────────────────────────────────
+    fun reset() {
+        ime = false
+        registers.reset()
+        bus.cpuHalted = false
+    }
+
+    /**
+     * Initialize registers with boot values.
+     */
+    private fun Registers.reset() {
+        if (bus.machineMode != MachineMode.DMG && bus.bootRom != null) {
+            a = 0x00
+            b = 0x00
+            c = 0x00
+            d = 0x00
+            e = 0x00
+            f = 0x00
+            h = 0x00
+            l = 0x00
+
+            pc = 0x0000
+            sp = 0x0000
+
+            return
+        }
+
+        // Post-boot CPU state, per Pan Docs "Console state after boot ROM hand-off".
+        // Games detect the hardware via A (0x11 = CGB); the rest matches real hardware
+        // so the full register file is correct (cf. Mooneye boot_regs-* tests).
+        when (bus.machineMode) {
+            MachineMode.DMG -> {
+                // F = Z+H+C. H and C are clear if the header checksum is 0; 0xB0 is the
+                // usual case (any cartridge with a valid non-zero checksum).
+                a = 0x01
+                b = 0x00
+                c = 0x13
+                d = 0x00
+                e = 0xD8
+                f = 0xB0
+                h = 0x01
+                l = 0x4D
+            }
+            MachineMode.CGB -> {
+                a = 0x11
+                b = 0x00
+                c = 0x00
+                d = 0xFF
+                e = 0x56
+                f = 0x80 // Z only
+                h = 0x00
+                l = 0x0D
+            }
+            MachineMode.CGB_COMPAT -> {
+                // CGB hardware running a DMG game. Fixed registers below; B and HL depend
+                // on the title checksum, which is the same hash that drives auto-palette.
+                a = 0x11
+                c = 0x00
+                d = 0x00
+                e = 0x08
+                f = 0x80
+                // TODO: tie B and HL to the title checksum at the auto-palette step:
+                //   B = sum of the 16 title bytes for Nintendo-licensed games, else 0x00;
+                //   HL = 0x991A if B is 0x43/0x58, else 0x007C.
+                // Using the common (non-Nintendo) case for now.
+                b = 0x00
+                h = 0x00; l = 0x7C
+            }
+        }
+        pc = 0x0100
+        sp = 0xFFFE
+    }
+
+    // ──── Scheduler: T-cycle driver and pipeline refill ─────────────────────────────
     fun tick() {
         if (pipeline.isEmpty) {
             onPipelineEmpty()
@@ -90,7 +166,7 @@ class Cpu(
         // priority — (GDMA) > STOP > interrupt dispatch > HALT freeze > normal fetch. The order of these
         // returns IS the semantics; do not reorder.
 
-        // GDMA stall: highest priority (drained at the very top of step() in the legacy). A general-purpose
+        // GDMA stall: highest priority (drained first, before any fetch). A general-purpose
         // DMA started by the previous instruction freezes the CPU for the whole transfer; the Bus already
         // did the (atomic) copy and only published the duration. Burn it one M-cycle per pass — NOT all at
         // once: a transfer can reach ~1024 M-cycles, far past the 32-slot pipeline, so we drain it
@@ -170,158 +246,6 @@ class Cpu(
         pipeline.push(MicroOp.FetchOpCode)
     }
 
-    fun reset() {
-        ime = false
-        registers.reset()
-        bus.cpuHalted = false
-    }
-
-    private fun add(code: Int, withCarry: Boolean = false) {
-        val a = registers.a
-        val b = readReg(code and 0x07)
-        val carry = if (withCarry && registers.flagC) 1 else 0
-        val result = a + b + carry
-        registers.a = result and 0xFF
-        registers.flagZ = (result and 0xFF) == 0
-        registers.flagN = false
-        registers.flagH = (a and 0x0F) + (b and 0x0F) + carry > 0x0F
-        registers.flagC = result > 0xFF
-    }
-
-    private fun sub(code: Int, withCarry: Boolean = false, storeResult: Boolean = true) {
-        val a = registers.a
-        val b = readReg(code and 0x07)
-        val carry = if (withCarry && registers.flagC) 1 else 0
-        val result = a - b - carry
-        if (storeResult) registers.a = result and 0xFF
-        registers.flagZ = (result and 0xFF) == 0
-        registers.flagN = true
-        registers.flagH = (a and 0x0F) < (b and 0x0F) + carry
-        registers.flagC = a < b + carry
-    }
-
-    private fun and8(code: Int) {
-        val result = registers.a and readReg(code and 0x07)
-        registers.a = result and 0xFF
-        registers.flagZ = result == 0
-        registers.flagN = false
-        registers.flagH = true
-        registers.flagC = false
-    }
-
-    private fun or8(code: Int) {
-        val result = registers.a or readReg(code and 0x07)
-        registers.a = result and 0xFF
-        registers.flagZ = result == 0
-        registers.flagN = false
-        registers.flagH = false
-        registers.flagC = false
-    }
-
-    private fun xor8(code: Int) {
-        val result = registers.a xor readReg(code and 0x07)
-        registers.a = result and 0xFF
-        registers.flagZ = result == 0
-        registers.flagN = false
-        registers.flagH = false
-        registers.flagC = false
-    }
-
-    private fun daa() {
-        var a = registers.a
-        var correction = 0
-
-        if (registers.flagH || (!registers.flagN && (a and 0x0F) > 9)) {
-            correction = 0x06
-        }
-        if (registers.flagC || (!registers.flagN && a > 0x99)) {
-            correction = correction or 0x60
-            registers.flagC = true
-        }
-
-        a = if (registers.flagN) a - correction else a + correction
-
-        registers.a = a and 0xFF
-        registers.flagZ = registers.a == 0
-        registers.flagH = false
-    }
-
-    private fun load(code: Int) {
-        val src = code and 0x07
-        val dst = (code and 0x38) shr 3
-        writeReg(dst, readReg(src))
-    }
-
-    private fun rst(vector: Int) {
-        registers.pc = vector
-    }
-
-    /**
-     * Initialize registers with boot values.
-     */
-    private fun Registers.reset() {
-        if (bus.machineMode != MachineMode.DMG && bus.bootRom != null) {
-            a = 0x00
-            b = 0x00
-            c = 0x00
-            d = 0x00
-            e = 0x00
-            f = 0x00
-            h = 0x00
-            l = 0x00
-
-            pc = 0x0000
-            sp = 0x0000
-
-            return
-        }
-
-        // Post-boot CPU state, per Pan Docs "Console state after boot ROM hand-off".
-        // Games detect the hardware via A (0x11 = CGB); the rest matches real hardware
-        // so the full register file is correct (cf. Mooneye boot_regs-* tests).
-        when (bus.machineMode) {
-            MachineMode.DMG -> {
-                // F = Z+H+C. H and C are clear if the header checksum is 0; 0xB0 is the
-                // usual case (any cartridge with a valid non-zero checksum).
-                a = 0x01
-                b = 0x00
-                c = 0x13
-                d = 0x00
-                e = 0xD8
-                f = 0xB0
-                h = 0x01
-                l = 0x4D
-            }
-            MachineMode.CGB -> {
-                a = 0x11
-                b = 0x00
-                c = 0x00
-                d = 0xFF
-                e = 0x56
-                f = 0x80 // Z only
-                h = 0x00
-                l = 0x0D
-            }
-            MachineMode.CGB_COMPAT -> {
-                // CGB hardware running a DMG game. Fixed registers below; B and HL depend
-                // on the title checksum, which is the same hash that drives auto-palette.
-                a = 0x11
-                c = 0x00
-                d = 0x00
-                e = 0x08
-                f = 0x80
-                // TODO: tie B and HL to the title checksum at the auto-palette step:
-                //   B = sum of the 16 title bytes for Nintendo-licensed games, else 0x00;
-                //   HL = 0x991A if B is 0x43/0x58, else 0x007C.
-                // Using the common (non-Nintendo) case for now.
-                b = 0x00
-                h = 0x00; l = 0x7C
-            }
-        }
-        pc = 0x0100
-        sp = 0xFFFE
-    }
-
     private fun perform(op: MicroOp) {
         when (op) {
             MicroOp.Idle -> Unit
@@ -363,118 +287,7 @@ class Cpu(
         }
     }
 
-    private fun aluZ(aluOp: AluOp) {
-        when (aluOp) {
-            AluOp.ADD -> addZ(withCarry = false)
-            AluOp.ADC -> addZ(withCarry = true)
-            AluOp.SUB -> subZ(withCarry = false, storeResult = true)
-            AluOp.SBC -> subZ(withCarry = true, storeResult = true)
-            AluOp.AND -> andZ()
-            AluOp.XOR -> xorZ()
-            AluOp.OR -> orZ()
-            AluOp.CP -> subZ(withCarry = false, storeResult = false)
-        }
-    }
-
-    private fun addZ(withCarry: Boolean) {
-        val a = registers.a
-        val b = latchZ
-        val carry = if (withCarry && registers.flagC) 1 else 0
-        val result = a + b + carry
-        registers.a = result and 0xFF
-        registers.flagZ = registers.a == 0
-        registers.flagN = false
-        registers.flagH = (a and 0x0F) + (b and 0x0F) + carry > 0x0F
-        registers.flagC = result > 0xFF
-    }
-
-    private fun subZ(withCarry: Boolean, storeResult: Boolean) {
-        val a = registers.a
-        val b = latchZ
-        val carry = if (withCarry && registers.flagC) 1 else 0
-        val result = a - b - carry
-        if (storeResult) registers.a = result and 0xFF
-        registers.flagZ = (result and 0xFF) == 0
-        registers.flagN = true
-        registers.flagH = (a and 0x0F) < (b and 0x0F) + carry
-        registers.flagC = a < b + carry
-    }
-
-    private fun andZ() {
-        val result = registers.a and latchZ
-        registers.a = result and 0xFF
-        registers.flagZ = result == 0
-        registers.flagN = false
-        registers.flagH = true
-        registers.flagC = false
-    }
-
-    private fun orZ() {
-        val result = registers.a or latchZ
-        registers.a = result and 0xFF
-        registers.flagZ = result == 0
-        registers.flagN = false
-        registers.flagH = false
-        registers.flagC = false
-    }
-
-    private fun xorZ() {
-        val result = registers.a xor latchZ
-        registers.a = result and 0xFF
-        registers.flagZ = result == 0
-        registers.flagN = false
-        registers.flagH = false
-        registers.flagC = false
-    }
-
-    private fun addHl16(src: Reg16) {
-        val value = when (src) {
-            Reg16.BC -> registers.bc
-            Reg16.DE -> registers.de
-            Reg16.HL -> registers.hl
-            Reg16.SP -> registers.sp
-        }
-
-        val hl = registers.hl
-        val result = hl + value
-        registers.hl = result and 0xFFFF
-        registers.flagN = false
-        registers.flagH = (hl and 0x0FFF) + (value and 0x0FFF) > 0x0FFF
-        registers.flagC = result > 0xFFFF
-    }
-
-    private fun setLatch(l: Latch, v: Int) {
-        when (l) {
-            Latch.W -> latchW = v and 0xFF
-            Latch.Z -> latchZ = v and 0xFF
-        }
-    }
-
-    private fun addr16(a: Addr16): Int = when (a) {
-        Addr16.BC -> registers.bc
-        Addr16.DE -> registers.de
-        Addr16.HL -> registers.hl
-        Addr16.SP -> registers.sp
-        Addr16.WZ -> (latchW shl 8) or latchZ
-    }
-
-    private fun src8(s: Src8): Int = when (s) {
-        Src8.A -> registers.a
-        Src8.B -> registers.b
-        Src8.C -> registers.c
-        Src8.D -> registers.d
-        Src8.E -> registers.e
-        Src8.F -> registers.f and 0xF0
-        Src8.H -> registers.h
-        Src8.L -> registers.l
-        Src8.W -> latchW
-        Src8.Z -> latchZ
-        Src8.PCH -> (registers.pc shr 8) and 0xFF
-        Src8.PCL -> registers.pc and 0xFF
-        Src8.SPH -> (registers.sp shr 8) and 0xFF
-        Src8.SPL -> registers.sp and 0xFF
-    }
-
+    // ──── Fetch & decode ────────────────────────────────────────────────────────────
     private fun fetchOpCode() {
         latchZ = bus.read(registers.pc) and 0xFF
         if (haltBug) {
@@ -505,12 +318,6 @@ class Cpu(
         }
 
         TODO("Opcode 0x${latchZ.toString(16).uppercase()} not implemented at PC=0x${(registers.pc - 1).toString(16)}")
-    }
-
-    private fun pushFetchPadding() {
-        pipeline.push(MicroOp.Idle)
-        pipeline.push(MicroOp.Idle)
-        pipeline.push(MicroOp.Idle)
     }
 
     private fun handleImmediateOpCode(): Boolean {
@@ -730,6 +537,13 @@ class Cpu(
         }
     }
 
+    private fun pushFetchPadding() {
+        pipeline.push(MicroOp.Idle)
+        pipeline.push(MicroOp.Idle)
+        pipeline.push(MicroOp.Idle)
+    }
+
+    // ──── Micro-op effects (Internal handlers, run capture-free via MicroOp.Internal) ────
     /** INC effect on the Z latch (+ flags), reused by INC (HL) and later INC r. C is untouched. */
     internal fun microIncZ() {
         val old = latchZ
@@ -769,6 +583,30 @@ class Cpu(
 
     /** LD SP,HL: copy HL into SP. The extra internal M-cycle (vs LD r,r') is the 16-bit register move. */
     internal fun microSpFromHl() { registers.sp = registers.hl }
+
+    /** Assemble the popped pair from the WZ latches (W=high, Z=low) into BC. */
+    internal fun microWZtoBc() { registers.bc = (latchW shl 8) or latchZ }
+    internal fun microWZtoDe() { registers.de = (latchW shl 8) or latchZ }
+    internal fun microWZtoHl() { registers.hl = (latchW shl 8) or latchZ }
+    internal fun microWZtoPc() { registers.pc = (latchW shl 8) or latchZ }
+    /** Assemble WZ (W=high, Z=low) into SP. Used by LD SP,nn — SP is never a POP target. */
+    internal fun microWZtoSp() { registers.sp = (latchW shl 8) or latchZ }
+
+    /**
+     * Assemble the popped pair into AF. Unlike the other pairs, F holds only its top 4 bits in hardware,
+     * so the low nibble of the popped low byte (which lands in F) is masked off — POP AF can never set
+     * flag bits 0..3.
+     */
+    internal fun microPopAf() { registers.af = (latchW shl 8) or (latchZ and 0xF0) }
+
+    internal fun microSetIme() { ime = true }
+
+    /** High-page address from C into WZ: W=0xFF, Z=C. For LDH (C),A / LDH A,(C). 0xFF is a literal,
+     *  not a capture, so the Internal stays capture-free. */
+    internal fun microHighPageC() { latchW = 0xFF; latchZ = registers.c }
+
+    /** Set the high-page base in W (0xFF). Z is filled separately (immediate or C). For LDH (n),A / A,(n). */
+    internal fun microHighPageW() { latchW = 0xFF }
 
     internal fun testCondition(c: Condition): Boolean = when (c) {
         Condition.NZ -> !registers.flagZ
@@ -849,7 +687,7 @@ class Cpu(
     /**
      * Shared core of ADD SP,e (0xE8) and LD HL,SP+e (0xF8). Z holds the raw offset byte (sign-extended
      * here). Flags use the unsigned add of SP's low byte vs the offset byte — Z and N are always 0 — via
-     * the (sp xor offset xor result) trick, kept identical to the legacy execute() so the harness matches.
+     * the (sp xor offset xor result) trick.
      * Caller decides the destination; the M-cycle count differs (4 for SP, 3 for HL) and is set by the
      * number of Idle micro-ops in each sequence, not here.
      */
@@ -865,30 +703,6 @@ class Cpu(
 
     internal fun addSpE()  { registers.sp = spOffsetResult() }   // 0xE8
     internal fun ldHlSpE() { registers.hl = spOffsetResult() }   // 0xF8
-
-    /** Assemble the popped pair from the WZ latches (W=high, Z=low) into BC. */
-    internal fun microWZtoBc() { registers.bc = (latchW shl 8) or latchZ }
-    internal fun microWZtoDe() { registers.de = (latchW shl 8) or latchZ }
-    internal fun microWZtoHl() { registers.hl = (latchW shl 8) or latchZ }
-    internal fun microWZtoPc() { registers.pc = (latchW shl 8) or latchZ }
-    /** Assemble WZ (W=high, Z=low) into SP. Used by LD SP,nn — SP is never a POP target. */
-    internal fun microWZtoSp() { registers.sp = (latchW shl 8) or latchZ }
-
-    /**
-     * Assemble the popped pair into AF. Unlike the other pairs, F holds only its top 4 bits in hardware,
-     * so the low nibble of the popped low byte (which lands in F) is masked off — POP AF can never set
-     * flag bits 0..3.
-     */
-    internal fun microPopAf() { registers.af = (latchW shl 8) or (latchZ and 0xF0) }
-
-    internal fun microSetIme() { ime = true }
-
-    /** High-page address from C into WZ: W=0xFF, Z=C. For LDH (C),A / LDH A,(C). 0xFF is a literal,
-     *  not a capture, so the Internal stays capture-free. */
-    internal fun microHighPageC() { latchW = 0xFF; latchZ = registers.c }
-
-    /** Set the high-page base in W (0xFF). Z is filled separately (immediate or C). For LDH (n),A / A,(n). */
-    internal fun microHighPageW() { latchW = 0xFF }
 
     internal fun cbDecode() {
         val op = latchW
@@ -932,28 +746,160 @@ class Cpu(
         latchZ = cbApply(group, yyy, latchZ)
     }
 
-    fun readReg(reg: Int): Int = when (reg) {
-        0 -> registers.b
-        1 -> registers.c
-        2 -> registers.d
-        3 -> registers.e
-        4 -> registers.h
-        5 -> registers.l
-        7 -> registers.a
-        else -> throw IllegalArgumentException("Unknown register code: $reg")
+    // ──── ALU ───────────────────────────────────────────────────────────────────────
+    // TODO: two ALU families coexist — register-operand (add/sub/and8/or8/xor8, operand = readReg(code))
+    //  and Z-latch (addZ/subZ/andZ/orZ/xorZ, operand = latchZ). They are near-duplicates. The register
+    //  family only survives on the phase-B immediate path in handleImmediateOpCode; once every opcode is
+    //  routed through micro-ops (Z-latch), the register family becomes removable. Kept for now.
+
+    private fun add(code: Int, withCarry: Boolean = false) {
+        val a = registers.a
+        val b = readReg(code and 0x07)
+        val carry = if (withCarry && registers.flagC) 1 else 0
+        val result = a + b + carry
+        registers.a = result and 0xFF
+        registers.flagZ = (result and 0xFF) == 0
+        registers.flagN = false
+        registers.flagH = (a and 0x0F) + (b and 0x0F) + carry > 0x0F
+        registers.flagC = result > 0xFF
     }
 
-    fun writeReg(reg: Int, value: Int) {
-        when (reg) {
-            0 -> registers.b = value
-            1 -> registers.c = value
-            2 -> registers.d = value
-            3 -> registers.e = value
-            4 -> registers.h = value
-            5 -> registers.l = value
-            7 -> registers.a = value
-            else -> throw IllegalArgumentException("Unknown register code: $reg")
+    private fun sub(code: Int, withCarry: Boolean = false, storeResult: Boolean = true) {
+        val a = registers.a
+        val b = readReg(code and 0x07)
+        val carry = if (withCarry && registers.flagC) 1 else 0
+        val result = a - b - carry
+        if (storeResult) registers.a = result and 0xFF
+        registers.flagZ = (result and 0xFF) == 0
+        registers.flagN = true
+        registers.flagH = (a and 0x0F) < (b and 0x0F) + carry
+        registers.flagC = a < b + carry
+    }
+
+    private fun and8(code: Int) {
+        val result = registers.a and readReg(code and 0x07)
+        registers.a = result and 0xFF
+        registers.flagZ = result == 0
+        registers.flagN = false
+        registers.flagH = true
+        registers.flagC = false
+    }
+
+    private fun or8(code: Int) {
+        val result = registers.a or readReg(code and 0x07)
+        registers.a = result and 0xFF
+        registers.flagZ = result == 0
+        registers.flagN = false
+        registers.flagH = false
+        registers.flagC = false
+    }
+
+    private fun xor8(code: Int) {
+        val result = registers.a xor readReg(code and 0x07)
+        registers.a = result and 0xFF
+        registers.flagZ = result == 0
+        registers.flagN = false
+        registers.flagH = false
+        registers.flagC = false
+    }
+
+    private fun daa() {
+        var a = registers.a
+        var correction = 0
+
+        if (registers.flagH || (!registers.flagN && (a and 0x0F) > 9)) {
+            correction = 0x06
         }
+        if (registers.flagC || (!registers.flagN && a > 0x99)) {
+            correction = correction or 0x60
+            registers.flagC = true
+        }
+
+        a = if (registers.flagN) a - correction else a + correction
+
+        registers.a = a and 0xFF
+        registers.flagZ = registers.a == 0
+        registers.flagH = false
+    }
+
+    private fun addZ(withCarry: Boolean) {
+        val a = registers.a
+        val b = latchZ
+        val carry = if (withCarry && registers.flagC) 1 else 0
+        val result = a + b + carry
+        registers.a = result and 0xFF
+        registers.flagZ = registers.a == 0
+        registers.flagN = false
+        registers.flagH = (a and 0x0F) + (b and 0x0F) + carry > 0x0F
+        registers.flagC = result > 0xFF
+    }
+
+    private fun subZ(withCarry: Boolean, storeResult: Boolean) {
+        val a = registers.a
+        val b = latchZ
+        val carry = if (withCarry && registers.flagC) 1 else 0
+        val result = a - b - carry
+        if (storeResult) registers.a = result and 0xFF
+        registers.flagZ = (result and 0xFF) == 0
+        registers.flagN = true
+        registers.flagH = (a and 0x0F) < (b and 0x0F) + carry
+        registers.flagC = a < b + carry
+    }
+
+    private fun andZ() {
+        val result = registers.a and latchZ
+        registers.a = result and 0xFF
+        registers.flagZ = result == 0
+        registers.flagN = false
+        registers.flagH = true
+        registers.flagC = false
+    }
+
+    private fun orZ() {
+        val result = registers.a or latchZ
+        registers.a = result and 0xFF
+        registers.flagZ = result == 0
+        registers.flagN = false
+        registers.flagH = false
+        registers.flagC = false
+    }
+
+    private fun xorZ() {
+        val result = registers.a xor latchZ
+        registers.a = result and 0xFF
+        registers.flagZ = result == 0
+        registers.flagN = false
+        registers.flagH = false
+        registers.flagC = false
+    }
+
+    private fun aluZ(aluOp: AluOp) {
+        when (aluOp) {
+            AluOp.ADD -> addZ(withCarry = false)
+            AluOp.ADC -> addZ(withCarry = true)
+            AluOp.SUB -> subZ(withCarry = false, storeResult = true)
+            AluOp.SBC -> subZ(withCarry = true, storeResult = true)
+            AluOp.AND -> andZ()
+            AluOp.XOR -> xorZ()
+            AluOp.OR -> orZ()
+            AluOp.CP -> subZ(withCarry = false, storeResult = false)
+        }
+    }
+
+    private fun addHl16(src: Reg16) {
+        val value = when (src) {
+            Reg16.BC -> registers.bc
+            Reg16.DE -> registers.de
+            Reg16.HL -> registers.hl
+            Reg16.SP -> registers.sp
+        }
+
+        val hl = registers.hl
+        val result = hl + value
+        registers.hl = result and 0xFFFF
+        registers.flagN = false
+        registers.flagH = (hl and 0x0FFF) + (value and 0x0FFF) > 0x0FFF
+        registers.flagC = result > 0xFFFF
     }
 
     private fun cbApply(group: Int, yyy: Int, value: Int): Int {
@@ -1063,6 +1009,75 @@ class Cpu(
         }
     }
 
+    // ──── Bus-access plumbing: latches, address and source resolution ───────────────
+    private fun setLatch(l: Latch, v: Int) {
+        when (l) {
+            Latch.W -> latchW = v and 0xFF
+            Latch.Z -> latchZ = v and 0xFF
+        }
+    }
+
+    private fun addr16(a: Addr16): Int = when (a) {
+        Addr16.BC -> registers.bc
+        Addr16.DE -> registers.de
+        Addr16.HL -> registers.hl
+        Addr16.SP -> registers.sp
+        Addr16.WZ -> (latchW shl 8) or latchZ
+    }
+
+    private fun src8(s: Src8): Int = when (s) {
+        Src8.A -> registers.a
+        Src8.B -> registers.b
+        Src8.C -> registers.c
+        Src8.D -> registers.d
+        Src8.E -> registers.e
+        Src8.F -> registers.f and 0xF0
+        Src8.H -> registers.h
+        Src8.L -> registers.l
+        Src8.W -> latchW
+        Src8.Z -> latchZ
+        Src8.PCH -> (registers.pc shr 8) and 0xFF
+        Src8.PCL -> registers.pc and 0xFF
+        Src8.SPH -> (registers.sp shr 8) and 0xFF
+        Src8.SPL -> registers.sp and 0xFF
+    }
+
+    // ──── Register file access ──────────────────────────────────────────────────────
+    fun readReg(reg: Int): Int = when (reg) {
+        0 -> registers.b
+        1 -> registers.c
+        2 -> registers.d
+        3 -> registers.e
+        4 -> registers.h
+        5 -> registers.l
+        7 -> registers.a
+        else -> throw IllegalArgumentException("Unknown register code: $reg")
+    }
+
+    fun writeReg(reg: Int, value: Int) {
+        when (reg) {
+            0 -> registers.b = value
+            1 -> registers.c = value
+            2 -> registers.d = value
+            3 -> registers.e = value
+            4 -> registers.h = value
+            5 -> registers.l = value
+            7 -> registers.a = value
+            else -> throw IllegalArgumentException("Unknown register code: $reg")
+        }
+    }
+
+    private fun load(code: Int) {
+        val src = code and 0x07
+        val dst = (code and 0x38) shr 3
+        writeReg(dst, readReg(src))
+    }
+
+    private fun rst(vector: Int) {
+        registers.pc = vector
+    }
+
+    // ──── Companion ─────────────────────────────────────────────────────────────────
     companion object {
         private const val GROUP_BIT = 1
     }

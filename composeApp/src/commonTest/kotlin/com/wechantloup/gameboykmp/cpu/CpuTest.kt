@@ -22,7 +22,7 @@ class CpuTest {
     @BeforeTest
     fun setUp() {
         bus = Bus(cartridge, MachineMode.DMG, bootRom = null)
-        cpu = Cpu(bus) {}
+        cpu = Cpu(bus)
         cpu.reset()
         cpu.registers.f = 0x00
         cpu.registers.pc = 0xC000
@@ -112,7 +112,7 @@ class CpuTest {
 
                 val expectedValue = cpu.readReg(src)
                 stepInstruction()
-                val result = cpu.readReg(dst)
+                cpu.readReg(dst)
                 assertEquals(expectedValue, cpu.readReg(dst))
             }
         }
