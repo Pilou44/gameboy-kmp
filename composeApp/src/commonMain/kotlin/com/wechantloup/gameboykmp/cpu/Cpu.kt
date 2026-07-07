@@ -725,15 +725,17 @@ class Cpu(
             pipeline.push(MicroOp.Idle)
             pipeline.push(opCbApplyZ)        // Internal: test bit of Z, set flags
         } else {
-            // rotations / RES / SET on (HL): read-modify-write → 2 M-cycles.
-            pipeline.push(opCbReadHL)          // M read: ReadMem(HL → Z)
+            // rotations / RES / SET on (HL): read-modify-write -> 2 M-cycles.
+            // opCbApplyZ (non-bus Z transform) is glided to the read M-cycle tail so the
+            // write leads its own M-cycle (start-of-M-cycle counter view; see policy TODO).
+            pipeline.push(opCbReadHL)          // M read: ReadMem(HL -> Z)
+            pipeline.push(MicroOp.Idle)
+            pipeline.push(MicroOp.Idle)
+            pipeline.push(opCbApplyZ)          // transform Z (was at M-write head)
+            pipeline.push(opCbWriteHL)         // M write leads: WriteMem(HL, Z)
             pipeline.push(MicroOp.Idle)
             pipeline.push(MicroOp.Idle)
             pipeline.push(MicroOp.Idle)
-            pipeline.push(opCbApplyZ)        // M write: transform Z...
-            pipeline.push(MicroOp.Idle)
-            pipeline.push(MicroOp.Idle)
-            pipeline.push(opCbWriteHL)         // ...then WriteMem(HL, Z)
         }
     }
 

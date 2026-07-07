@@ -31,6 +31,18 @@ class Bus(
 
     private var bootRomEnabled: Boolean = bootRom != null
 
+    // --- System counter (DIV) ---
+    // The free-running 16-bit counter. DIV ($FF04) is its high byte (read = sysCounter ushr 8).
+    // Advanced one T-cycle at a time by tick(); the Timer clocks TIMA off falling edges of
+    // bits 3/5/7/9, and (later) the APU frame sequencer off bit 12/13. Post-boot the DMG hands
+    // off at 0xABCC (see boot_div); with a boot ROM present it starts at 0 and counts up live.
+    var sysCounter: Int = if (bootRom == null) POST_BOOT_DIV_COUNTER else 0
+        private set
+    // sysCounter *before* the current T's increment. Edge-detection consumers (Timer, APU)
+    // compare (prevSysCounter, sysCounter) across the single increment done by tick().
+    var prevSysCounter: Int = sysCounter
+        private set
+
     // Bit 0 : V-Blank  - PPU entered V-Blank period (LY == 144)
     // Bit 1 : LCD STAT - PPU mode change or LY==LYC coincidence (depends on STAT bits 3-6)
     // Bit 2 : Timer    - TIMA overflowed and was reloaded from TMA
@@ -165,6 +177,13 @@ class Bus(
         }
     }
 
+    // Advances the system counter by one T-cycle. Called once per T from the emulation loop,
+    // after cpu.tick() and before the edge-detection consumers (timer.tick(), later apu.tick()).
+    fun tick() {
+        prevSysCounter = sysCounter
+        sysCounter = (sysCounter + 1) and 0xFFFF
+    }
+
     /**
      * Advances the OAM DMA by one M-cycle.
      * Must be called once per M-cycle from the emulation loop.
@@ -245,6 +264,7 @@ class Bus(
             }
             0xFF02 -> internalRam[0xFF02] or 0x7E  // SC: unused bits always read as 1 on DMG
             0xFF03, in 0xFF08..0xFF0E -> 0xFF  // Unused I/O registers, always read 0xFF on DMG
+            0xFF04 -> sysCounter ushr 8  // DIV = high byte of the system counter (live projection)
             0xFF05 -> timaReadOverride?.invoke() ?: internalRam[0xFF05]
             0xFF07 -> internalRam[0xFF07] or 0xF8  // TAC: bits 7-3 always read as 1 on DMG
             0xFF41 -> internalRam[0xFF41] or 0x80  // STAT: bit 7 always reads as 1 on DMG
@@ -296,8 +316,8 @@ class Bus(
             in 0xE000..0xFDFF -> write(address - 0x2000, v) // Echo RAM: 0xE000–0xFDFF == 0xC000–0xDDFF
             in 0xFE00..0xFE9F -> if (!isDmaActive && ppuMode != 2 && ppuMode != 3) writeOam(address - 0xFE00, v)
             0xFF04 -> {
-                internalRam[0xFF04] = 0
-                onDivReset?.invoke()
+                onDivReset?.invoke()   // timer phantom-edge check reads the current sysCounter
+                sysCounter = 0         // reset AFTER the edge check — was Timer's cycleCount = 0
                 onApuDivReset?.invoke()
             }
             0xFF05 -> {
@@ -603,10 +623,6 @@ class Bus(
         }
     }
 
-    fun incDiv() {
-        internalRam[0xFF04] = (internalRam[0xFF04] + 1) and 0xFF
-    }
-
     /**
      * CGB-only register reads. Returns null when the address is not a CGB register,
      * letting read() fall through to the unchanged DMG path.
@@ -804,13 +820,14 @@ class Bus(
     private val hasCgbRegisters: Boolean get() = machineMode != MachineMode.DMG
 
     companion object {
+        private const val POST_BOOT_DIV_COUNTER = 0xABCC
+
         /**
          * I/O register state left by the DMG boot ROM.
          * We skip the boot ROM and start at 0x0100, so we must reproduce this state.
          * Without it, LCDC=0 (LCD off) and games that poll LY==144 loop forever.
          */
         private fun initPostBootRegisters(ram: IntArray) {
-            ram[0xFF04] = 0xAB  // DIV high byte of the post-boot internal counter 0xABCC (see Timer)
             ram[0xFF05] = 0x00  // TIMA
             ram[0xFF06] = 0x00  // TMA
             ram[0xFF07] = 0x00  // TAC

@@ -9,29 +9,33 @@ package com.wechantloup.gameboykmp.cpu
  */
 object MicroCode {
 
+    // TODO(ppu-tcycle): bus writes are provisionally placed at the head (T0) of their access
+    //  M-cycle, reproducing the batched start-of-M-cycle counter view. The hardware-correct
+    //  phase is late in the M-cycle (gekkio gbctr); reposition all bus accesses centrally at
+    //  the PPU T-cycle step, validated by Mealybug. Reads already lead; keep reads and writes
+    //  in phase (r == w) through that change.
     val TABLE: Array<Array<MicroOp>?> = arrayOfNulls<Array<MicroOp>>(256).apply {
         this[0x00] = emptyArray()                                  // NOP
 
         this[0x08] = arrayOf(
-            // M1
+            // LD (nn),SP
             MicroOp.ReadImmediate(Latch.Z),
             MicroOp.Idle,
             MicroOp.Idle,
             MicroOp.Idle,
-            // M2
             MicroOp.ReadImmediate(Latch.W),
             MicroOp.Idle,
             MicroOp.Idle,
             MicroOp.Idle,
-            // M3
-            MicroOp.Idle,
-            MicroOp.Idle,
+            // M3: write SPL to [nn] (leads), then WZ++ (sits between the two writes: low uses nn, high uses nn+1)
             MicroOp.WriteMem(Addr16.WZ, Src8.SPL),
-            MicroOp.Idle,
-            // M4: WZ++ (addr -> addr+1), then write SP high byte to [addr+1].
             MicroOp.Internal { it.microIncWZ() },
             MicroOp.Idle,
+            MicroOp.Idle,
+            // M4: write SPH to [nn+1] (leads)
             MicroOp.WriteMem(Addr16.WZ, Src8.SPH),
+            MicroOp.Idle,
+            MicroOp.Idle,
             MicroOp.Idle,
         )
         this[0xF9] = arrayOf(
@@ -184,15 +188,15 @@ object MicroCode {
         )
 
         this[0x34] = arrayOf(
-            // INC (HL)
+            // INC (HL) — read-modify-write. incZ glided to the read M-cycle tail so the write can lead M-write.
             MicroOp.ReadMem(Addr16.HL, Latch.Z),
             MicroOp.Idle,
             MicroOp.Idle,
-            MicroOp.Idle,
             MicroOp.Internal { it.microIncZ() },
-            MicroOp.Idle,
-            MicroOp.Idle,
             MicroOp.WriteMem(Addr16.HL, Src8.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
         )
 
         this[0x35] = arrayOf(
@@ -200,11 +204,11 @@ object MicroCode {
             MicroOp.ReadMem(Addr16.HL, Latch.Z),
             MicroOp.Idle,
             MicroOp.Idle,
-            MicroOp.Idle,
             MicroOp.Internal { it.microDecZ() },
-            MicroOp.Idle,
-            MicroOp.Idle,
             MicroOp.WriteMem(Addr16.HL, Src8.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
         )
 
         this[0xC1] = arrayOf(
@@ -742,16 +746,19 @@ object MicroCode {
         )
 
         this[0xE0] = arrayOf(
-            // LDH (n),A — M2: n -> Z ; M3: W=0xFF then write A to [0xFF00|n]
+            // LDH (n),A — M2: n -> Z, then W=0xFF prep at the tail (non-bus, independent of Z)
             MicroOp.ReadImmediate(Latch.Z),
             MicroOp.Idle,
             MicroOp.Idle,
-            MicroOp.Idle,
-            MicroOp.Internal { it.microHighPageW() },
-            MicroOp.Idle,
-            MicroOp.Idle,
+            MicroOp.Internal { it.microHighPageW() },   // glided here so the write can lead M3
+            // M3: write leads the M-cycle. TODO(ppu-tcycle): provisional T0 placement; real access
+            //  phase is late in the M-cycle, to be repositioned centrally at the PPU step.
             MicroOp.WriteMem(Addr16.WZ, Src8.A),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
         )
+
         this[0xF0] = arrayOf(
             // LDH A,(n) — M2: n -> Z ; M3: W=0xFF, read [0xFF00|n] -> Z, then Z -> A
             MicroOp.ReadImmediate(Latch.Z),
