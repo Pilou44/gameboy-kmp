@@ -99,16 +99,18 @@ object MicroCode {
         )
 
         this[0x02] = arrayOf(
-            MicroOp.Idle,
-            MicroOp.Idle,
+            // LD (BC),A — write leads its M-cycle (T0 bridge; see policy TODO)
             MicroOp.WriteMem(Addr16.BC, Src8.A),
+            MicroOp.Idle,
+            MicroOp.Idle,
             MicroOp.Idle,
         )
 
         this[0x12] = arrayOf(
-            MicroOp.Idle,
-            MicroOp.Idle,
+            // LD (DE),A
             MicroOp.WriteMem(Addr16.DE, Src8.A),
+            MicroOp.Idle,
+            MicroOp.Idle,
             MicroOp.Idle,
         )
 
@@ -174,10 +176,10 @@ object MicroCode {
             MicroOp.Idle,
             MicroOp.Idle,
             MicroOp.Idle,
-            MicroOp.Idle,
-            MicroOp.Idle,
-            MicroOp.Idle,
             MicroOp.WriteMem(Addr16.HL, Src8.Z),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
         )
 
         this[0x3E] = arrayOf(
@@ -798,9 +800,9 @@ object MicroCode {
             MicroOp.Idle,
             MicroOp.Idle,
             // M3
-            MicroOp.Idle,
-            MicroOp.Idle,
             MicroOp.WriteMem(Addr16.WZ, Src8.A),
+            MicroOp.Idle,
+            MicroOp.Idle,
             MicroOp.Idle,
         )
         this[0xFA] = arrayOf(
@@ -963,46 +965,46 @@ object MicroCode {
         )
 
         this[0x70] = arrayOf(   // LD (HL),B
-            MicroOp.Idle,
-            MicroOp.Idle,
-            MicroOp.Idle,
             MicroOp.WriteMem(Addr16.HL, Src8.B),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
         )
         this[0x71] = arrayOf(   // LD (HL),C
-            MicroOp.Idle,
-            MicroOp.Idle,
-            MicroOp.Idle,
             MicroOp.WriteMem(Addr16.HL, Src8.C),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
         )
         this[0x72] = arrayOf(   // LD (HL),D
-            MicroOp.Idle,
-            MicroOp.Idle,
-            MicroOp.Idle,
             MicroOp.WriteMem(Addr16.HL, Src8.D),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
         )
         this[0x73] = arrayOf(   // LD (HL),E
-            MicroOp.Idle,
-            MicroOp.Idle,
-            MicroOp.Idle,
             MicroOp.WriteMem(Addr16.HL, Src8.E),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
         )
         this[0x74] = arrayOf(   // LD (HL),H
-            MicroOp.Idle,
-            MicroOp.Idle,
-            MicroOp.Idle,
             MicroOp.WriteMem(Addr16.HL, Src8.H),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
         )
         this[0x75] = arrayOf(   // LD (HL),L
-            MicroOp.Idle,
-            MicroOp.Idle,
-            MicroOp.Idle,
             MicroOp.WriteMem(Addr16.HL, Src8.L),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
         )
         this[0x77] = arrayOf(   // LD (HL),A
-            MicroOp.Idle,
-            MicroOp.Idle,
-            MicroOp.Idle,
             MicroOp.WriteMem(Addr16.HL, Src8.A),
+            MicroOp.Idle,
+            MicroOp.Idle,
+            MicroOp.Idle,
         )
 
         this[0xCB] = arrayOf(
