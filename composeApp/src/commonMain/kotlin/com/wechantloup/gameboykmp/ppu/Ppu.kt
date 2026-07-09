@@ -12,6 +12,18 @@ class Ppu(
     val frameBuffer = IntArray(160 * 144)
     val bgColorIndexBuffer = IntArray(160 * 144)
 
+    // --- T-cycle driving (block 1a scaffolding — the M-cycle bookkeeping here is temporary and
+    //  goes away in block 1b, when pendingStatMode's boundary deferral is removed) ---
+    private var mCyclePhase = 0             // mirrors the loop's tCounter % 4; boundary at 0
+    private var startedFirstMCycle = false  // suppresses dots before the first boundary, so the PPU's
+                                            //  first activity lands on the same T the batched step()
+                                            //  fired on (tCounter % 4 == 0) — otherwise all mode timing
+                                            //  shifts by 3 dots. VALIDATE: first suspect if timing reds.
+    private var dotPhase = 0                // double-speed dot divider parity
+    private var wasDoubleSpeed = bus.isDoubleSpeed
+    private var cachedLcdc = 0              // LCDC is stable within an M-cycle; read once per boundary
+    private var skipDotsThisMCycle = false  // set at the boundary when the LCD is off
+
     private var ly = 0
     private var modeClock = 0
     private var mode = 2
@@ -87,85 +99,90 @@ class Ppu(
         }
     }
 
-    fun step(cycles: Int) {
-        // Apply a queued STAT mode change at the M-cycle boundary, as the block model did. The
-        // transition is *detected* at the exact dot in advanceOneDot(), but its observable effect
-        // (bus.ppuMode, STAT mode bits, IRQ re-eval) stays aligned to the boundary, so the CPU
-        // sees identical timing. No artificial dot delay here — that was wrong (added one M-cycle).
-        // TODO T-state precision (after step 2): hardware applies the internal mode + access
-        //  blocking immediately and lags only the 0xFF41 mode bits; the IRQ follows the real
-        //  transition with per-source quirks (mode 2 checked at one M-cycle, can't block; LYC
-        //  delayed ~1 cycle after mode 2). Validated one source at a time.
-        pendingStatMode?.let { m ->
-            statMode = m
-            bus.ppuMode = m
-            val stat = bus.readRaw(0xFF41)
-            bus.writeRaw(0xFF41, (stat and 0xFC) or (m and 0x03))
-            refreshStatInterrupt()
-            pendingStatMode = null
+    fun tick() {
+        // Speed-switch edge: define the divider phase at the only event that changes the stride.
+        val ds = bus.isDoubleSpeed
+        if (ds != wasDoubleSpeed) {
+            wasDoubleSpeed = ds
+            dotPhase = 0
+            // TODO hardware: mid-active-frame speed switch is undefined (games switch LCD-off);
+            //  anchoring here only keeps the divider deterministic.
         }
 
-        // Read once per M-cycle: the CPU cannot change LCDC between dots of the same M-cycle
-        // (it only touches the bus on M-cycle boundaries), so LCDC is stable across these dots.
-        val lcdc = bus.read(0xFF40)
+        // M-cycle boundary work: reproduces the once-per-step() preamble of the batched model.
+        // The boundary is every 4 T regardless of speed (the CPU M-cycle is always 4 T).
+        // VALIDATE: this phase must match the CPU's access phase (T0). The batched step() fired at
+        //  tCounter % 4 == 0 and the suite was green there, so mCyclePhase must be aligned to it.
+        mCyclePhase = (mCyclePhase + 1) and 0x03
+        if (mCyclePhase == 0) {
+            startedFirstMCycle = true
 
-        // lcdOnDot is consumed only by PpuTiming (the lcd-on observable), not by the live
-        // dot machine. It must keep its original step-level phase until PpuTiming is removed
-        // in step 2 — advancing it per dot shifts the rising-edge step by +4 dots.
-        if (firstFrameAfterLcdOn) lcdOnDot += cycles
+            // (1) Apply the mode change queued during the PREVIOUS M-cycle's dots. The batched model
+            //     applied it at the top of the next step() — one M-cycle later. Keeping that exact
+            //     lag is what makes 1(a) CPU-observably identical. (Removed in 1b.)
+            pendingStatMode?.let { m ->
+                statMode = m
+                bus.ppuMode = m
+                val stat = bus.readRaw(0xFF41)
+                bus.writeRaw(0xFF41, (stat and 0xFC) or (m and 0x03))
+                refreshStatInterrupt()
+                pendingStatMode = null
+            }
 
-        if (lcdc and 0x80 == 0) {
-            // LCD off
-            if (lcdWasOn) {
-                lcdWasOn = false
-                ly153Wrapped = false
-                firstFrameAfterLcdOn = false
+            // (2) LCDC is stable within an M-cycle — read once, cache for this M-cycle's dots.
+            cachedLcdc = bus.read(0xFF40)
+
+            // (3) lcdOnDot keeps its step-level phase: advance per M-cycle, not per dot (advancing
+            //     per dot would shift the lcd-on rising edge by +4). Consumed only by PpuTiming.
+            if (firstFrameAfterLcdOn) lcdOnDot += if (ds) 2 else 4
+
+            // (4) LCD on/off transitions, once per M-cycle as before.
+            skipDotsThisMCycle = false
+            if (cachedLcdc and 0x80 == 0) {
+                // LCD off
+                if (lcdWasOn) {
+                    lcdWasOn = false
+                    ly153Wrapped = false
+                    firstFrameAfterLcdOn = false
+                    ly = 0
+                    modeClock = 0
+                    mode = 2
+                    windowLine = 0
+                    bus.ppuMode = 0 // OAM and VRAM accessible when LCD is off
+
+                    frameBuffer.fill(0)
+                    frameChannel.trySend(frameBuffer.copyOf())
+
+                    bus.ppuLy = ly
+
+                    val stat = bus.read(0xFF41)
+                    bus.writeRaw(0xFF41, stat and 0xFC)
+                    // statLine intentionally NOT reset: the interrupt line is frozen at its
+                    // current value; re-enabling the LCD only fires if the comparison flips.
+                }
+                skipDotsThisMCycle = true
+            } else if (!lcdWasOn) {
+                lcdOnDot = 0
+                firstFrameAfterLcdOn = true
+
+                lcdWasOn = true
                 ly = 0
                 modeClock = 0
-                mode = 2
-                windowLine = 0
-                bus.ppuMode = 0 // OAM and VRAM accessible when LCD is off
-
-                // fill scanline with white
-                frameBuffer.fill(0)
-                frameChannel.trySend(frameBuffer.copyOf())
-
-                bus.write(0xFF44, ly)
-
-                // set STAT mode bits to 0 (H-Blank) when LCD turns off
-                // Clear the STAT mode bits (mode reads 0 while off) but KEEP the
-                // LYC coincidence flag (bit 2): turning the LCD off freezes the
-                // comparison, it does not reset the flag.
-                val stat = bus.read(0xFF41)
-                bus.writeRaw(0xFF41, stat and 0xFC)
-                // statLine is intentionally NOT reset here: the interrupt line is
-                // frozen at its current value, so re-enabling the LCD only fires
-                // an interrupt if the comparison result actually changes.
+                mode = 0           // Line 0 starts in mode 0, skipping mode 2
+                isFirstScanline = true
+                mode0Duration = 80 // Short initial mode 0: 80 T-cycles before mode 3
+                bus.ppuMode = 0
+                updateLycFlag()    // comparison clock resumes: re-evaluate LY(0) == LYC first
+                updateStat(0)
+                checkLyc()
             }
-            return
-        } else if (!lcdWasOn) {
-            lcdOnDot = 0
-            firstFrameAfterLcdOn = true
-
-            lcdWasOn = true
-            ly = 0
-            modeClock = 0
-            mode = 0           // Line 0 starts in mode 0, skipping mode 2
-            isFirstScanline = true
-            mode0Duration = 80 // Short initial mode 0: 80 T-cycles before mode 3
-            bus.ppuMode = 0
-            updateLycFlag()    // comparison clock resumes: re-evaluate LY(0) == LYC first
-            updateStat(0)
-            checkLyc()
         }
 
-        // Advance one dot at a time so mode transitions, LY and access blocking land on the exact
-        // dot, not on a 4-dot (2 in double speed) block boundary. cycles is 4, or 2 in double
-        // speed. Per-dot work is integer counters + threshold tests only — no allocation — so this
-        // stays cheaper than the sampler path it will let us remove.
-        repeat(cycles) {
-            advanceOneDot(lcdc)
-        }
+        // Dot advance, gated by (a) the first-boundary suppression and (b) the double-speed divider.
+        // dotPhase only advances in double speed (short-circuit), so it never drifts in single speed.
+        if (!startedFirstMCycle || skipDotsThisMCycle) return
+        val isDotTick = !ds || (dotPhase++ and 1) == 0
+        if (isDotTick) advanceOneDot(cachedLcdc)
     }
 
     private fun advanceOneDot(lcdc: Int) {
@@ -224,7 +241,7 @@ class Ppu(
                     // Normal HBlank exit
                     mode0Duration = 204 // Reset to the standard mode-0 duration (SCX adjustment is reapplied at the mode 2→3 transition)
                     ly++
-                    bus.write(0xFF44, ly)
+                    bus.ppuLy = ly
                     checkLyc()
                     if (ly == 144) {
                         firstFrameAfterLcdOn = false
@@ -252,7 +269,7 @@ class Ppu(
                 if (ly == 153 && !ly153Wrapped && modeClock >= 4) {
                     ly153Wrapped = true
                     ly = 0
-                    bus.write(0xFF44, 0)
+                    bus.ppuLy = 0
                     checkLyc()                 // LYC=0 interrupt fires HERE, ~1 line earlier
                 }
 
@@ -268,7 +285,7 @@ class Ppu(
                         // No checkLyc here: LY==0 has already been signaled
                     } else {
                         ly++
-                        bus.write(0xFF44, ly)
+                        bus.ppuLy = ly
                         checkLyc()
                     }
                 }

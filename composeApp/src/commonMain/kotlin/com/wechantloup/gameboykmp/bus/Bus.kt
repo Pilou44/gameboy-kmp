@@ -124,9 +124,17 @@ class Bus(
     // ~1 M-cycle, exactly as real hardware does.
     val isDmaActive: Boolean get() = dmaCounter in 1..160 || dmaRestartDelay > 0
 
-    var ppuMode: Int = 0
-    // Bus: plain primitive field, flipped by the PPU when the first-frame window opens/closes.
-    var ppuDotOverrideActive: Boolean = false
+    // ===== PPU-owned live state =====
+    // Single source of truth for the PPU's CPU-visible outputs. The PPU pushes these one-way
+    // (ppu -> bus, no back-reference); the Bus only reads them. Replaces mirroring ly into
+    // internalRam[0xFF44], which made two authorities for one value.
+    // TODO cleanup: onStatWrite / onLycWrite / onBgpWrite and the first-frame sampler
+    //  (ppuSampler / ppuWriteIntercept), currently scattered in the APU block, fold into this
+    //  section. STAT mode bits + LYC coincidence join ppuLy here in the next steps; the sampler
+    //  pair is deleted once the live dot machine drives the lcd-on observable (block 1b).
+    var ppuLy: Int = 0          // LY (0xFF44): live line counter, pushed by the PPU
+    var ppuMode: Int = 0        // current mode 0-3: gates VRAM/OAM access, feeds STAT mode bits
+    var ppuDotOverrideActive: Boolean = false  // first-frame sampler window (temporary, block 1b)
 
 
     /**
@@ -268,6 +276,7 @@ class Bus(
             0xFF05 -> timaReadOverride?.invoke() ?: internalRam[0xFF05]
             0xFF07 -> internalRam[0xFF07] or 0xF8  // TAC: bits 7-3 always read as 1 on DMG
             0xFF41 -> internalRam[0xFF41] or 0x80  // STAT: bit 7 always reads as 1 on DMG
+            0xFF44 -> ppuLy            // LY: live projection, like 0xFF04 -> sysCounter ushr 8
             in 0xFF4C..0xFF7F -> 0xFF  // GBC registers and unused I/O, always read 0xFF on DMG
 
             // There's a hole in boot rom at addresses 0x0100..0x01FF to read cartridge

@@ -169,9 +169,9 @@ class GameBoyViewModel : ViewModel() {
                         cpu.tick()
                         bus.tick()        // advance the system counter (DIV) one T-cycle
                         timer?.tick()     // TIMA edge detection on the just-advanced counter
+                        ppu.tick()        // every T now — self-cadenced (dot divider inside)
                         if (tCounter % 4 == 0) {
                             val ppuCycles = if (bus.isDoubleSpeed) 2 else 4
-                            ppu.step(ppuCycles)          // 4 or 2 — double speed handled here, like today
                             apu.step(ppuCycles)
                             bus.stepDma()
                             cartridge.stepRtc(ppuCycles)
