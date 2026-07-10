@@ -124,9 +124,18 @@ class Bus(
     // ~1 M-cycle, exactly as real hardware does.
     val isDmaActive: Boolean get() = dmaCounter in 1..160 || dmaRestartDelay > 0
 
-    var ppuMode: Int = 0
-    // Bus: plain primitive field, flipped by the PPU when the first-frame window opens/closes.
-    var ppuDotOverrideActive: Boolean = false
+    // ===== PPU-owned live state =====
+    // Single source of truth for the PPU's CPU-visible outputs. The PPU pushes these one-way
+    // (ppu -> bus, no back-reference); the Bus only reads/projects them. Nothing is mirrored
+    // into internalRam, so there is exactly one authority per register:
+    //   - LY (0xFF44)        = ppuLy, read directly.
+    //   - STAT mode bits 0-1 = projected from ppuMode at read time (never stored).
+    //   - STAT coincidence 2 = derived live from (ppuLy == LYC) at read time (never stored).
+    // ppuMode also gates CPU VRAM/OAM access. On a skipped boot ROM the post-boot mode is 1
+    // (V-Blank): seeded here so STAT reads 0x85 before the PPU's first tick, exactly as the old
+    // internalRam[0xFF41] = 0x85 did. With a boot ROM present the boot code drives the mode.
+    var ppuLy: Int = 0                                       // LY (0xFF44), pushed by the PPU
+    var ppuMode: Int = if (bootRom == null) 1 else 0         // mode 0-3, gates access, projected into STAT
 
 
     /**
@@ -162,12 +171,6 @@ class Bus(
     var canWriteOnTima: () -> Boolean = { true }
     var onTimaWrite: () -> Unit = { }
     var timaReadOverride: (() -> Int?)? = null
-
-    var onStatWrite: (() -> Unit)? = null
-    var onLycWrite: (() -> Unit)? = null
-    var ppuSampler: ((Int) -> Int?)? = null
-    var ppuWriteIntercept: ((Int, Int) -> Boolean)? = null
-    var onBgpWrite: ((Int) -> Unit)? = null
 
     val apuPoweredOn: Boolean get() = internalRam[0xFF26] and 0x80 != 0
 
@@ -229,14 +232,6 @@ class Bus(
     }
 
     override fun read(address: Int): Int {
-        // Cheap gate: one boolean test on the common path, no call, no boxing.
-        if (ppuDotOverrideActive) {
-            ppuSampler?.invoke(address)?.let { return it }   // dot-accurate override, null = fall through
-            // TODO replace with:
-//            val sampled = samplePpuRead(address) // concrete method, Int sentinel, NOT a (Int)->Int?
-//            if (sampled >= 0) return sampled
-        }
-
         // CGB-only registers are resolved before the DMG when() below, so that path
         // stays byte-for-byte identical on DMG. null = not a CGB register, fall through.
         if (hasCgbRegisters) {
@@ -267,7 +262,15 @@ class Bus(
             0xFF04 -> sysCounter ushr 8  // DIV = high byte of the system counter (live projection)
             0xFF05 -> timaReadOverride?.invoke() ?: internalRam[0xFF05]
             0xFF07 -> internalRam[0xFF07] or 0xF8  // TAC: bits 7-3 always read as 1 on DMG
-            0xFF41 -> internalRam[0xFF41] or 0x80  // STAT: bit 7 always reads as 1 on DMG
+            0xFF41 -> {
+                // STAT composed live — one authority per zone, nothing mirrored:
+                //   bits 3-6 enables (CPU-written, stored) | bit 2 coincidence (derived) |
+                //   bits 0-1 mode (from ppuMode) | bit 7 always 1.
+                val enables = internalRam[0xFF41] and 0x78
+                val coincidence = if (ppuLy == internalRam[0xFF45]) 0x04 else 0
+                enables or coincidence or ppuMode or 0x80
+            }
+            0xFF44 -> ppuLy            // LY: live projection, like 0xFF04 -> sysCounter ushr 8
             in 0xFF4C..0xFF7F -> 0xFF  // GBC registers and unused I/O, always read 0xFF on DMG
 
             // There's a hole in boot rom at addresses 0x0100..0x01FF to read cartridge
@@ -291,9 +294,6 @@ class Bus(
 
     override fun write(address: Int, value: Int) {
         val v = value and 0xFF
-        if (ppuDotOverrideActive) {
-            if (ppuWriteIntercept?.invoke(address, v) == true) return
-        }
 
         // CGB-only register writes are intercepted before the DMG path (same rationale
         // as read). v is the already-masked value.
@@ -333,10 +333,7 @@ class Bus(
                 onTacWrite?.invoke(oldTac, v)
             }
             0xFF46 -> triggerDmaTransfer(v)
-            0xFF47 -> {
-                internalRam[0xFF47] = v
-                onBgpWrite?.invoke(v)
-            }
+            0xFF47 -> internalRam[0xFF47] = v  // BGP stored; the FIFO renderer reads it live in mode 3
             0xFF26 -> writeNR52(v)
 
             // Length registers: writable even when APU is off (DMG quirk)
@@ -405,16 +402,15 @@ class Bus(
             }
             in 0xFF30..0xFF3F -> onWaveRamWrite?.invoke(address, v)
             0xFF41 -> {
-                // STAT bits 0-2 (mode + LYC coincidence flag) are owned by the PPU and are
-                // read-only for the CPU; only the interrupt-enable bits 3-6 are writable.
-                val current = internalRam[0xFF41]
-                internalRam[0xFF41] = (current and 0x07) or (v and 0x78)
-                onStatWrite?.invoke()
+                // Only the interrupt-enable bits 3-6 are CPU-writable and stored. Mode (0-1) and
+                // coincidence (2) are projected at read time from ppuMode / ppuLy, never stored.
+                internalRam[0xFF41] = v and 0x78
             }
             0xFF45 -> {
-                // Writing LYC must re-evaluate the LY == LYC coincidence right away.
+                // LYC stored (CPU-owned). The LY == LYC coincidence is derived live at STAT read.
+                // TODO (STAT IRQ phase): a LYC write can newly satisfy coincidence and must be
+                //  picked up by the PPU's per-dot STAT interrupt check — no callback here anymore.
                 internalRam[0xFF45] = v
-                onLycWrite?.invoke()
             }
             in 0x0000..0x7FFF -> cartridge.writeRom(address, v)
             in 0x8000..0x9FFF -> writeVram(address - 0x8000, v)
@@ -851,10 +847,10 @@ class Bus(
             ram[0xFF25] = 0xF3  // NR51
             ram[0xFF26] = 0xF1  // NR52
             ram[0xFF40] = 0x91  // LCDC — LCD on, BG on, tile data 0x8800, tile map 0x9800
-            ram[0xFF41] = 0x85  // STAT — mode 1 (V-Blank)
+            ram[0xFF41] = 0x00  // STAT — enables (bits 3-6) = 0; mode/coincidence projected live
             ram[0xFF42] = 0x00  // SCY
             ram[0xFF43] = 0x00  // SCX
-            ram[0xFF44] = 0x00  // LY
+            // LY (0xFF44) is not stored in internalRam anymore — it lives in ppuLy (defaults to 0)
             ram[0xFF45] = 0x00  // LYC
             ram[0xFF47] = 0xFC  // BGP
             ram[0xFF48] = 0xFF  // OBP0
