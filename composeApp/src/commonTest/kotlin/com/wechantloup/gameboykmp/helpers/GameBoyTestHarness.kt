@@ -34,9 +34,9 @@ class GameBoyTestHarness(
         cpu.tick()
         bus.tick()             // advance the system counter (DIV) one T-cycle
         timer.tick()           // TIMA edge detection on the just-advanced counter
+        ppu.tick()
         if (++tCounter % 4 == 0) {
             val ppuCycles = if (bus.isDoubleSpeed) 2 else 4
-            ppu.step(ppuCycles)
             apu.step(ppuCycles)
             totalCycles += 4   // T CPU per M-cycle — the test clock, in T not dots
         }
