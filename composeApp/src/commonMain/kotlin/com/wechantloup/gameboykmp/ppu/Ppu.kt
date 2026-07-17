@@ -4,15 +4,13 @@ import com.wechantloup.gameboykmp.bus.Bus
 import kotlinx.coroutines.channels.Channel
 
 /**
- * Dot-driven PPU — mode FSM skeleton (timing only).
+ * Dot-driven PPU — mode FSM + DMG background pipeline.
  *
- * This is the backbone of the dot-accurate rewrite: it owns the scanline/dot timing and the
- * mode state machine, and nothing else yet. There is deliberately NO fetcher, NO pixel FIFO,
- * NO framebuffer — those arrive in the renderer phase and plug into the joint documented below.
- *
- * Cadence: tick() is called once per T-cycle by the emulation loop. In single speed one tick
- * advances one dot; in double speed the LCD keeps its normal rate, so the PPU advances one dot
- * every two ticks (internal divider, see dotDivider).
+ * The backbone owns the scanline/dot timing and the mode state machine. Mode 3 now renders the
+ * background through a real fetcher + FIFO + shifter (DMG); sprites, window and CGB are still to
+ * come. Cadence: tick() is called once per T-cycle by the emulation loop. In single speed one
+ * tick advances one dot; in double speed the LCD keeps its normal rate, so the PPU advances one
+ * dot every two ticks (internal divider, see dotDivider).
  *
  * Single authorities (no mirroring — matches the Bus surface):
  *   - line        : the internal scanline 0..153. The only authority for "which line".
@@ -21,18 +19,23 @@ import kotlinx.coroutines.channels.Channel
  *   - coincidence : derived by the Bus at STAT read (ppuLy == LYC), never stored here.
  *
  * The mode 3 -> mode 0 joint:
- *   Mode 3 has an EMERGENT duration — it lasts as long as the pipeline takes to shift out 160
- *   pixels. The FSM must never compute that duration. It leaves mode 3 only when `drawingDone`
- *   is set. Today a non-calibrated stub sets it; the future fetcher/FIFO will set it instead,
- *   WITHOUT any change to this FSM. That is the whole point of the joint.
+ *   Mode 3 has an EMERGENT duration — it lasts as long as the shifter takes to output 160 pixels.
+ *   The FSM never computes that duration; it leaves mode 3 only when `drawingDone` is set, which
+ *   the shifter does at pixel 160. For pure BG this comes out to 172 + (SCX & 7) dots.
  *
- * Included in this skeleton: dot/line counting, the 2->3->0 (visible) and 1 (VBlank) mode FSM,
- * LY progression + frame wrap, the LY153 quirk (structure; exact dots TODO), LCD on/off,
- * the VBlank interrupt, a simple event-based STAT interrupt, and the HBlank-DMA edge call.
+ * Mode 3 BG pipeline (per dot): bgFetcher.tick() fetches VRAM in 4 steps and pushes 8 pixels into
+ * bgFifo when there is room; shiftPixel() pops one, drops it for fine-scroll (SCX & 7) or applies
+ * BGP live and writes the shade into frameBuffer. Registers (SCX/SCY/LCDC/BGP) are read live, so
+ * mid-mode-3 writes take effect natively (Mealybug) — no compensation layer.
  *
- * Deferred (each marked with a TODO at its site): the real OAM scan + sprite list, the fetcher/
- * FIFO renderer + framebuffer, the LCD-on first-frame quirk, the STAT-blocking / rising-edge
- * refinement, and double-speed switch-phase anchoring.
+ * Included: dot/line counting, the 2->3->0 (visible) and 1 (VBlank) mode FSM, LY progression +
+ * frame wrap, the LY153 quirk (structure; exact dots TODO), LCD on/off, the VBlank interrupt, a
+ * simple event-based STAT interrupt, the HBlank-DMA edge call, and DMG BG rendering.
+ *
+ * Deferred (each marked with a TODO at its site): the real OAM scan + sprite list, sprite fetch +
+ * sprite FIFO + mixer, the window, CGB (bank-1 attributes, RGB555 output, LCDC.0 master priority),
+ * the LCD-on first-frame quirk, the STAT-blocking / rising-edge refinement, double-speed
+ * switch-phase anchoring, and the LCD-off screen clear.
  *
  * Naming and structure here are a starting point — open to reshaping.
  */
@@ -51,10 +54,18 @@ class Ppu(private val bus: Bus) {
     private var line = 0            // internal scanline 0..153 (single authority for the line)
     private var lineDot = 0         // dot within the current line, 0..455
     private var oamScanDot = 0      // dots elapsed in mode 2 (stub counter)
-    private var drawingDot = 0      // dots elapsed in mode 3 (stub counter)
-    private var drawingDone = false // the mode 3 -> 0 joint; the fetcher/FIFO will drive this
+    private var drawingDone = false // the mode 3 -> 0 joint, driven by the shifter (160 px out)
     private var lcdOn = false       // tracks LCDC.7 edges for power on/off
     private var dotDivider = false  // double-speed dot divider phase
+
+    // Mode 3 BG pipeline (DMG). The collaborators talk only to the Bus; the shifter lives here.
+    private val bgFifo = PixelFifo(FIFO_CAPACITY)
+    private val bgFetcher = BgFetcher(bus)
+    private var lcdX = 0            // visible pixels output on the current line, 0..160
+    private var discard = 0         // remaining fine-scroll (SCX & 7) pixels to drop, latched per line
+
+    // Persistent framebuffer, reused every frame; a copy is emitted on the channel per frame.
+    private val frameBuffer = IntArray(SCREEN_PIXELS)
 
     /**
      * Advances the PPU by one T-cycle. Called once per T from the emulation loop.
@@ -89,11 +100,11 @@ class Ppu(private val bus: Bus) {
                 if (oamScanDot == OAM_SCAN_DOTS) enterDrawing()
             }
             Mode.DRAWING -> {
-                // TODO: the fetcher/FIFO renders one dot here and sets drawingDone once 160 px
-                //  have been shifted out. The FSM leaves mode 3 ONLY on that signal — never on a
-                //  duration. Until the fetcher exists, a non-calibrated stub stands in for it.
-                drawingDot++
-                if (drawingDot >= STUB_DRAWING_DOTS) drawingDone = true
+                // One dot of the BG pipeline: advance the fetcher, then the shifter. The order
+                // (fetch before shift) and the FIFO gating were validated to yield 172 + (SCX & 7)
+                // against hblank_ly_scx_timing. drawingDone is set by the shifter at 160 px.
+                bgFetcher.tick(bgFifo)
+                shiftPixel()
                 if (drawingDone) enterHBlank()
             }
             Mode.HBLANK -> {
@@ -144,10 +155,30 @@ class Ppu(private val bus: Bus) {
 
     private fun enterDrawing() {
         setMode(Mode.DRAWING)
-        drawingDot = 0
         drawingDone = false
+        lcdX = 0
+        discard = bus.read(REG_SCX) and 0x07   // fine-scroll pixels to drop, latched once per line
+        bgFifo.clear()
+        bgFetcher.reset(line)
         // There is no mode-3 STAT interrupt source.
-        // TODO: initialise fetcher / FIFO / window / fine-scroll state here once they exist.
+        // TODO: window trigger + fetcher restart, and sprite fetch + sprite FIFO + mixer (later).
+    }
+
+    /** One dot of the shifter: pop a BG pixel, drop it for fine-scroll or write it to the frame. */
+    private fun shiftPixel() {
+        if (bgFifo.size == 0) return           // FIFO empty: warm-up or fetcher stall, shifter waits
+        val colorIndex = bgFifo.pop()
+        if (discard > 0) {                     // fine-scroll: popped but not displayed
+            discard--
+            return
+        }
+        // BGP is applied LIVE at output, so a mid-mode-3 BGP write affects the pixel leaving now
+        // (Mealybug). The frame stores the resulting shade 0..3 (the DMG frameChannel contract).
+        val bgp = bus.read(REG_BGP)
+        val shade = (bgp shr (colorIndex * 2)) and 0x03
+        frameBuffer[line * SCREEN_WIDTH + lcdX] = shade
+        lcdX++
+        if (lcdX == SCREEN_WIDTH) drawingDone = true
     }
 
     private fun enterHBlank() {
@@ -215,11 +246,10 @@ class Ppu(private val bus: Bus) {
     }
 
     private fun frameComplete() {
-        // TODO: the FIFO renderer writes real pixels into a persistent framebuffer and emits it
-        //  here (palette index on DMG, RGB555 on CGB/CGB_COMPAT — the frameChannel contract).
-        //  Until then, emit a blank placeholder so the output pipeline and frame cadence can be
-        //  validated end-to-end. The renderer will reuse one buffer instead of allocating per frame.
-        frameChannel.trySend(IntArray(SCREEN_PIXELS))
+        // frameBuffer is persistent and reused next frame; the consumer reads it asynchronously,
+        // so emit a copy to avoid tearing. DMG stores shade 0..3 per pixel (the channel contract).
+        // TODO (perf): revisit per-frame copy once CGB rendering lands; measure against the baseline.
+        frameChannel.trySend(frameBuffer.copyOf())
     }
 
     companion object {
@@ -231,14 +261,8 @@ class Ppu(private val bus: Bus) {
         private const val VISIBLE_LINES = 144    // lines 0..143 draw
         private const val LINES_PER_FRAME = 154  // + 10 VBlank lines (144..153)
         private const val LAST_LINE = 153
-        private const val OAM_SCAN_DOTS = 80     // mode 2 length (fixed)
-
-        // Non-calibrated placeholder for the emergent mode-3 duration. It exists only so the FSM
-        // produces coherent per-line timing before the fetcher/FIFO exists. It is deliberately
-        // NOT tuned to pass any test — the real duration emerges from the FIFO. 172 is the
-        // hardware minimum, used purely as a plausible stand-in.
-        // TODO: delete when the fetcher drives drawingDone.
-        private const val STUB_DRAWING_DOTS = 172
+        private const val OAM_SCAN_DOTS = 80      // mode 2 length (fixed)
+        private const val FIFO_CAPACITY = 16      // BG FIFO holds two tiles' worth of pixels
 
         // LY153 quirk: how long LY still reads 153 at the start of the last line before reading 0.
         // TODO: pin against mooneye ppu ly/lyc-153 timing + the Python simulator.
@@ -258,6 +282,8 @@ class Ppu(private val bus: Bus) {
         // I/O registers the PPU reads
         private const val REG_LCDC = 0xFF40
         private const val REG_STAT = 0xFF41
+        private const val REG_SCX = 0xFF43
         private const val REG_LYC = 0xFF45
+        private const val REG_BGP = 0xFF47
     }
 }
