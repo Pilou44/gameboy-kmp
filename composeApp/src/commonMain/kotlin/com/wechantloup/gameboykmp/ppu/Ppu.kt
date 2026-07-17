@@ -31,12 +31,14 @@ import kotlinx.coroutines.channels.Channel
  * Included: dot/line counting, the 2->3->0 (visible) and 1 (VBlank) mode FSM, LY progression +
  * frame wrap, the LY153 quirk (structure; exact dots TODO), LCD on/off, the VBlank interrupt, a
  * simple event-based STAT interrupt, the HBlank-DMA edge call, DMG BG rendering, the mode-2 OAM
- * scan, and DMG sprite rendering (fetch + sprite FIFO + BG/sprite mixer with priorities).
+ * scan, DMG sprite rendering (fetch + FIFO + mixer with priorities), the window (own line counter,
+ * WY latch, WX trigger restarting the fetcher on the window map), and LCDC.0 (DMG BG/window blank).
  *
- * Deferred (each marked with a TODO at its site): the window, CGB (bank-1 attributes, RGB555
- * output, LCDC.0 master priority), sprites clipped at X < 8, the exact sprite-fetch stall timing,
- * the LCD-on first-frame quirk, the STAT-blocking / rising-edge refinement, double-speed
- * switch-phase anchoring, and the LCD-off screen clear.
+ * Deferred (each marked with a TODO at its site): CGB (bank-1 attributes, RGB555 output, LCDC.0 as
+ * master priority instead of enable), sprites clipped at X < 8, the exact sprite-fetch and window-
+ * restart stall timing, the WX 0..6 / WX 166 quirks, the LCD-on first-frame quirk, the STAT-
+ * blocking / rising-edge refinement, double-speed switch-phase anchoring, and the LCD-off screen
+ * clear.
  *
  * Naming and structure here are a starting point — open to reshaping.
  */
@@ -75,6 +77,12 @@ class Ppu(private val bus: Bus) {
     private val spriteFetcher = SpriteFetcher(bus)
     private var fetchingSprite = false                        // a sprite fetch is in progress (BG paused)
     private val spriteFetched = BooleanArray(MAX_SPRITES_PER_LINE)  // which selected sprites are done
+
+    // Window state. windowLine is the window's OWN Y counter: it advances only on lines the window
+    // is actually drawn, never from LY. wyConditionMet latches once LY reaches WY within the frame.
+    private var windowLine = 0
+    private var wyConditionMet = false
+    private var windowActiveThisLine = false
 
     // Persistent framebuffer, reused every frame; a copy is emitted on the channel per frame.
     private val frameBuffer = IntArray(SCREEN_PIXELS)
@@ -176,6 +184,8 @@ class Ppu(private val bus: Bus) {
         setMode(Mode.OAM_SCAN)
         oamScanDot = 0
         spriteCount = 0
+        // WY is a per-frame latch: once LY reaches WY, the window may start on this and later lines.
+        if (line == bus.read(REG_WY)) wyConditionMet = true
         if (statEnabled(STAT_MODE2_IRQ)) requestStatIrq()
     }
 
@@ -207,13 +217,23 @@ class Ppu(private val bus: Bus) {
         spriteFifo.clear()
         fetchingSprite = false
         spriteFetched.fill(false)
-        // There is no mode-3 STAT interrupt source.
-        // TODO: window trigger + fetcher restart (the window is still unimplemented).
+        windowActiveThisLine = false
     }
 
     /** One dot of the shifter: pop BG (and the lockstep sprite pixel), mix, and write the frame. */
     private fun shiftPixel() {
         if (bgFifo.size == 0) return           // FIFO empty: warm-up or fetcher stall, shifter waits
+        // Window trigger: reaching WX-7 hands the rest of the line to the window. Clear the BG FIFO
+        // and restart the fetcher on the window map; the emptied FIFO stalls the shifter until it
+        // refills — the window's cost, emergent like every other mode-3 stall.
+        if (!windowActiveThisLine && discard == 0 && windowEnabled() && wyConditionMet
+            && lcdX == bus.read(REG_WX) - 7
+        ) {
+            bgFifo.clear()
+            bgFetcher.startWindow(windowLine)
+            windowActiveThisLine = true
+            return
+        }
         val bgIndex = bgFifo.pop()
         // The sprite FIFO advances in lockstep with the BG FIFO so it stays aligned to lcdX.
         val spritePixel = if (spriteFifo.size > 0) spriteFifo.pop() else 0
@@ -228,17 +248,19 @@ class Ppu(private val bus: Bus) {
 
     /** BG/sprite priority + palette, all read LIVE so mid-line palette writes are honoured. */
     private fun mix(bgIndex: Int, spritePixel: Int): Int {
+        // LCDC.0 = 0 on DMG blanks BG and window (forced to colour 0); sprites are unaffected.
+        val bg = if (bgEnabled()) bgIndex else 0
         val spriteColor = spritePixel and SpriteFetcher.PIXEL_COLOR
         if (spriteColor != 0 && objEnabled()) {                // opaque sprite pixel, OBJ on
             val behind = spritePixel and SpriteFetcher.PIXEL_PRIORITY != 0
-            if (!(behind && bgIndex != 0)) {                   // sprite wins unless behind an opaque BG
+            if (!(behind && bg != 0)) {                        // sprite wins unless behind an opaque BG
                 val obp = if (spritePixel and SpriteFetcher.PIXEL_PALETTE != 0) bus.read(REG_OBP1)
                 else bus.read(REG_OBP0)
                 return (obp shr (spriteColor * 2)) and 0x03
             }
         }
-        val bgp = bus.read(REG_BGP)                            // BG wins
-        return (bgp shr (bgIndex * 2)) and 0x03
+        val bgp = bus.read(REG_BGP)                            // BG (or window) wins
+        return (bgp shr (bg * 2)) and 0x03
     }
 
     /** First not-yet-fetched selected sprite that starts at [x], scanned in OAM order, or -1. */
@@ -250,9 +272,13 @@ class Ppu(private val bus: Bus) {
     }
 
     private fun objEnabled(): Boolean = bus.read(REG_LCDC) and LCDC_OBJ_ENABLE != 0
+    private fun windowEnabled(): Boolean = bus.read(REG_LCDC) and LCDC_WINDOW_ENABLE != 0
+    private fun bgEnabled(): Boolean = bus.read(REG_LCDC) and LCDC_BG_ENABLE != 0
 
     private fun enterHBlank() {
         setMode(Mode.HBLANK)
+        // The window's Y counter advances only on lines where the window was actually drawn.
+        if (windowActiveThisLine) windowLine++
         if (statEnabled(STAT_MODE0_IRQ)) requestStatIrq()
         // Mode 3 -> 0 edge = exactly one HBlank per visible line. The Bus pumps one HBlank-DMA
         // block here if a transfer is active (no-op otherwise); it stays ignorant of the PPU.
@@ -303,19 +329,27 @@ class Ppu(private val bus: Bus) {
         setMode(Mode.OAM_SCAN)
         oamScanDot = 0
         bus.ppuLy = 0
+        windowLine = 0
+        wyConditionMet = false
+        windowActiveThisLine = false
     }
 
     private fun powerOffLcd() {
         // LCD off: the PPU is frozen, LY reads 0 and the mode reads 0 (HBlank). No interrupts.
+        // Pipeline/window state is re-initialised on power-on (see powerOnLcd).
         lcdOn = false
         line = 0
         lineDot = 0
         setMode(Mode.HBLANK)
         bus.ppuLy = 0
-        // TODO: also reset fetcher / FIFO / window state here once they exist.
+        // TODO (LCD-off screen clear): fill frameBuffer with the white shade and emit one frame so
+        //  the panel clears, as hardware does. Pending confirmation of the white index in dmgPalette.
     }
 
     private fun frameComplete() {
+        // New frame: the window's Y counter restarts and the WY latch clears.
+        windowLine = 0
+        wyConditionMet = false
         // frameBuffer is persistent and reused next frame; the consumer reads it asynchronously,
         // so emit a copy to avoid tearing. DMG stores shade 0..3 per pixel (the channel contract).
         // TODO (perf): revisit per-frame copy once CGB rendering lands; measure against the baseline.
@@ -342,8 +376,10 @@ class Ppu(private val bus: Bus) {
 
         // LCDC / STAT bit masks
         private const val LCDC_ENABLE = 0x80     // LCDC.7: LCD & PPU enable
+        private const val LCDC_WINDOW_ENABLE = 0x20 // LCDC.5: window on/off
         private const val LCDC_OBJ_ENABLE = 0x02 // LCDC.1: sprites on/off
         private const val LCDC_OBJ_SIZE = 0x04   // LCDC.2: sprite height (0 = 8x8, 1 = 8x16)
+        private const val LCDC_BG_ENABLE = 0x01  // LCDC.0: BG & window on/off (DMG)
 
         private const val STAT_MODE0_IRQ = 0x08  // STAT bit 3: HBlank source
         private const val STAT_MODE1_IRQ = 0x10  // STAT bit 4: VBlank source
@@ -361,5 +397,7 @@ class Ppu(private val bus: Bus) {
         private const val REG_BGP = 0xFF47
         private const val REG_OBP0 = 0xFF48
         private const val REG_OBP1 = 0xFF49
+        private const val REG_WY = 0xFF4A
+        private const val REG_WX = 0xFF4B
     }
 }

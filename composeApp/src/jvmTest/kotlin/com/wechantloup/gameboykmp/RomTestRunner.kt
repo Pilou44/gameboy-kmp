@@ -84,13 +84,23 @@ class RomTestRunner {
     @Test
     @Order(3)
     fun `blarrg-cpu_instrs-01`(testInfo: TestInfo) {
-        runTest(testInfo.displayName, "blarrg/cpu_instrs/01-special.gb", 3_000)
+        runTest(
+            testInfo.displayName,
+            "blarrg/cpu_instrs/01-special.gb",
+            3_000,
+            machineMode = MachineMode.DMG,
+        )
     }
 
     @Test
     @Order(4)
     fun `blarrg-cpu_instrs-02`(testInfo: TestInfo) {
-        runTest(testInfo.displayName, "blarrg/cpu_instrs/02-interrupts.gb", 1_000)
+        runTest(
+            testInfo.displayName,
+            "blarrg/cpu_instrs/02-interrupts.gb",
+            1_000,
+            machineMode = MachineMode.DMG,
+        )
     }
 
     @Test
@@ -107,13 +117,23 @@ class RomTestRunner {
     @Test
     @Order(6)
     fun `blarrg-cpu_instrs-04`(testInfo: TestInfo) {
-        runTest(testInfo.displayName, "blarrg/cpu_instrs/04-op_r,imm.gb", 3_000)
+        runTest(
+            testInfo.displayName,
+            "blarrg/cpu_instrs/04-op_r,imm.gb",
+            3_000,
+            machineMode = MachineMode.DMG,
+        )
     }
 
     @Test
     @Order(7)
     fun `blarrg-cpu_instrs-05`(testInfo: TestInfo) {
-        runTest(testInfo.displayName, "blarrg/cpu_instrs/05-op_rp.gb", 4_000)
+        runTest(
+            testInfo.displayName,
+            "blarrg/cpu_instrs/05-op_rp.gb",
+            4_000,
+            machineMode = MachineMode.DMG,
+        )
     }
 
     @Test
@@ -130,133 +150,242 @@ class RomTestRunner {
     @Test
     @Order(9)
     fun `blarrg-cpu_instrs-07`(testInfo: TestInfo) {
-        runTest(testInfo.displayName, "blarrg/cpu_instrs/07-jr,jp,call,ret,rst.gb", 1_000)
+        runTest(
+            testInfo.displayName,
+            "blarrg/cpu_instrs/07-jr,jp,call,ret,rst.gb",
+            1_000,
+            machineMode = MachineMode.DMG,
+        )
     }
 
     @Test
     @Order(10)
     fun `blarrg-cpu_instrs-08`(testInfo: TestInfo) {
-        runTest(testInfo.displayName, "blarrg/cpu_instrs/08-misc_instrs.gb", 1_000)
+        runTest(
+            testInfo.displayName,
+            "blarrg/cpu_instrs/08-misc_instrs.gb",
+            1_000,
+            machineMode = MachineMode.DMG,
+        )
     }
 
     @Test
     @Order(11)
     fun `blarrg-cpu_instrs-09`(testInfo: TestInfo) {
-        runTest(testInfo.displayName, "blarrg/cpu_instrs/09-op_r,r.gb", 10_000)
+        runTest(
+            testInfo.displayName,
+            "blarrg/cpu_instrs/09-op_r,r.gb",
+            10_000,
+            machineMode = MachineMode.DMG,
+        )
     }
 
     @Test
     @Order(12)
     fun `blarrg-cpu_instrs-10`(testInfo: TestInfo) {
-        runTest(testInfo.displayName, "blarrg/cpu_instrs/10-bit_ops.gb", 14_000)
+        runTest(
+            testInfo.displayName,
+            "blarrg/cpu_instrs/10-bit_ops.gb",
+            14_000,
+            machineMode = MachineMode.DMG,
+        )
     }
 
     @Test
     @Order(13)
     fun `blarrg-cpu_instrs-11`(testInfo: TestInfo) {
-        runTest(testInfo.displayName, "blarrg/cpu_instrs/11-op_a,(hl).gb", 18_000)
+        runTest(
+            testInfo.displayName,
+            "blarrg/cpu_instrs/11-op_a,(hl).gb",
+            18_000,
+            machineMode = MachineMode.DMG,
+        )
     }
 
     @Test
     @Order(14)
     fun `blarrg-halt_bug`(testInfo: TestInfo) {
-        runTest(testInfo.displayName, "blarrg/halt_bug.gb", 2_000)
+        runTest(
+            testInfo.displayName,
+            "blarrg/halt_bug.gb",
+            2_000,
+            machineMode = MachineMode.DMG,
+        )
     }
 
     @Test
     @Order(15)
     fun `blarrg-instr_timing`(testInfo: TestInfo) {
-        runTest(testInfo.displayName, "blarrg/instr_timing.gb", 1_000)
+        runTest(
+            testInfo.displayName,
+            "blarrg/instr_timing.gb",
+            1_000,
+            machineMode = MachineMode.DMG,
+        )
     }
 
     @Test
     @Order(16)
     fun `blarrg-interrupt_time`(testInfo: TestInfo) {
-        runTest(testInfo.displayName, "blarrg/interrupt_time.gb", 1_000)
+        runTest(
+            testInfo.displayName,
+            "blarrg/interrupt_time.gb",
+            1_000,
+        )
     }
 
     @Test
     @Order(17)
     fun `blarrg-mem_timing-01-read_timing`(testInfo: TestInfo) {
-        runTest(testInfo.displayName, "blarrg/mem_timing/01-read_timing.gb", 500)
+        runTest(
+            testInfo.displayName,
+            "blarrg/mem_timing/01-read_timing.gb",
+            500,
+            machineMode = MachineMode.DMG,
+        )
     }
 
     @Test
     @Order(18)
     fun `blarrg-mem_timing-02-write_timing`(testInfo: TestInfo) {
-        runTest(testInfo.displayName, "blarrg/mem_timing/02-write_timing.gb", 500)
+        runTest(
+            testInfo.displayName,
+            "blarrg/mem_timing/02-write_timing.gb",
+            500,
+            machineMode = MachineMode.DMG,
+        )
     }
 
     @Test
     @Order(19)
     fun `blarrg-mem_timing-03-modify_timing`(testInfo: TestInfo) {
-        runTest(testInfo.displayName, "blarrg/mem_timing/03-modify_timing.gb", 1_000)
+        runTest(
+            testInfo.displayName,
+            "blarrg/mem_timing/03-modify_timing.gb",
+            1_000,
+            machineMode = MachineMode.DMG,
+        )
     }
 
     @Test
     @Order(20)
     fun `blarrg-mem_timing-2-01-read_timing`(testInfo: TestInfo) {
-        runTest(testInfo.displayName, "blarrg/mem_timing-2/01-read_timing.gb", 500)
+        runTest(
+            testInfo.displayName,
+            "blarrg/mem_timing-2/01-read_timing.gb",
+            500,
+            machineMode = MachineMode.DMG,
+        )
     }
 
     @Test
     @Order(21)
     fun `blarrg-mem_timing-2-02-write_timing`(testInfo: TestInfo) {
-        runTest(testInfo.displayName, "blarrg/mem_timing-2/02-write_timing.gb", 500)
+        runTest(
+            testInfo.displayName,
+            "blarrg/mem_timing-2/02-write_timing.gb",
+            500,
+            machineMode = MachineMode.DMG,
+        )
     }
 
     @Test
     @Order(22)
     fun `blarrg-mem_timing-2-03-modify_timing`(testInfo: TestInfo) {
-        runTest(testInfo.displayName, "blarrg/mem_timing-2/03-modify_timing.gb", 1_000)
+        runTest(
+            testInfo.displayName,
+            "blarrg/mem_timing-2/03-modify_timing.gb",
+            1_000,
+            machineMode = MachineMode.DMG,
+        )
     }
 
     @Test
     @Order(23)
     fun `blarrg-oam_bug-1-lcd_sync`(testInfo: TestInfo) {
-        runTest(testInfo.displayName, "blarrg/oam_bug/1-lcd_sync.gb", 1_000)
+        runTest(
+            testInfo.displayName,
+            "blarrg/oam_bug/1-lcd_sync.gb",
+            1_000,
+            machineMode = MachineMode.DMG,
+        )
     }
 
     @Test
     @Order(24)
     fun `blarrg-oam_bug-2-causes`(testInfo: TestInfo) {
-        runTest(testInfo.displayName, "blarrg/oam_bug/2-causes.gb", 1_000)
+        runTest(
+            testInfo.displayName,
+            "blarrg/oam_bug/2-causes.gb",
+            1_000,
+            machineMode = MachineMode.DMG,
+        )
     }
 
     @Test
     @Order(25)
     fun `blarrg-oam_bug-3-non_causes`(testInfo: TestInfo) {
-        runTest(testInfo.displayName, "blarrg/oam_bug/3-non_causes.gb", 2_000)
+        runTest(
+            testInfo.displayName,
+            "blarrg/oam_bug/3-non_causes.gb",
+            2_000,
+            machineMode = MachineMode.DMG,
+        )
     }
 
     @Test
     @Order(26)
     fun `blarrg-oam_bug-4-scanline_timing`(testInfo: TestInfo) {
-        runTest(testInfo.displayName, "blarrg/oam_bug/4-scanline_timing.gb", 1_000)
+        runTest(
+            testInfo.displayName,
+            "blarrg/oam_bug/4-scanline_timing.gb",
+            1_000,
+            machineMode = MachineMode.DMG,
+        )
     }
 
     @Test
     @Order(27)
     fun `blarrg-oam_bug-5-timing_bug`(testInfo: TestInfo) {
-        runTest(testInfo.displayName, "blarrg/oam_bug/5-timing_bug.gb", 1_000)
+        runTest(
+            testInfo.displayName,
+            "blarrg/oam_bug/5-timing_bug.gb",
+            1_000,
+            machineMode = MachineMode.DMG,
+        )
     }
 
     @Test
     @Order(28)
     fun `blarrg-oam_bug-6-timing_no_bug`(testInfo: TestInfo) {
-        runTest(testInfo.displayName, "blarrg/oam_bug/6-timing_no_bug.gb", 2_000)
+        runTest(
+            testInfo.displayName,
+            "blarrg/oam_bug/6-timing_no_bug.gb",
+            2_000,
+            machineMode = MachineMode.DMG,
+        )
     }
 
     @Test
     @Order(29)
     fun `blarrg-oam_bug-7-timing_effect`(testInfo: TestInfo) {
-        runTest(testInfo.displayName, "blarrg/oam_bug/7-timing_effect.gb", 8_000)
+        runTest(
+            testInfo.displayName,
+            "blarrg/oam_bug/7-timing_effect.gb",
+            8_000,
+            machineMode = MachineMode.DMG,
+        )
     }
 
     @Test
     @Order(30)
     fun `blarrg-oam_bug-8-instr_effect`(testInfo: TestInfo) {
-        runTest(testInfo.displayName, "blarrg/oam_bug/8-instr_effect.gb", 1_000)
+        runTest(
+            testInfo.displayName,
+            "blarrg/oam_bug/8-instr_effect.gb",
+            1_000,
+            machineMode = MachineMode.DMG,
+        )
     }
 
     @Test
