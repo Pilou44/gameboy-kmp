@@ -39,4 +39,12 @@ class PixelFifo(private val capacity: Int = 16) {
         count--
         return pixel
     }
+
+    /** Reads the pixel [index] slots from the front, without removing it. Caller ensures index < size. */
+    fun peek(index: Int): Int = buffer[(head + index) and mask]
+
+    /** Overwrites the pixel [index] slots from the front. Caller ensures index < size. */
+    fun replace(index: Int, pixel: Int) {
+        buffer[(head + index) and mask] = pixel
+    }
 }
