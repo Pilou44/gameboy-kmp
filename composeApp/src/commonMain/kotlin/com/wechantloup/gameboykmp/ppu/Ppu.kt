@@ -1,6 +1,7 @@
 package com.wechantloup.gameboykmp.ppu
 
 import com.wechantloup.gameboykmp.bus.Bus
+import com.wechantloup.gameboykmp.cpu.MachineMode
 import kotlinx.coroutines.channels.Channel
 
 /**
@@ -66,9 +67,15 @@ class Ppu(private val bus: Bus) {
     private val sprites = Array(MAX_SPRITES_PER_LINE) { Sprite() }
     private var spriteCount = 0
 
-    // Mode 3 BG pipeline (DMG). The collaborators talk only to the Bus; the shifter lives here.
+    private val machineMode = bus.machineMode
+
+    // Mode 3 BG pipeline. The fetcher is chosen once per session; DMG and CGB_COMPAT share the
+    // DMG-shaped fetch (no VBK / no bank-1 attributes), CGB adds per-tile attributes.
     private val bgFifo = PixelFifo(FIFO_CAPACITY)
-    private val bgFetcher = BgFetcher(bus)
+    private val bgFetcher: BgFetcher = when (machineMode) {
+        MachineMode.CGB -> BgFetcherCgb(bus)
+        else -> BgFetcherDmg(bus)
+    }
     private var lcdX = 0            // visible pixels output on the current line, 0..160
     private var discard = 0         // remaining fine-scroll (SCX & 7) pixels to drop, latched per line
 
@@ -241,13 +248,17 @@ class Ppu(private val bus: Bus) {
             discard--
             return
         }
-        frameBuffer[line * SCREEN_WIDTH + lcdX] = mix(bgIndex, spritePixel)
+        frameBuffer[line * SCREEN_WIDTH + lcdX] = when (machineMode) {
+            MachineMode.DMG -> mixDmg(bgIndex, spritePixel)
+            MachineMode.CGB -> mixCgb(bgIndex, spritePixel)
+            MachineMode.CGB_COMPAT -> mixCgbCompat(bgIndex, spritePixel)
+        }
         lcdX++
         if (lcdX == SCREEN_WIDTH) drawingDone = true
     }
 
     /** BG/sprite priority + palette, all read LIVE so mid-line palette writes are honoured. */
-    private fun mix(bgIndex: Int, spritePixel: Int): Int {
+    private fun mixDmg(bgIndex: Int, spritePixel: Int): Int {
         // LCDC.0 = 0 on DMG blanks BG and window (forced to colour 0); sprites are unaffected.
         val bg = if (bgEnabled()) bgIndex else 0
         val spriteColor = spritePixel and SpriteFetcher.PIXEL_COLOR
@@ -261,6 +272,29 @@ class Ppu(private val bus: Bus) {
         }
         val bgp = bus.read(REG_BGP)                            // BG (or window) wins
         return (bgp shr (bg * 2)) and 0x03
+    }
+
+    /** CGB mixer. Step (1): BG only — a direct CRAM lookup, no BGP. */
+    private fun mixCgb(bgPixel: Int, spritePixel: Int): Int {
+        // TODO (step 2, CGB sprites): resolve spritePixel with the CGB master-priority table
+        //  (LCDC.0 master + BG attr.7 + OBJ attr.7). BG-only for now, so CGB sprites are not yet
+        //  displayed — not a regression (CGB rendered nothing before this step). LCDC.0 is master
+        //  priority on CGB (not BG enable), so with no sprites it has no visible effect here.
+        val bgc = bgPixel and CgbPixel.COLOR
+        val bgPal = (bgPixel shr CgbPixel.PALETTE_SHIFT) and 0x07
+        return bus.bgColorRgb555(bgPal, bgc)   // frameBuffer holds RGB555 on CGB (ViewModel contract)
+    }
+
+    /**
+     * CGB_COMPAT mixer: a DMG game on CGB hardware — DMG-style priority, but RGB555 output via CRAM.
+     * BG index is remapped by BGP then looked up in CRAM palette 0; sprites by OBP0/OBP1 then CRAM
+     * OBJ palette 0/1. Structurally present so this mode is not forgotten (per project rule);
+     * implemented in its own slot, after CGB proper.
+     * TODO (CGB_COMPAT): implement per the description above. Verify vs Pan Docs that BGP/OBP stay
+     *  live in compat (expected yes) and that LCDC.0 is enable here (expected, DMG semantics).
+     */
+    private fun mixCgbCompat(bgPixel: Int, spritePixel: Int): Int {
+        TODO("CGB_COMPAT mixer — implemented after CGB proper (see step order)")
     }
 
     /** First not-yet-fetched selected sprite that starts at [x], scanned in OAM order, or -1. */
