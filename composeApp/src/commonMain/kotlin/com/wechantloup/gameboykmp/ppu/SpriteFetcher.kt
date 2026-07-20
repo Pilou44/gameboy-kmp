@@ -3,30 +3,28 @@ package com.wechantloup.gameboykmp.ppu
 import com.wechantloup.gameboykmp.bus.Bus
 
 /**
- * Sprite fetcher (DMG). When the shifter reaches a sprite's start X, the PPU pauses the BG fetcher
- * and runs one of these: it reads the sprite's tile row from VRAM and merges 8 pixels into the
- * sprite FIFO. Like the BG fetcher, it talks only to the Bus.
+ * Sprite fetcher backbone (hardware-agnostic). When the shifter reaches a sprite's start X, the PPU
+ * pauses the BG fetcher and runs one of these: it reads the sprite's tile row from VRAM and merges
+ * 8 pixels into the sprite FIFO. It talks only to the Bus.
  *
- * Sprite-vs-sprite priority is resolved by the MERGE, not by a sort: pixels are written only into
- * FIFO slots that are still transparent. Because sprites trigger in X order (smaller X reaches the
- * shifter first) and ties are scanned in OAM order, the first sprite to cover a pixel keeps it —
- * which is exactly the DMG rule (smaller X wins, then lower OAM index).
+ * The tile-row address (8x8 / 8x16 selection, Y-flip, fine-Y) is computed here — identical on both
+ * hardwares. Two seams differ:
+ *   - readTileByte(addr) : the VRAM bank (bank 0 on DMG; attribute bit 3 on CGB).
+ *   - mergeRow(fifo,...) : packing + the sprite-vs-sprite priority rule (fill-if-transparent on DMG;
+ *                          overwrite-if-lower-OAM-index on CGB).
  *
- * A merged sprite pixel packs: bits 0-1 colour (0 = transparent), bit 2 palette (0 = OBP0,
- * 1 = OBP1), bit 3 the OBJ-to-BG priority flag (attribute bit 7). BGP/OBP are applied later, at
- * mix time, so a mid-line palette write is honoured natively.
- *
- * TODO: the sprite fetch duration and the BG-fetch abort penalty (a sprite interrupting a BG fetch
- *  mid-step) are stand-ins here; pin them against mooneye intr_2_mode0_timing_sprites + Mealybug
- *  with the simulator. Sprites with X < 8 (clipped on the left edge) are not handled yet.
+ * TODO: the sprite fetch duration and the BG-fetch abort penalty are stand-ins; pin against mooneye
+ *  intr_2_mode0_timing_sprites + Mealybug with the simulator. Sprites with X < 8 (clipped on the
+ *  left edge) are not handled yet.
  */
-class SpriteFetcher(private val bus: Bus) {
+abstract class SpriteFetcher(protected val bus: Bus) {
 
     private var dotsLeft = 0
-    private var line = 0
+    protected var line = 0
     private var spriteY = 0
     private var spriteTile = 0
-    private var spriteAttributes = 0
+    protected var spriteAttributes = 0
+    protected var spriteOamIndex = 0   // used by the CGB merge; latched for both, read on CGB only
 
     /** Begins a fetch for [sprite] on scanline [line]. */
     fun start(sprite: Sprite, line: Int) {
@@ -34,6 +32,7 @@ class SpriteFetcher(private val bus: Bus) {
         spriteY = sprite.y
         spriteTile = sprite.tile
         spriteAttributes = sprite.attributes
+        spriteOamIndex = sprite.oamIndex
         dotsLeft = SPRITE_FETCH_DOTS
     }
 
@@ -53,25 +52,16 @@ class SpriteFetcher(private val bus: Bus) {
         val tileIndex = if (tall) (spriteTile and 0xFE) or (row shr 3) else spriteTile
         val fineY = row and 7
         val addr = tileIndex * 16 + fineY * 2                 // sprites always use 0x8000 addressing
-        val low = bus.readVram(addr)
-        val high = bus.readVram(addr + 1)
-
-        val xFlip = spriteAttributes and ATTR_X_FLIP != 0
-        val paletteBit = if (spriteAttributes and ATTR_PALETTE != 0) PIXEL_PALETTE else 0
-        val priorityBit = if (spriteAttributes and ATTR_PRIORITY != 0) PIXEL_PRIORITY else 0
-
-        for (i in 0 until 8) {
-            val bit = if (xFlip) i else 7 - i                 // pixel i, leftmost = 0
-            val color = (((high shr bit) and 1) shl 1) or ((low shr bit) and 1)
-            val pixel = color or paletteBit or priorityBit
-            // Fill-if-transparent merge (see class doc): existing opaque pixels are kept.
-            if (i < fifo.size) {
-                if (fifo.peek(i) and PIXEL_COLOR == 0) fifo.replace(i, pixel)
-            } else {
-                fifo.push(pixel)
-            }
-        }
+        val low = readTileByte(addr)                          // seam: VRAM bank
+        val high = readTileByte(addr + 1)
+        mergeRow(fifo, low, high)                             // seam: pack + priority rule
     }
+
+    /** Reads a sprite tile-data byte at [addr] (bank 0 on DMG; attribute-selected bank on CGB). */
+    protected abstract fun readTileByte(addr: Int): Int
+
+    /** Packs the 8 pixels from [low]/[high] and merges them into [fifo] per the hardware's rule. */
+    protected abstract fun mergeRow(fifo: PixelFifo, low: Int, high: Int)
 
     companion object {
         // TODO: stand-in duration; pin against the sprite-timing oracles + simulator.
@@ -80,14 +70,8 @@ class SpriteFetcher(private val bus: Bus) {
         private const val REG_LCDC = 0xFF40
         private const val LCDC_OBJ_SIZE = 0x04   // LCDC.2: 0 = 8x8, 1 = 8x16
 
-        private const val ATTR_PRIORITY = 0x80   // attribute bit 7: 1 = behind BG colours 1-3
-        private const val ATTR_Y_FLIP = 0x40     // attribute bit 6
-        private const val ATTR_X_FLIP = 0x20     // attribute bit 5
-        private const val ATTR_PALETTE = 0x10    // attribute bit 4: 0 = OBP0, 1 = OBP1 (DMG)
-
-        // Packed sprite-pixel layout (shared with the mixer in Ppu).
-        const val PIXEL_COLOR = 0x03
-        const val PIXEL_PALETTE = 0x04
-        const val PIXEL_PRIORITY = 0x08
+        protected const val ATTR_PRIORITY = 0x80 // attribute bit 7: OBJ-behind-BG
+        protected const val ATTR_Y_FLIP = 0x40   // attribute bit 6
+        protected const val ATTR_X_FLIP = 0x20   // attribute bit 5
     }
 }

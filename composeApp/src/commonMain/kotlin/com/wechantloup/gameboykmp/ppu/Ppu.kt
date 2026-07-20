@@ -81,7 +81,10 @@ class Ppu(private val bus: Bus) {
 
     // Mode 3 sprite pipeline (DMG). The sprite FIFO is an 8-wide window aligned to lcdX.
     private val spriteFifo = PixelFifo(SPRITE_FIFO_CAPACITY)
-    private val spriteFetcher = SpriteFetcher(bus)
+    private val spriteFetcher: SpriteFetcher = when (machineMode) {
+        MachineMode.CGB -> SpriteFetcherCgb(bus)
+        else -> SpriteFetcherDmg(bus)   // DMG and CGB_COMPAT share the DMG-shaped sprite fetch
+    }
     private var fetchingSprite = false                        // a sprite fetch is in progress (BG paused)
     private val spriteFetched = BooleanArray(MAX_SPRITES_PER_LINE)  // which selected sprites are done
 
@@ -261,11 +264,11 @@ class Ppu(private val bus: Bus) {
     private fun mixDmg(bgIndex: Int, spritePixel: Int): Int {
         // LCDC.0 = 0 on DMG blanks BG and window (forced to colour 0); sprites are unaffected.
         val bg = if (bgEnabled()) bgIndex else 0
-        val spriteColor = spritePixel and SpriteFetcher.PIXEL_COLOR
-        if (spriteColor != 0 && objEnabled()) {                // opaque sprite pixel, OBJ on
-            val behind = spritePixel and SpriteFetcher.PIXEL_PRIORITY != 0
-            if (!(behind && bg != 0)) {                        // sprite wins unless behind an opaque BG
-                val obp = if (spritePixel and SpriteFetcher.PIXEL_PALETTE != 0) bus.read(REG_OBP1)
+        val spriteColor = spritePixel and SpriteFetcherDmg.PIXEL_COLOR
+        if (spriteColor != 0 && objEnabled()) {
+            val behind = spritePixel and SpriteFetcherDmg.PIXEL_PRIORITY != 0
+            if (!(behind && bg != 0)) {
+                val obp = if (spritePixel and SpriteFetcherDmg.PIXEL_PALETTE != 0) bus.read(REG_OBP1)
                 else bus.read(REG_OBP0)
                 return (obp shr (spriteColor * 2)) and 0x03
             }
@@ -274,15 +277,27 @@ class Ppu(private val bus: Bus) {
         return (bgp shr (bg * 2)) and 0x03
     }
 
-    /** CGB mixer. Step (1): BG only — a direct CRAM lookup, no BGP. */
+    /**
+     * CGB mixer. BG always renders; OBJ is gated by LCDC.1. LCDC.0 is the master BG/OBJ priority
+     * (NOT enable): when 0, sprites always win. When 1, BG colours 1-3 win over the sprite if either
+     * the BG attribute priority (bit 7) or the OBJ priority (bit 7) is set. Output is RGB555 via CRAM.
+     */
     private fun mixCgb(bgPixel: Int, spritePixel: Int): Int {
-        // TODO (step 2, CGB sprites): resolve spritePixel with the CGB master-priority table
-        //  (LCDC.0 master + BG attr.7 + OBJ attr.7). BG-only for now, so CGB sprites are not yet
-        //  displayed — not a regression (CGB rendered nothing before this step). LCDC.0 is master
-        //  priority on CGB (not BG enable), so with no sprites it has no visible effect here.
         val bgc = bgPixel and CgbPixel.COLOR
+        val objc = spritePixel and CgbPixel.COLOR
+        if (objc != 0 && objEnabled()) {
+            // LCDC.0 on CGB = master priority (reuses the LCDC_BG_ENABLE bit, different meaning).
+            val masterPriority = bus.read(REG_LCDC) and LCDC_BG_ENABLE != 0
+            val bgPriority = bgPixel and CgbPixel.PRIORITY != 0       // BG attr.7: BG-over-OBJ
+            val objBehind = spritePixel and CgbPixel.PRIORITY != 0    // OBJ attr.7: OBJ-behind-BG
+            val bgWins = masterPriority && bgc != 0 && (bgPriority || objBehind)
+            if (!bgWins) {
+                val objPal = (spritePixel shr CgbPixel.PALETTE_SHIFT) and 0x07
+                return bus.objColorRgb555(objPal, objc)
+            }
+        }
         val bgPal = (bgPixel shr CgbPixel.PALETTE_SHIFT) and 0x07
-        return bus.bgColorRgb555(bgPal, bgc)   // frameBuffer holds RGB555 on CGB (ViewModel contract)
+        return bus.bgColorRgb555(bgPal, bgc)
     }
 
     /**

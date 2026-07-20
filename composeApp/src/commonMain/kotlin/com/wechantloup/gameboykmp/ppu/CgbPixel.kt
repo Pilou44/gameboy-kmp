@@ -1,17 +1,12 @@
-package com.wechantloup.gameboykmp.ppu
-
-/**
- * Packed pixel layout for CGB (shared by the BG fetcher, the sprite fetcher and the mixer — a
- * single source of truth for the bit layout). One pixel fits in an Int:
- *   - bits 0-1 : colour index 0-3 (0 = transparent for sprites; a real colour for BG)
- *   - bits 2-4 : CGB palette 0-7
- *   - bit 5    : priority flag = attribute bit 7. Its meaning is layer-dependent and resolved in
- *                the mixer: for BG it is "BG-over-OBJ"; for a sprite it is "OBJ-behind-BG".
- *
- * The BG/sprite distinction is known from which FIFO a pixel came from, so it needs no bit here.
- */
 object CgbPixel {
     const val COLOR = 0x03
-    const val PALETTE_SHIFT = 2
-    const val PRIORITY = 0x20   // bit 5
+    const val PALETTE_SHIFT = 2      // bits 2-4: CGB palette 0-7
+    const val PRIORITY = 0x20        // bit 5: attribute bit 7 (BG: BG-over-OBJ; OBJ: OBJ-behind-BG)
+
+    // Sprite-only FIFO merge tag: the OAM index (0-39) of the sprite that placed the pixel. Rides
+    // in the pixel Int so it stays aligned through the sliding sprite FIFO for free; the mixer never
+    // reads it. Models the per-pixel priority the hardware OBJ FIFO must carry to resolve CGB
+    // OAM-priority when sprites arrive out of index order (X-triggered fetch).
+    const val OAM_INDEX_SHIFT = 6    // bits 6-11
+    const val OAM_INDEX_MASK = 0x3F
 }
