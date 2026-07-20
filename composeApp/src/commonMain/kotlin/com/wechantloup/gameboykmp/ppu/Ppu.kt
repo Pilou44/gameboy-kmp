@@ -301,15 +301,31 @@ class Ppu(private val bus: Bus) {
     }
 
     /**
-     * CGB_COMPAT mixer: a DMG game on CGB hardware — DMG-style priority, but RGB555 output via CRAM.
-     * BG index is remapped by BGP then looked up in CRAM palette 0; sprites by OBP0/OBP1 then CRAM
-     * OBJ palette 0/1. Structurally present so this mode is not forgotten (per project rule);
-     * implemented in its own slot, after CGB proper.
-     * TODO (CGB_COMPAT): implement per the description above. Verify vs Pan Docs that BGP/OBP stay
-     *  live in compat (expected yes) and that LCDC.0 is enable here (expected, DMG semantics).
+     * CGB_COMPAT mixer: a DMG game on CGB hardware. Priority is pure DMG (DMG fetchers; OPRI = 1, so
+     * sprite priority is smaller-X-wins) and LCDC.0 is DMG BG-enable. BGP/OBP still remap the 2-bit
+     * index live, so DMG palette animation works. The only difference from mixDmg is the final encode:
+     * the DMG shade indexes CGB palette RAM — BG palette 0, OBJ palette 0/1 (from OBP0/OBP1) — to
+     * produce RGB555, which the boot ROM's compat palettes colour. Reads DMG-format pixels (DMG
+     * fetchers), so it uses the SpriteFetcherDmg layout, not CgbPixel.
+     * TODO: LCDC.0 is assumed DMG-enable here; validated by dmg-acid2 run in CGB_COMPAT. Revisit vs
+     *  Pan Docs only if a game shows BG where it should be blank.
      */
-    private fun mixCgbCompat(bgPixel: Int, spritePixel: Int): Int {
-        TODO("CGB_COMPAT mixer — implemented after CGB proper (see step order)")
+    private fun mixCgbCompat(bgIndex: Int, spritePixel: Int): Int {
+        val bg = if (bgEnabled()) bgIndex else 0                       // LCDC.0 = DMG BG enable
+        val spriteColor = spritePixel and SpriteFetcherDmg.PIXEL_COLOR // raw colour: transparency test
+        if (spriteColor != 0 && objEnabled()) {
+            val behind = spritePixel and SpriteFetcherDmg.PIXEL_PRIORITY != 0
+            if (!(behind && bg != 0)) {                               // sprite wins unless behind opaque BG
+                val useObp1 = spritePixel and SpriteFetcherDmg.PIXEL_PALETTE != 0
+                val obp = if (useObp1) bus.read(REG_OBP1) else bus.read(REG_OBP0)
+                val shade = (obp shr (spriteColor * 2)) and 0x03      // OBP remap, then CRAM
+                val objPalette = if (useObp1) 1 else 0                // OBP0 -> OBJ palette 0, OBP1 -> 1
+                return bus.objColorRgb555(objPalette, shade)
+            }
+        }
+        val bgp = bus.read(REG_BGP)
+        val shade = (bgp shr (bg * 2)) and 0x03
+        return bus.bgColorRgb555(0, shade)  // compat BG always uses CRAM palette 0
     }
 
     /** First not-yet-fetched selected sprite that starts at [x], scanned in OAM order, or -1. */
