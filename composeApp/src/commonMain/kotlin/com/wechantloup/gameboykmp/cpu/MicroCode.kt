@@ -958,10 +958,10 @@ object MicroCode {
             MicroOp.ZtoReg(Reg8.L),
         )
         this[0x7E] = arrayOf(   // LD A,(HL)
-            MicroOp.ReadMem(Addr16.HL, Latch.Z),
             MicroOp.Idle,
             MicroOp.Idle,
-            MicroOp.ZtoReg(Reg8.A),
+            MicroOp.Idle,
+            MicroOp.ReadMemToReg(Addr16.HL, Reg8.A),
         )
 
         this[0x70] = arrayOf(   // LD (HL),B

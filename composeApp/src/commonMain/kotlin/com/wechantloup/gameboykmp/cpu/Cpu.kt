@@ -257,7 +257,20 @@ class Cpu(
                 registers.pc = (registers.pc + 1) and 0xFFFF
                 setLatch(op.into, v)
             }
-            is MicroOp.ReadMem  -> setLatch(op.into, bus.read(addr16(op.addr)))
+            is MicroOp.ReadMem -> setLatch(op.into, bus.read(addr16(op.addr)))
+            is MicroOp.ReadMemToReg -> {
+                val value = bus.read(addr16(op.addr))
+                when (op.into) {
+                    Reg8.A -> registers.a = value
+                    Reg8.B -> registers.b = value
+                    Reg8.C -> registers.c = value
+                    Reg8.D -> registers.d = value
+                    Reg8.E -> registers.e = value
+                    Reg8.F -> registers.f = value and 0xF0
+                    Reg8.H -> registers.h = value
+                    Reg8.L -> registers.l = value
+                }
+            }
             is MicroOp.WriteMem -> bus.write(addr16(op.addr), src8(op.value))
             is MicroOp.ZtoReg -> when (op.dst) {
                 Reg8.A -> registers.a = latchZ

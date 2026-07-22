@@ -21,6 +21,9 @@ sealed interface MicroOp {
     /** Read [addr] into a latch. */
     data class ReadMem(val addr: Addr16, val into: Latch) : MicroOp
 
+    /** Read [addr] into a register. */
+    data class ReadMemToReg(val addr: Addr16, val into: Reg8) : MicroOp
+
     /** Write value -> [addr]. */
     data class WriteMem(val addr: Addr16, val value: Src8) : MicroOp
 
