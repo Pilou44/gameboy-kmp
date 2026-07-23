@@ -136,6 +136,9 @@ class Bus(
     // internalRam[0xFF41] = 0x85 did. With a boot ROM present the boot code drives the mode.
     var ppuLy: Int = 0                                       // LY (0xFF44), pushed by the PPU
     var ppuMode: Int = if (bootRom == null) 1 else 0         // mode 0-3, gates access, projected into STAT
+    // Coincidence flip-flop (STAT bit 2), pushed by the PPU. NOT derived here: the comparison clock
+    // runs only while the LCD is on, so with the LCD off this retains its last value (stat_lyc_onoff).
+    var ppuCoincidence: Boolean = false
 
 
     /**
@@ -264,10 +267,10 @@ class Bus(
             0xFF07 -> internalRam[0xFF07] or 0xF8  // TAC: bits 7-3 always read as 1 on DMG
             0xFF41 -> {
                 // STAT composed live — one authority per zone, nothing mirrored:
-                //   bits 3-6 enables (CPU-written, stored) | bit 2 coincidence (derived) |
+                //   bits 3-6 enables (CPU-written, stored) | bit 2 coincidence (pushed by the PPU) |
                 //   bits 0-1 mode (from ppuMode) | bit 7 always 1.
                 val enables = internalRam[0xFF41] and 0x78
-                val coincidence = if (ppuLy == internalRam[0xFF45]) 0x04 else 0
+                val coincidence = if (ppuCoincidence) 0x04 else 0
                 enables or coincidence or ppuMode or 0x80
             }
             0xFF44 -> ppuLy            // LY: live projection, like 0xFF04 -> sysCounter ushr 8

@@ -402,11 +402,13 @@ class Ppu(private val bus: Bus) {
      */
     private fun updateStatLine() {
         val stat = bus.read(REG_STAT)
+        val coincidence = bus.ppuLy == bus.read(REG_LYC)
+        bus.ppuCoincidence = coincidence          // push the flip-flop; frozen while the LCD is off
         val level =
             (mode == Mode.HBLANK   && stat and STAT_MODE0_IRQ != 0) ||
                     (mode == Mode.VBLANK   && stat and STAT_MODE1_IRQ != 0) ||
                     (mode == Mode.OAM_SCAN && stat and STAT_MODE2_IRQ != 0) ||
-                    (bus.ppuLy == bus.read(REG_LYC) && stat and STAT_LYC_IRQ != 0)
+                    (coincidence           && stat and STAT_LYC_IRQ   != 0)
 
         if (level && !statLine) requestStatIrq()   // rising edge only
         statLine = level
@@ -443,7 +445,6 @@ class Ppu(private val bus: Bus) {
         windowLine = 0
         wyConditionMet = false
         windowActiveThisLine = false
-        statLine = false
     }
 
     private fun powerOffLcd() {
@@ -456,7 +457,6 @@ class Ppu(private val bus: Bus) {
         bus.ppuLy = 0
         // The STAT line is dead while the LCD is off: no source can be asserted, so the level drops
         // to false. Clearing it here is what makes the next power-on able to produce a rising edge.
-        statLine = false
         // TODO (LCD-off screen clear): fill frameBuffer with the white shade and emit one frame so
         //  the panel clears, as hardware does. Pending confirmation of the white index in dmgPalette.
     }
