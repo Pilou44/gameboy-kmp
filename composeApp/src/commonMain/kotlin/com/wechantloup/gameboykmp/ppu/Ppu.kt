@@ -62,6 +62,9 @@ class Ppu(private val bus: Bus) {
     private var lcdOn = false       // tracks LCDC.7 edges for power on/off
     private var justPoweredOn = false // one-shot: line 0 after LCD enable skips mode 2 (LCD-on quirk)
     private var dotDivider = false  // double-speed dot divider phase
+    // The STAT interrupt line: OR of all enabled sources. IF is armed only on its rising edge
+    // (STAT blocking). Stored because the edge needs the previous level, not because it mirrors state.
+    private var statLine = false
 
     // Mode 2 output: the sprites on the current line, in OAM order. Pooled (allocated once, reused
     // each line) so building the list costs nothing. Consumed by the mode-3 sprite fetch (later).
@@ -178,6 +181,8 @@ class Ppu(private val bus: Bus) {
 
         lineDot++
         if (lineDot == DOTS_PER_LINE) endOfLine()
+
+        updateStatLine()
     }
 
     private fun endOfLine() {
@@ -208,7 +213,7 @@ class Ppu(private val bus: Bus) {
         spriteCount = 0
         // WY is a per-frame latch: once LY reaches WY, the window may start on this and later lines.
         if (line == bus.read(REG_WY)) wyConditionMet = true
-        if (statEnabled(STAT_MODE2_IRQ)) requestStatIrq()
+//        if (statEnabled(STAT_MODE2_IRQ)) requestStatIrq()
     }
 
     /** Selects OAM entry [index] into the per-line list if it covers this line and there is room. */
@@ -356,7 +361,7 @@ class Ppu(private val bus: Bus) {
         setMode(Mode.HBLANK)
         // The window's Y counter advances only on lines where the window was actually drawn.
         if (windowActiveThisLine) windowLine++
-        if (statEnabled(STAT_MODE0_IRQ)) requestStatIrq()
+//        if (statEnabled(STAT_MODE0_IRQ)) requestStatIrq()
         // Mode 3 -> 0 edge = exactly one HBlank per visible line. The Bus pumps one HBlank-DMA
         // block here if a transfer is active (no-op otherwise); it stays ignorant of the PPU.
         bus.stepHblankDma()
@@ -365,30 +370,52 @@ class Ppu(private val bus: Bus) {
     private fun enterVBlank() {
         setMode(Mode.VBLANK)
         requestVBlankIrq()                                 // IF bit 0 — always, on line 144 entry
-        if (statEnabled(STAT_MODE1_IRQ)) requestStatIrq()   // STAT mode-1 source
+//        if (statEnabled(STAT_MODE1_IRQ)) requestStatIrq()   // STAT mode-1 source
     }
 
     // ----- LY projection + interrupts -----
 
     private fun pushLy(value: Int) {
         bus.ppuLy = value
-        checkLycInterrupt(value)
+//        checkLycInterrupt(value)
     }
 
-    private fun checkLycInterrupt(visibleLy: Int) {
-        // Simple event-based coincidence: fire when the freshly visible LY equals LYC and the
-        // LYC STAT source is enabled.
-        // TODO (STAT IRQ phase): replace the per-source event firing here and in enterX() with a
-        //  single rising-edge check on the combined STAT line (STAT blocking). The naive version
-        //  can double-fire when sources overlap; a previous rising-edge attempt caused regressions
-        //  and was reverted — revisit with mooneye stat_irq.
-        if (visibleLy == bus.read(REG_LYC) && statEnabled(STAT_LYC_IRQ)) requestStatIrq()
-    }
+//    private fun checkLycInterrupt(visibleLy: Int) {
+//        // Simple event-based coincidence: fire when the freshly visible LY equals LYC and the
+//        // LYC STAT source is enabled.
+//        // TODO (STAT IRQ phase): replace the per-source event firing here and in enterX() with a
+//        //  single rising-edge check on the combined STAT line (STAT blocking). The naive version
+//        //  can double-fire when sources overlap; a previous rising-edge attempt caused regressions
+//        //  and was reverted — revisit with mooneye stat_irq.
+//        if (visibleLy == bus.read(REG_LYC) && statEnabled(STAT_LYC_IRQ)) requestStatIrq()
+//    }
 
     private fun statEnabled(mask: Int): Boolean = bus.read(REG_STAT) and mask != 0
 
     private fun requestVBlankIrq() { bus.setIF(bus.iF or IF_VBLANK) }
     private fun requestStatIrq() { bus.setIF(bus.iF or IF_STAT) }
+
+    /**
+     * Recomputes the combined STAT interrupt line and arms IF on its rising edge only.
+     * Hardware has a single line, not four independent events: while it is already high, another
+     * source going high fires nothing. This is what stat_irq_blocking measures.
+     */
+    private fun updateStatLine() {
+        val stat = bus.read(REG_STAT)
+        val level =
+            (mode == Mode.HBLANK   && stat and STAT_MODE0_IRQ != 0) ||
+                    (mode == Mode.VBLANK   && stat and STAT_MODE1_IRQ != 0) ||
+                    (mode == Mode.OAM_SCAN && stat and STAT_MODE2_IRQ != 0) ||
+                    (bus.ppuLy == bus.read(REG_LYC) && stat and STAT_LYC_IRQ != 0)
+
+        if (level && !statLine) requestStatIrq()   // rising edge only
+        statLine = level
+
+        // TODO (STAT, line 144): on DMG the mode-2 source also fires on the VBlank entry line.
+        //  Not modelled here; revisit if vblank_stat_intr stays red once blocking is in.
+        // TODO (STAT, perf): two Bus reads per dot. Acceptable while validating; fold into a cached
+        //  STAT/LYC snapshot invalidated on write once the behaviour is pinned by the oracles.
+    }
 
     // ----- LCD power on/off -----
 
@@ -416,6 +443,7 @@ class Ppu(private val bus: Bus) {
         windowLine = 0
         wyConditionMet = false
         windowActiveThisLine = false
+        statLine = false
     }
 
     private fun powerOffLcd() {
@@ -426,6 +454,9 @@ class Ppu(private val bus: Bus) {
         lineDot = 0
         setMode(Mode.HBLANK)
         bus.ppuLy = 0
+        // The STAT line is dead while the LCD is off: no source can be asserted, so the level drops
+        // to false. Clearing it here is what makes the next power-on able to produce a rising edge.
+        statLine = false
         // TODO (LCD-off screen clear): fill frameBuffer with the white shade and emit one frame so
         //  the panel clears, as hardware does. Pending confirmation of the white index in dmgPalette.
     }
