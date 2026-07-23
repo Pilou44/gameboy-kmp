@@ -402,19 +402,27 @@ class Ppu(private val bus: Bus) {
      */
     private fun updateStatLine() {
         val stat = bus.read(REG_STAT)
+
         val coincidence = bus.ppuLy == bus.read(REG_LYC)
         bus.ppuCoincidence = coincidence          // push the flip-flop; frozen while the LCD is off
+
+        // DMG quirk: the mode-2 source also asserts at the start of line 144, when VBlank begins,
+        // even though the reported mode is 1. vblank_stat_intr-GS verifies that this STAT IRQ and the
+        // VBlank IRQ are raised at the same time. CGB/AGB do not do this, hence the machine-mode gate.
+        // TODO (STAT, line-144 width): this oracle pins only the START of the assertion. The 80-dot
+        //  width mirrors a normal mode 2 and is unverified; revisit if a STAT-blocking case disagrees.
+        val mode2Line144 = machineMode == MachineMode.DMG &&
+                line == VISIBLE_LINES && lineDot < OAM_SCAN_DOTS
+
         val level =
-            (mode == Mode.HBLANK   && stat and STAT_MODE0_IRQ != 0) ||
-                    (mode == Mode.VBLANK   && stat and STAT_MODE1_IRQ != 0) ||
-                    (mode == Mode.OAM_SCAN && stat and STAT_MODE2_IRQ != 0) ||
-                    (coincidence           && stat and STAT_LYC_IRQ   != 0)
+            (mode == Mode.HBLANK && stat and STAT_MODE0_IRQ != 0) ||
+                    (mode == Mode.VBLANK && stat and STAT_MODE1_IRQ != 0) ||
+                    ((mode == Mode.OAM_SCAN || mode2Line144) && stat and STAT_MODE2_IRQ != 0) ||
+                    (coincidence && stat and STAT_LYC_IRQ != 0)
 
         if (level && !statLine) requestStatIrq()   // rising edge only
         statLine = level
 
-        // TODO (STAT, line 144): on DMG the mode-2 source also fires on the VBlank entry line.
-        //  Not modelled here; revisit if vblank_stat_intr stays red once blocking is in.
         // TODO (STAT, perf): two Bus reads per dot. Acceptable while validating; fold into a cached
         //  STAT/LYC snapshot invalidated on write once the behaviour is pinned by the oracles.
     }
