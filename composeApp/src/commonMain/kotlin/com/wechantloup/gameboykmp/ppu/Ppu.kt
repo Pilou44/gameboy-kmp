@@ -2,7 +2,6 @@ package com.wechantloup.gameboykmp.ppu
 
 import com.wechantloup.gameboykmp.bus.Bus
 import com.wechantloup.gameboykmp.cpu.MachineMode
-import com.wechantloup.gameboykmp.logger.Logger
 import kotlinx.coroutines.channels.Channel
 
 /**
@@ -354,8 +353,6 @@ class Ppu(private val bus: Bus) {
     private fun bgEnabled(): Boolean = bus.read(REG_LCDC) and LCDC_BG_ENABLE != 0
 
     private fun enterHBlank() {
-        if (line == 1) Logger.debug(TAG, "mode0 entry: lineDot=$lineDot  scx7=${bus.read(REG_SCX) and 7}")
-
         setMode(Mode.HBLANK)
         // The window's Y counter advances only on lines where the window was actually drawn.
         if (windowActiveThisLine) windowLine++
@@ -444,8 +441,6 @@ class Ppu(private val bus: Bus) {
     }
 
     companion object {
-        private const val TAG = "Ppu"
-
         private const val SCREEN_WIDTH = 160
         private const val SCREEN_HEIGHT = 144
         private const val SCREEN_PIXELS = SCREEN_WIDTH * SCREEN_HEIGHT
