@@ -61,6 +61,7 @@ class Ppu(private val bus: Bus) {
     private var oamScanDot = 0      // dots elapsed in mode 2 (2 per OAM entry)
     private var drawingDone = false // the mode 3 -> 0 joint, driven by the shifter (160 px out)
     private var lcdOn = false       // tracks LCDC.7 edges for power on/off
+    private var justPoweredOn = false // one-shot: line 0 after LCD enable skips mode 2 (LCD-on quirk)
     private var dotDivider = false  // double-speed dot divider phase
 
     // Mode 2 output: the sprites on the current line, in OAM order. Pooled (allocated once, reused
@@ -152,8 +153,19 @@ class Ppu(private val bus: Bus) {
                 if (drawingDone) enterHBlank()
             }
             Mode.HBLANK -> {
-                // Idle until the line ends. HBlank length is emergent: whatever remains of the
-                // 456 dots after mode 2 + mode 3 — never computed, just what's left.
+                // Normally passive: HBlank length is emergent, whatever remains of the 456 dots after
+                // mode 2 + mode 3 — never computed, just what is left.
+                // LCD-on quirk only: on the first line after enable there is no mode 2, so this mode-0
+                // window drives the line. Count a normal mode-2-length slot (mirroring OAM_SCAN's dot
+                // alignment via oamScanDot), then hand over to mode 3 directly. One-shot: cleared here so
+                // lines 1+ take the normal enterOamScan() path.
+                if (justPoweredOn) {
+                    oamScanDot++
+                    if (oamScanDot == OAM_SCAN_DOTS) {
+                        justPoweredOn = false
+                        enterDrawing()
+                    }
+                }
             }
             Mode.VBLANK -> {
                 // Idle. The whole line is mode 1.
@@ -389,13 +401,20 @@ class Ppu(private val bus: Bus) {
         line = 0
         lineDot = 0
         drawingDone = false
-        // Start a fresh frame at the top: line 0, mode 2. No interrupt is fired on enable.
-        // (The Bus seeds ppuMode = 1 post-boot only to cover reads before this first tick.)
-        // TODO (lcd-on quirk, deferred): the first frame after enabling the LCD is special —
-        //  mode 3 on the first line is shorter and mode timing is shifted. Pin later with
-        //  lcdon_timing + the Python simulator; the FSM starts a normal frame for now.
-        setMode(Mode.OAM_SCAN)
-        oamScanDot = 0
+        // LCD-on quirk (verified against lcdon_timing-GS): the first line after the LCD is enabled
+        // has NO mode 2. It reports mode 0 with OAM and VRAM readable, then goes straight to mode 3.
+        // The mode-0 window is exactly a normal mode-2 slot long (OAM_SCAN_DOTS); the only difference
+        // is that OAM is not scanned (so no sprites are selected for line 0) and access is not locked.
+        // Mode 3 then runs the normal emergent pipeline — no compensation constant. No IRQ on enable.
+        // TODO (lcd-on, sub-dot): hardware is ~2 T-cycles "late" on line 0. That shift is below this
+        //  oracle's M-cycle sampling and is NOT modelled here; it surfaces as the horizontal pixel
+        //  offset tracked under cluster C and must be pinned there, never as a magic offset.
+        // TODO (lcd-on, STAT): confirm whether enabling into mode 0 should raise a mode-0 STAT IRQ.
+        //  Not exercised by lcdon_timing; left silent (setMode, not enterHBlank) until an oracle covers it.
+        justPoweredOn = true
+        setMode(Mode.HBLANK)   // mode 0 -> OAM/VRAM readable via the Bus mode gating; no scan, no lock
+        oamScanDot = 0         // reused below as the line-0 mode-0 window counter
+        spriteCount = 0        // no OAM scan on line 0: the sprite list is empty for the first line
         bus.ppuLy = 0
         windowLine = 0
         wyConditionMet = false
