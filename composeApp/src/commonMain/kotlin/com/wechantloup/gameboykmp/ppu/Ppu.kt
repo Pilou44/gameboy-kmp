@@ -471,10 +471,17 @@ class Ppu(private val bus: Bus) {
         lineDot = 0
         setMode(Mode.HBLANK)
         bus.ppuLy = 0
-        // The STAT line is dead while the LCD is off: no source can be asserted, so the level drops
-        // to false. Clearing it here is what makes the next power-on able to produce a rising edge.
-        // TODO (LCD-off screen clear): fill frameBuffer with the white shade and emit one frame so
-        //  the panel clears, as hardware does. Pending confirmation of the white index in dmgPalette.
+        // NOTE: statLine is deliberately NOT reset. The STAT logic is frozen with the LCD, like the
+        // coincidence flip-flop: stat_lyc_onoff round 2 requires that a line already high stays high
+        // across an off/on cycle (no spurious edge), and round 4 that a low line can still rise.
+
+        // Blanking is a panel property, not a PPU value: the DMG's reflective STN panel goes blank
+        // (shade 0) when undriven, the CGB's backlit TFT goes black. The buffer holds DMG shades or
+        // RGB555 accordingly. One frame is emitted so the consumer repaints; without it the last drawn
+        // frame stays on screen (daid stop_instr).
+        val blank = if (machineMode == MachineMode.DMG) 0 else 0x0000
+        frameBuffer.fill(blank)
+        frameChannel.trySend(frameBuffer.copyOf())
     }
 
     private fun frameComplete() {
