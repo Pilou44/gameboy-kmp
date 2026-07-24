@@ -33,7 +33,10 @@ abstract class SpriteFetcher(protected val bus: Bus) {
         spriteTile = sprite.tile
         spriteAttributes = sprite.attributes
         spriteOamIndex = sprite.oamIndex
-        dotsLeft = SPRITE_FETCH_DOTS
+        // The fetch occupies SPRITE_FETCH_DOTS dots in total, and the dot that triggers it is already
+        // the first of them: the shifter is stalled on that dot (no pixel output), so only the remaining
+        // dots are counted here. Measured against intr_2_mode0_timing_sprites: 6 dots per sprite.
+        dotsLeft = SPRITE_FETCH_DOTS - 1
     }
 
     /** Advances the fetch one dot. Returns true on the dot it completes (pixels merged into [fifo]). */

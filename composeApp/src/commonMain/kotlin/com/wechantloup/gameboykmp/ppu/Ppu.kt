@@ -136,19 +136,22 @@ class Ppu(private val bus: Bus) {
                 if (oamScanDot == OAM_SCAN_DOTS) enterDrawing()
             }
             Mode.DRAWING -> {
-                // One dot of mode 3. A sprite fetch pauses the BG fetcher and the shifter (the
-                // stall that grows mode 3 beyond 172 + SCX&7). Order per dot: finish an in-flight
-                // sprite fetch; else start one if a sprite begins here; else advance BG + shift.
+                // One dot of mode 3. A sprite fetch pauses the shifter (the stall that grows mode 3 beyond
+                // 172 + SCX&7). Order per dot: finish an in-flight sprite fetch; else advance the BG fetcher,
+                // then check for a sprite starting at the pixel about to be output. The check must come AFTER
+                // the fetcher tick: the push and the first shift land on the same dot, so testing the FIFO
+                // before the tick leaves no dot where lcdX = 0 with a non-empty FIFO — sprites at the left
+                // edge were unreachable (intr_2_mode0_timing_sprites #00).
                 if (fetchingSprite) {
                     if (spriteFetcher.tick(spriteFifo)) fetchingSprite = false
                 } else {
+                    bgFetcher.tick(bgFifo)
                     val due = if (objEnabled() && bgFifo.size > 0 && discard == 0) nextSpriteAt(lcdX) else -1
                     if (due >= 0) {
                         spriteFetched[due] = true
                         spriteFetcher.start(sprites[due], line)
-                        fetchingSprite = true
+                        fetchingSprite = true      // the shifter stalls: no pixel is output this dot
                     } else {
-                        bgFetcher.tick(bgFifo)
                         shiftPixel()
                     }
                 }
@@ -345,10 +348,15 @@ class Ppu(private val bus: Bus) {
         return bus.bgColorRgb555(0, shade)  // compat BG always uses CRAM palette 0
     }
 
-    /** First not-yet-fetched selected sprite that starts at [x], scanned in OAM order, or -1. */
     private fun nextSpriteAt(x: Int): Int {
         for (i in 0 until spriteCount) {
-            if (!spriteFetched[i] && sprites[i].x - 8 == x) return i
+            if (spriteFetched[i]) continue
+            // Hardware matches the OAM X against the fetcher position. Sprites clipped on the left
+            // (X < 8, i.e. a negative screen X) are still fetched, all of them at lcdX = 0: they cost
+            // mode-3 time even though none of their pixels is visible. Verified by
+            // intr_2_mode0_timing_sprites case #00 (one sprite at X=0 costs 2 extra M-cycles).
+            val screenX = sprites[i].x - 8
+            if (screenX == x || (x == 0 && screenX < 0)) return i
         }
         return -1
     }
