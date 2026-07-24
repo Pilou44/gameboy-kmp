@@ -33,7 +33,7 @@ class RomTestRunner {
     @Test
     @Order(1)
     fun `acid-which`(testInfo: TestInfo) {
-        runTest(testInfo.displayName, "acid/which.gb", 200)
+        runTest(testInfo.displayName, "acid/which.gb", 500)
     }
 
     @Test

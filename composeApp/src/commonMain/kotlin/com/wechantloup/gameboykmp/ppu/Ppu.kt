@@ -2,6 +2,7 @@ package com.wechantloup.gameboykmp.ppu
 
 import com.wechantloup.gameboykmp.bus.Bus
 import com.wechantloup.gameboykmp.cpu.MachineMode
+import com.wechantloup.gameboykmp.logger.Logger
 import kotlinx.coroutines.channels.Channel
 
 /**
@@ -470,6 +471,8 @@ class Ppu(private val bus: Bus) {
         windowLine = 0
         wyConditionMet = false
         windowActiveThisLine = false
+
+        Logger.debug("Ppu", "line0 starts at sysCounter=${bus.sysCounter}")   // via bus.sysCounter
     }
 
     private fun powerOffLcd() {
@@ -521,7 +524,7 @@ class Ppu(private val bus: Bus) {
         // TODO: pin against mooneye ppu ly/lyc-153 timing + the Python simulator.
         private const val LY153_VISIBLE_DOTS = 4
 
-        private const val LY_LEAD_DOTS = 4   // LY becomes readable one M-cycle before the line ends
+        private const val LY_LEAD_DOTS = 5   // LY becomes readable one M-cycle before the line ends
 
         // LCDC / STAT bit masks
         private const val LCDC_ENABLE = 0x80     // LCDC.7: LCD & PPU enable

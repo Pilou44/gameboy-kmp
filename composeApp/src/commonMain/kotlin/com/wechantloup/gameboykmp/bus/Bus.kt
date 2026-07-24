@@ -4,6 +4,7 @@ import com.wechantloup.gameboykmp.cartridge.Cartridge
 import com.wechantloup.gameboykmp.cpu.CpuBus
 import com.wechantloup.gameboykmp.cpu.MachineMode
 import com.wechantloup.gameboykmp.joypad.JoypadButton
+import com.wechantloup.gameboykmp.logger.Logger
 import kotlin.concurrent.Volatile
 
 /**
@@ -28,6 +29,9 @@ class Bus(
     override val machineMode: MachineMode,
     override val bootRom: ByteArray?,
 ): CpuBus {
+    // TEMP (A measurement): dots between the LCD enable and the first reads of LY.
+    private var lcdEnableAt = 0
+    private var lcdonReadsLogged = 8
 
     private var bootRomEnabled: Boolean = bootRom != null
 
@@ -273,7 +277,13 @@ class Bus(
                 val coincidence = if (ppuCoincidence) 0x04 else 0
                 enables or coincidence or ppuMode or 0x80
             }
-            0xFF44 -> ppuLy            // LY: live projection, like 0xFF04 -> sysCounter ushr 8
+            0xFF44 -> {
+                if (lcdonReadsLogged < 24) {
+                    Logger.debug("Bus", "LY read +${(sysCounter - lcdEnableAt) and 0xFFFF} ly=$ppuLy")
+                    lcdonReadsLogged++
+                }
+                ppuLy
+            }            // LY: live projection, like 0xFF04 -> sysCounter ushr 8
             in 0xFF4C..0xFF7F -> 0xFF  // GBC registers and unused I/O, always read 0xFF on DMG
 
             // There's a hole in boot rom at addresses 0x0100..0x01FF to read cartridge
@@ -297,6 +307,12 @@ class Bus(
 
     override fun write(address: Int, value: Int) {
         val v = value and 0xFF
+
+        if (address == 0xFF40 && internalRam[0xFF40] and 0x80 == 0 && v and 0x80 != 0) {
+            Logger.debug("Bus", "LCD enable at sysCounter=$sysCounter")
+            lcdEnableAt = sysCounter          // rising edge of LCDC.7: line 0 starts here
+            lcdonReadsLogged = 0
+        }
 
         // CGB-only register writes are intercepted before the DMG path (same rationale
         // as read). v is the already-masked value.
