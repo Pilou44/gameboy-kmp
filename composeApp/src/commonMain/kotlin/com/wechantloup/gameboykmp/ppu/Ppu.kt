@@ -348,15 +348,18 @@ class Ppu(private val bus: Bus) {
         return bus.bgColorRgb555(0, shade)  // compat BG always uses CRAM palette 0
     }
 
+    /** First not-yet-fetched selected sprite that starts at [x], scanned in OAM order, or -1. */
+    // TODO (sprite left edge): sprites with OAM X < 8 have a negative screen X and are never matched
+    //  here, so they cost no mode-3 time. Hardware still fetches them. The oracle
+    //  intr_2_mode0_timing_sprites gives the target: a single sprite costs 8 - (X mod 8) dots
+    //  uniformly, including X < 8, and each further sprite at the same X costs 6. Reproducing that
+    //  needs the mode-3 loop rework (the shifter must keep running while the BG FIFO is fed), so the
+    //  left edge is left unhandled rather than approximated: a clamp to lcdX = 0 collapses X = 0..3
+    //  and X = 4..7 onto the same cost, and would also draw an off-screen sprite at columns 0..7.
     private fun nextSpriteAt(x: Int): Int {
         for (i in 0 until spriteCount) {
             if (spriteFetched[i]) continue
-            // Hardware matches the OAM X against the fetcher position. Sprites clipped on the left
-            // (X < 8, i.e. a negative screen X) are still fetched, all of them at lcdX = 0: they cost
-            // mode-3 time even though none of their pixels is visible. Verified by
-            // intr_2_mode0_timing_sprites case #00 (one sprite at X=0 costs 2 extra M-cycles).
-            val screenX = sprites[i].x - 8
-            if (screenX == x || (x == 0 && screenX < 0)) return i
+            if (sprites[i].x - 8 == x) return i
         }
         return -1
     }
