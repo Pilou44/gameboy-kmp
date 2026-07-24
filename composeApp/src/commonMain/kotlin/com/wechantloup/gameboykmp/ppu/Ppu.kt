@@ -72,6 +72,12 @@ class Ppu(private val bus: Bus) {
     private val sprites = Array(MAX_SPRITES_PER_LINE) { Sprite() }
     private var spriteCount = 0
 
+    // The LYC comparator is cleared while LY is in its lead window: LY already reads the next line,
+    // but the comparison is not re-evaluated until the true line boundary. Measured on lcdon_timing
+    // (dot 452 of a 456-dot line: coincidence is clear for BOTH LYC=0 and LYC=1, so the comparator
+    // is not holding the old line — it is blanked).
+    private var lycCompareEnabled = true
+
     private val machineMode = bus.machineMode
 
     // Mode 3 BG pipeline. The fetcher is chosen once per session; DMG and CGB_COMPAT share the
@@ -183,6 +189,7 @@ class Ppu(private val bus: Bus) {
         // Only the readable value leads — the mode transition stays in endOfLine() at dot 456.
         if (lineDot == DOTS_PER_LINE - LY_LEAD_DOTS) {
             pushLy(if (line + 1 == LINES_PER_FRAME) 0 else line + 1)
+            lycCompareEnabled = false          // LY leads, the comparison does not follow yet
         }
 
         // LY153 quirk: on the final line, LY reads 153 only briefly, then 0 for the rest of the
@@ -203,6 +210,7 @@ class Ppu(private val bus: Bus) {
             line = 0
             frameComplete()
         }
+        lycCompareEnabled = true               // true line boundary: the comparator reloads
         // LY is no longer pushed here: it was already published LY_LEAD_DOTS earlier.
         when {
             line < VISIBLE_LINES -> enterOamScan()
@@ -421,7 +429,7 @@ class Ppu(private val bus: Bus) {
     private fun updateStatLine() {
         val stat = bus.read(REG_STAT)
 
-        val coincidence = bus.ppuLy == bus.read(REG_LYC)
+        val coincidence = lycCompareEnabled && bus.ppuLy == bus.read(REG_LYC)
         bus.ppuCoincidence = coincidence          // push the flip-flop; frozen while the LCD is off
 
         // DMG quirk: the mode-2 source also asserts at the start of line 144, when VBlank begins,
