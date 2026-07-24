@@ -177,6 +177,13 @@ class Ppu(private val bus: Bus) {
             }
         }
 
+        // LY leads the line boundary by one M-cycle: measured on lcdon_timing (at dot 452 of a 456-dot
+        // line, LY already reads the next line while STAT still reports the current line's mode 0).
+        // Only the readable value leads — the mode transition stays in endOfLine() at dot 456.
+        if (lineDot == DOTS_PER_LINE - LY_LEAD_DOTS) {
+            pushLy(if (line + 1 == LINES_PER_FRAME) 0 else line + 1)
+        }
+
         // LY153 quirk: on the final line, LY reads 153 only briefly, then 0 for the rest of the
         // line (still in VBlank). Structure in place; exact timing to pin.
         // TODO: pin LY153_VISIBLE_DOTS against mooneye ppu (ly / lyc-153 timing) + the Python sim.
@@ -195,11 +202,10 @@ class Ppu(private val bus: Bus) {
             line = 0
             frameComplete()
         }
-        pushLy(line)
+        // LY is no longer pushed here: it was already published LY_LEAD_DOTS earlier.
         when {
-            line < VISIBLE_LINES -> enterOamScan()   // lines 0..143 draw: start mode 2
-            line == VISIBLE_LINES -> enterVBlank()    // line 144: enter VBlank
-            // lines 145..153: already in VBlank (mode stays 1), nothing to change
+            line < VISIBLE_LINES -> enterOamScan()
+            line == VISIBLE_LINES -> enterVBlank()
         }
     }
 
@@ -514,6 +520,8 @@ class Ppu(private val bus: Bus) {
         // LY153 quirk: how long LY still reads 153 at the start of the last line before reading 0.
         // TODO: pin against mooneye ppu ly/lyc-153 timing + the Python simulator.
         private const val LY153_VISIBLE_DOTS = 4
+
+        private const val LY_LEAD_DOTS = 4   // LY becomes readable one M-cycle before the line ends
 
         // LCDC / STAT bit masks
         private const val LCDC_ENABLE = 0x80     // LCDC.7: LCD & PPU enable
