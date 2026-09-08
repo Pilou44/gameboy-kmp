@@ -72,10 +72,8 @@ class Ppu(private val bus: Bus) {
     private val sprites = Array(MAX_SPRITES_PER_LINE) { Sprite() }
     private var spriteCount = 0
 
-    // The LYC comparator is cleared while LY is in its lead window: LY already reads the next line,
-    // but the comparison is not re-evaluated until the true line boundary. Measured on lcdon_timing
-    // (dot 452 of a 456-dot line: coincidence is clear for BOTH LYC=0 and LYC=1, so the comparator
-    // is not holding the old line — it is blanked).
+    // Blanks the CPU-readable coincidence flag (STAT bit 2) during the LY lead window; see updateStatLine.
+    // Does NOT gate the STAT interrupt's LYC source.
     private var lycCompareEnabled = true
 
     private val machineMode = bus.machineMode
@@ -429,14 +427,25 @@ class Ppu(private val bus: Bus) {
     private fun updateStatLine() {
         val stat = bus.read(REG_STAT)
 
-        val coincidence = lycCompareEnabled && bus.ppuLy == bus.read(REG_LYC)
-        bus.ppuCoincidence = coincidence          // push the flip-flop; frozen while the LCD is off
+        // Two consumers of the LY == LYC comparison, and the LY lead window treats them differently:
+        //
+        //  - The CPU-readable coincidence flag (STAT bit 2) is BLANKED during the lead window.
+        //    Measured on lcdon_timing (dot 452: the flag reads clear for BOTH LYC=0 and LYC=1 while
+        //    LY already leads to the next line). lycCompareEnabled gates this one.
+        //
+        //  - The STAT interrupt line's LYC source is NOT blanked. The line is edge-triggered (STAT
+        //    blocking), so a transient blank injects a phantom falling+rising edge. At the 153->0
+        //    wrap LY reads 0 continuously (LY153 quirk) with LYC=0, so this source must stay HIGH
+        //    across the boundary to block the line-0 mode-2 source. Blanking it there re-armed mode 2
+        //    as a fresh edge -> a spurious STAT IRQ that shifted ppu_scanline_bgp's frame sync down
+        //    by one line. Verified: gating only the readable flag keeps lcdon_timing (flag) AND
+        //    ppu_scanline_bgp (blocking) green at once.
+        val lyMatchesLyc = bus.ppuLy == bus.read(REG_LYC)
+        bus.ppuCoincidence = lycCompareEnabled && lyMatchesLyc   // readable flag: blanked in lead window
 
         // DMG quirk: the mode-2 source also asserts at the start of line 144, when VBlank begins,
         // even though the reported mode is 1. vblank_stat_intr-GS verifies that this STAT IRQ and the
         // VBlank IRQ are raised at the same time. CGB/AGB do not do this, hence the machine-mode gate.
-        // TODO (STAT, line-144 width): this oracle pins only the START of the assertion. The 80-dot
-        //  width mirrors a normal mode 2 and is unverified; revisit if a STAT-blocking case disagrees.
         val mode2Line144 = machineMode == MachineMode.DMG &&
                 line == VISIBLE_LINES && lineDot < OAM_SCAN_DOTS
 
@@ -444,13 +453,18 @@ class Ppu(private val bus: Bus) {
             (mode == Mode.HBLANK && stat and STAT_MODE0_IRQ != 0) ||
                     (mode == Mode.VBLANK && stat and STAT_MODE1_IRQ != 0) ||
                     ((mode == Mode.OAM_SCAN || mode2Line144) && stat and STAT_MODE2_IRQ != 0) ||
-                    (coincidence && stat and STAT_LYC_IRQ != 0)
+                    (lyMatchesLyc && stat and STAT_LYC_IRQ != 0)   // interrupt LYC source: NOT blanked
 
         if (level && !statLine) requestStatIrq()   // rising edge only
         statLine = level
 
-        // TODO (STAT, perf): two Bus reads per dot. Acceptable while validating; fold into a cached
-        //  STAT/LYC snapshot invalidated on write once the behaviour is pinned by the oracles.
+        // TODO (STAT/LYC lead window): the interrupt LYC source is left un-blanked on the model that
+        //  the lead-window blanking is a readable-flag effect only. Pinned by lcdon_timing (flag) +
+        //  ppu_scanline_bgp (blocking across 153->0), but the interrupt's exact timing during a
+        //  NORMAL-line lead window (LYC == line+1) is not separately measured. If a mooneye
+        //  LYC-interrupt-timing oracle later disagrees, revisit here — never with a compensation.
+        // TODO (STAT, perf): two Bus reads per dot. Fold into a cached STAT/LYC snapshot invalidated
+        //  on write once the behaviour is pinned.
     }
 
     // ----- LCD power on/off -----
