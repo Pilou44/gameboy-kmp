@@ -190,6 +190,19 @@ class Ppu(private val bus: Bus) {
             lycCompareEnabled = false          // LY leads, the comparison does not follow yet
         }
 
+        // OAM/VRAM access lock LEADS the STAT mode edges (Bus.ppuOamLocked / ppuVramLocked). Lock edges
+        // are scheduled -> pushed here like LY; the unlock edge is emergent -> released in shiftPixel.
+        // Mode-2 entry (line boundary): OAM locks for the next line, only when that line is visible.
+        if (lineDot == DOTS_PER_LINE - ACCESS_LOCK_LEAD_DOTS) {
+            val nextLine = if (line + 1 == LINES_PER_FRAME) 0 else line + 1
+            if (nextLine < VISIBLE_LINES) bus.ppuOamLocked = true
+        }
+        // Mode-3 entry VRAM lock leads by 5 on ESTABLISHED lines only. Line 0 does NOT lead (its 2T
+        // lateness cancels it) — it locks at mode-3 entry in enterDrawing instead.
+        if (line < VISIBLE_LINES && !justPoweredOn && lineDot == OAM_SCAN_DOTS - ACCESS_LOCK_LEAD_DOTS) {
+            bus.ppuVramLocked = true
+        }
+
         // LY153 quirk: on the final line, LY reads 153 only briefly, then 0 for the rest of the
         // line (still in VBlank). Structure in place; exact timing to pin.
         // TODO: pin LY153_VISIBLE_DOTS against mooneye ppu (ly / lyc-153 timing) + the Python sim.
@@ -261,6 +274,12 @@ class Ppu(private val bus: Bus) {
         fetchingSprite = false
         spriteFetched.fill(false)
         windowActiveThisLine = false
+
+        // OAM/VRAM lock at mode-3 entry — the no-lead baseline. Correct as-is for line 0 (whose 2T
+        // lateness cancels the lead); redundant-but-safe on normal lines (already locked earlier by
+        // the mode-2 / dot-75 lead pushes).
+        bus.ppuOamLocked = true
+        bus.ppuVramLocked = true
     }
 
     /** One dot of the shifter: pop BG (and the lockstep sprite pixel), mix, and write the frame. */
@@ -389,6 +408,10 @@ class Ppu(private val bus: Bus) {
         // Mode 3 -> 0 edge = exactly one HBlank per visible line. The Bus pumps one HBlank-DMA
         // block here if a transfer is active (no-op otherwise); it stays ignorant of the PPU.
         bus.stepHblankDma()
+
+        // Mode 3 -> 0: OAM/VRAM released at the TRUE end of mode 3, no lead. Oracle: intr_2_oam_ok_timing.
+        bus.ppuOamLocked = false
+        bus.ppuVramLocked = false
     }
 
     private fun enterVBlank() {
@@ -487,6 +510,8 @@ class Ppu(private val bus: Bus) {
         //  Not exercised by lcdon_timing; left silent (setMode, not enterHBlank) until an oracle covers it.
         justPoweredOn = true
         setMode(Mode.HBLANK)   // mode 0 -> OAM/VRAM readable via the Bus mode gating; no scan, no lock
+        bus.ppuOamLocked = false
+        bus.ppuVramLocked = false
         oamScanDot = 0         // reused below as the line-0 mode-0 window counter
         spriteCount = 0        // no OAM scan on line 0: the sprite list is empty for the first line
         bus.ppuLy = 0
@@ -505,6 +530,8 @@ class Ppu(private val bus: Bus) {
         lineDot = 0
         setMode(Mode.HBLANK)
         bus.ppuLy = 0
+        bus.ppuOamLocked = false
+        bus.ppuVramLocked = false
         // NOTE: statLine is deliberately NOT reset. The STAT logic is frozen with the LCD, like the
         // coincidence flip-flop: stat_lyc_onoff round 2 requires that a line already high stays high
         // across an off/on cycle (no spurious edge), and round 4 that a low line can still rise.
@@ -547,6 +574,10 @@ class Ppu(private val bus: Bus) {
         private const val LY153_VISIBLE_DOTS = 4
 
         private const val LY_LEAD_DOTS = 5   // LY becomes readable one M-cycle before the line ends
+
+        // Access lock leads the STAT mode edge by the same 5 as LY (4 hw + 1 loop dot) — physically a
+        // distinct signal, kept as its own constant. The Python access sim recovered this 5 on its own.
+        private const val ACCESS_LOCK_LEAD_DOTS = 5
 
         // LCDC / STAT bit masks
         private const val LCDC_ENABLE = 0x80     // LCDC.7: LCD & PPU enable

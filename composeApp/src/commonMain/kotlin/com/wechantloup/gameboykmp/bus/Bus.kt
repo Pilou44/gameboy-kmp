@@ -33,6 +33,8 @@ class Bus(
     private var lcdEnableAt = 0
     private var lcdonReadsLogged = 8
 
+    private var oamDiagCount = 0   // TEMP (OAM access measurement); remove before commit
+
     private var bootRomEnabled: Boolean = bootRom != null
 
     // --- System counter (DIV) ---
@@ -139,7 +141,12 @@ class Bus(
     // (V-Blank): seeded here so STAT reads 0x85 before the PPU's first tick, exactly as the old
     // internalRam[0xFF41] = 0x85 did. With a boot ROM present the boot code drives the mode.
     var ppuLy: Int = 0                                       // LY (0xFF44), pushed by the PPU
-    var ppuMode: Int = if (bootRom == null) 1 else 0         // mode 0-3, gates access, projected into STAT
+    var ppuMode: Int = if (bootRom == null) 1 else 0         // mode 0-3, projected into STAT bits 0-1
+    // OAM/VRAM access lock, pushed by the PPU. Distinct from ppuMode: the access lock LEADS the STAT
+    // mode edges (engages ACCESS_LOCK_LEAD_DOTS before mode 2/3, releases a few pixels before mode 3
+    // ends). The CPU-facing OAM/VRAM gating reads these instead of ppuMode.
+    var ppuOamLocked: Boolean = false
+    var ppuVramLocked: Boolean = false
     // Coincidence flip-flop (STAT bit 2), pushed by the PPU. NOT derived here: the comparison clock
     // runs only while the LCD is on, so with the LCD off this retains its last value (stat_lyc_onoff).
     var ppuCoincidence: Boolean = false
@@ -247,12 +254,19 @@ class Bus(
 
         return when (address) {
             in 0x8000..0x9FFF ->
-                if (ppuMode == 3) 0xFF
+                if (ppuVramLocked) 0xFF
                 else readVram(address - 0x8000)
             in 0xE000..0xFDFF -> read(address - 0x2000) // Echo RAM: 0xE000–0xFDFF == 0xC000–0xDDFF
-            in 0xFE00..0xFE9F ->
-                if (isDmaActive || ppuMode == 2 || ppuMode == 3) 0xFF
-                else readOam(address - 0xFE00)
+            in 0xFE00..0xFE9F -> {
+                val locked = isDmaActive || ppuOamLocked
+                // TEMP (OAM access measurement): places our lock edge on the timeline vs.
+                // lcdon_timing. off = dots since the LCDC.7 rising edge. Remove before commit.
+                if (oamDiagCount < 600) {
+                    println("OAMDIAG read  off=${(sysCounter - lcdEnableAt) and 0xFFFF} mode=$ppuMode ly=$ppuLy addr=${address - 0xFE00} locked=$locked")
+                    oamDiagCount++
+                }
+                if (locked) 0xFF else readOam(address - 0xFE00)
+            }
             0xFF00 -> {
                 val p1 = internalRam[0xFF00]
                 // Bits 0-3 are active-low: 0=pressed, 1=released
@@ -331,9 +345,19 @@ class Bus(
             //  (the 'd' of "Passed" is dropped; SameBoy shows it). A precise fix needs dot/T-state
             //  PPU stepping (or a per-access PPU catch-up). Cosmetic only: serial pass/fail is
             //  unaffected. Revisit with the T-state rendering refactor.
-            in 0x8000..0x9FFF -> if (ppuMode != 3) writeVram(address - 0x8000, v)
+            in 0x8000..0x9FFF -> if (!ppuVramLocked) writeVram(address - 0x8000, v)
             in 0xE000..0xFDFF -> write(address - 0x2000, v) // Echo RAM: 0xE000–0xFDFF == 0xC000–0xDDFF
-            in 0xFE00..0xFE9F -> if (!isDmaActive && ppuMode != 2 && ppuMode != 3) writeOam(address - 0xFE00, v)
+            in 0xFE00..0xFE9F -> {
+                val locked = isDmaActive || ppuOamLocked
+                // TEMP (OAM access measurement): places our unlock edge on the timeline vs.
+                // lcdon_write_timing, to separate a pure OAM-lead deficit from an extra T0 write-
+                // phase offset (round 9). Remove before commit.
+                if (oamDiagCount < 600) {
+                    println("OAMDIAG write off=${(sysCounter - lcdEnableAt) and 0xFFFF} mode=$ppuMode ly=$ppuLy addr=${address - 0xFE00} value=$v locked=$locked")
+                    oamDiagCount++
+                }
+                if (!locked) writeOam(address - 0xFE00, v)
+            }
             0xFF04 -> {
                 onDivReset?.invoke()   // timer phantom-edge check reads the current sysCounter
                 sysCounter = 0         // reset AFTER the edge check — was Timer's cycleCount = 0
